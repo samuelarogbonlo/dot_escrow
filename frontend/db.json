@@ -1,0 +1,79 @@
+{
+    "escrows": [
+        {
+            "id": "5ce1",
+            "userAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+            "counterpartyAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+            "counterpartyType": "client",
+            "totalAmount": "3000",
+            "status": "Inactive",
+            "title": "Frontend Engineering",
+            "description": "Fix the login error bug",
+            "milestones": [
+                {
+                    "description": "Initial Bug fix",
+                    "amount": "600",
+                    "status": "Pending",
+                    "deadline": 1749133171722
+                },
+                {
+                    "description": "final error fix review",
+                    "amount": "2400",
+                    "status": "Pending",
+                    "deadline": 1749682800000
+                }
+            ],
+            "createdAt": 1748537448161
+        },
+        {
+            "id": "3pe1",
+            "userAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+            "counterpartyAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+            "counterpartyType": "worker",
+            "totalAmount": "3000",
+            "status": "Active",
+            "title": "Backend Engineering",
+            "description": "Fix the login error bug",
+            "milestones": [
+                {
+                    "description": "Initial Bug fix",
+                    "amount": "600",
+                    "status": "InProgress",
+                    "deadline": 1749133171722
+                },
+                {
+                    "description": "final error fix review",
+                    "amount": "2400",
+                    "status": "Pending",
+                    "deadline": 1749682800000
+                }
+            ],
+            "createdAt": 1748537448161
+        },
+        {
+            "id": "a2b0",
+            "userAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+            "counterpartyAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+            "counterpartyType": "client",
+            "totalAmount": "2310",
+            "status": "Inactive",
+            "title": "Backend bug fixing",
+            "description": "Fix and document the configuration file of the login and registration authentication",
+            "milestones": [
+                {
+                    "description": "Code review",
+                    "amount": "1200",
+                    "status": "Pending",
+                    "deadline": 1749142138264
+                },
+                {
+                    "description": "Bug fixed",
+                    "amount": "1110",
+                    "status": "Pending",
+                    "deadline": 1749682800000
+                }
+            ],
+            "createdAt": 1748537448161
+        }
+    ]
+}
