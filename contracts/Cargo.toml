@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "escrow",
+    "lib",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Samuel Arogbonlo <sbayo971@gmail.com>"]
+edition = "2021"
+repository = "https://github.com/samuelarogbonlo/.escrow"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+ink = { version = "4.2.0", default-features = false }
+ink_primitives = { version = "4.2.0", default-features = false }
+scale = { package = "parity-scale-codec", version = "3.6.5", default-features = false, features = ["derive"] }
+scale-info = { version = "2.9.0", default-features = false, features = ["derive"] }
+
+# These dependencies
+openbrush = { git = "https://github.com/727-Ventures/openbrush-contracts", version = "4.0.0-beta", default-features = false, features = ["psp22", "ownable", "access_control"] }
+
+[profile.release]
+overflow-checks = false 
