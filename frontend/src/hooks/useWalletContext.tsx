@@ -48,7 +48,16 @@ interface WalletContextType {
     totalAmount: string,
     milestones: any[]
   ) => Promise<any>;
+ notifyCounterparty: (
+    escrowId: string,
+    notificationType: string,
+    recipientAddress: string,
+    message?: string,
+    type?: "info" | "success" | "warning",
+  ) => Promise<any>;
   getEscrow: (escrowId: string) => Promise<any>;
+  updateEscrowStatus: (escrowId: string, newStatus: string) => Promise<any>;
+  updateEscrowMilestoneStatus: (escrowId: string, escrowMilestone: any, newStatus: string) => Promise<any>;
   listEscrows: () => Promise<any>;
   releaseMilestone: (escrowId: string, milestoneId: string) => Promise<any>;
   disputeMilestone: (
@@ -156,6 +165,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       listEscrows: escrowContract.listEscrows,
       releaseMilestone: escrowContract.releaseMilestone,
       disputeMilestone: escrowContract.disputeMilestone,
+      notifyCounterparty: escrowContract.notifyCounterparty,
+      updateEscrowStatus: escrowContract.updateEscrowStatus,
+      updateEscrowMilestoneStatus: escrowContract.updateEscrowMilestoneStatus
     };
   }, [extension, api, escrowContract, mockAccount, mockAccounts]);
 

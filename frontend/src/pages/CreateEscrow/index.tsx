@@ -88,8 +88,13 @@ const CreateEscrow = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [walletError, setWalletError] = useState<string | null>(null);
 
-  const { createEscrow, selectedAccount, isExtensionReady, connectExtension } =
-    useWallet();
+  const {
+    createEscrow,
+    notifyCounterparty,
+    selectedAccount,
+    isExtensionReady,
+    connectExtension,
+  } = useWallet();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -274,17 +279,40 @@ const CreateEscrow = () => {
 
       // Create escrow
       const result = await createEscrow(
-        userAddress, 
-        counterpartyAddress, 
-        counterpartyType, 
-        status, 
-        title, 
-        description, 
-        totalAmount, 
+        userAddress,
+        counterpartyAddress,
+        counterpartyType,
+        status,
+        title,
+        description,
+        totalAmount,
         milestones
       );
 
+      // Replace this block in your handleSubmit function:
+
       if (result.success) {
+        const escrowId = result.escrowId;
+        const notificationType = "Escrow Created" as const; // Use a valid notification type
+        const message = `An escrow with ${result.escrowId} has been created, Please check details to agree`;
+        const type = "info" as const;
+        const recipientAddress = result.recipientAddress
+
+        try {
+          const notifyResult = await notifyCounterparty(
+            escrowId,
+            notificationType,
+            recipientAddress,
+            message,
+            type,
+          );
+
+          console.log("Notification sent:", notifyResult);
+        } catch (notifyError) {
+          console.warn("Failed to send notification:", notifyError);
+          // Don't fail the entire process if notification fails
+        }
+
         toast({
           title: "Escrow created",
           description: `Your escrow has been created successfully with ID: ${result.escrowId}`,
@@ -293,14 +321,6 @@ const CreateEscrow = () => {
           isClosable: true,
         });
         navigate(`/escrow/${result.escrowId}`);
-      } else {
-        toast({
-          title: "Error creating escrow",
-          description: result.error || "An unknown error occurred",
-          status: "error",
-          duration: 5000,
-          isClosable: true,
-        });
       }
     } catch (error) {
       console.error("Error creating escrow:", error);

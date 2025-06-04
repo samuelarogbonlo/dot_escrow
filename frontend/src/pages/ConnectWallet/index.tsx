@@ -12,7 +12,7 @@ function createMockAccount(address: string): InjectedAccountWithMeta {
     address,
     meta: {
       name: 'Test Account',
-      source: 'mock'
+      source: 'test'
     },
     type: 'sr25519' 
   };
@@ -75,11 +75,11 @@ const ConnectWallet = () => {
     }
     
     // Create mock account and set it as selected
-    // const mockAccount = createMockAccount(directAddress);
-    // if (setDirectAccount) {
-    //   setDirectAccount(directAddress);
-    //   setConnectionStep('node');
-    // }
+    const mockAccount = createMockAccount(directAddress);
+    if (setDirectAccount) {
+      setDirectAccount(mockAccount);
+      setConnectionStep('node');
+    }
   };
   
   // Check if we can proceed to the next step
@@ -163,7 +163,7 @@ const ConnectWallet = () => {
             </Flex>
             
             {useDirectAddress && (
-              <Box 
+              <Box
                 p={4} 
                 borderWidth="1px" 
                 borderRadius="md" 

@@ -11,6 +11,7 @@ export interface PolkadotExtensionStatus {
   error: string | null;
   selectedAccount: InjectedAccountWithMeta | null;
   isLoading: boolean;
+  isTestMode: boolean; // ✅ Add test mode flag
 }
 
 export const usePolkadotExtension = () => {
@@ -20,6 +21,7 @@ export const usePolkadotExtension = () => {
     error: null,
     selectedAccount: null,
     isLoading: false,
+    isTestMode: false, // ✅ Initialize test mode
   });
 
   const [injected, setInjected] = useState<InjectedExtension | null>(null);
@@ -32,7 +34,7 @@ export const usePolkadotExtension = () => {
     try {
       const extensions = await web3Enable(APP_NAME);
       if (extensions.length > 0) {
-        setInjected(extensions[0]); // Save the injected extension
+        setInjected(extensions[0]);
         return true;
       }
       return false;
@@ -87,7 +89,7 @@ export const usePolkadotExtension = () => {
 
       debugLog('Extension connected successfully with accounts:', finalAccounts);
 
-      setInjected(extensions[0]); // Save the injected extension here too
+      setInjected(extensions[0]);
 
       setStatus({
         isReady: true,
@@ -95,6 +97,7 @@ export const usePolkadotExtension = () => {
         error: null,
         selectedAccount: finalAccounts[0],
         isLoading: false,
+        isTestMode: false, // ✅ Normal extension mode
       });
 
       return { success: true, accounts: finalAccounts };
@@ -161,9 +164,43 @@ export const usePolkadotExtension = () => {
     return false;
   };
 
+  // ✅ NEW: Function to set a direct/test account
+  const setDirectAccount = (account: InjectedAccountWithMeta) => {
+    debugLog('Setting direct test account:', account.address);
+    setStatus(prev => ({
+      ...prev,
+      accounts: [account],
+      selectedAccount: account,
+      isReady: true,
+      isTestMode: true, // ✅ Mark as test mode
+      error: null,
+    }));
+  };
+
+  // ✅ FIXED: Handle both real extension accounts and test accounts
   const getSigner = async (address: string) => {
     try {
       debugLog('Getting signer for address:', address);
+      
+      // ✅ Check if we're in test mode
+      if (status.isTestMode) {
+        debugLog('Test mode detected - returning mock signer');
+        // Return a mock signer for test mode
+        // Note: This won't actually sign transactions, but prevents the error
+        return { 
+          success: true, 
+          signer: {
+            signPayload: async () => {
+              throw new Error('Test mode: Cannot sign real transactions');
+            },
+            signRaw: async () => {
+              throw new Error('Test mode: Cannot sign real transactions');
+            }
+          }
+        };
+      }
+
+      // ✅ Only use web3FromAddress for real extension accounts
       const injector = await web3FromAddress(address);
       return { success: true, signer: injector.signer };
     } catch (error) {
@@ -189,6 +226,7 @@ export const usePolkadotExtension = () => {
     refreshAccounts,
     selectAccount,
     getSigner,
-    injected, // ✅ now available in consuming component
+    setDirectAccount, // ✅ Export the new function
+    injected,
   };
 };

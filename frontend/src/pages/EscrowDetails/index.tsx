@@ -9,7 +9,6 @@ import {
   Card,
   CardHeader,
   CardBody,
-  Stack,
   HStack,
   VStack,
   Button,
@@ -53,7 +52,6 @@ import {
   FiCalendar,
   FiDollarSign,
   FiUser,
-  FiBox,
 } from "react-icons/fi";
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import { useWallet } from "../../hooks/useWalletContext";
@@ -110,8 +108,10 @@ const EscrowDetails = () => {
   const {
     selectedAccount,
     getEscrow,
+    updateEscrowMilestoneStatus,
     releaseMilestone,
     disputeMilestone,
+    notifyCounterparty,
     isApiReady,
     isExtensionReady,
   } = useWallet();
@@ -147,7 +147,7 @@ const EscrowDetails = () => {
             duration: 5000,
             isClosable: true,
           });
-          navigate('/connect')
+          navigate("/connect");
         }
       } catch (err) {
         console.error("Error fetching escrow:", err);
@@ -162,10 +162,26 @@ const EscrowDetails = () => {
   // Determine user role (client, worker, or none)
   useEffect(() => {
     if (escrow && selectedAccount) {
-      if (escrow.counterpartyType === "client") {
+      if (
+        escrow.counterpartyType === "client" &&
+        escrow.counterpartyAddress === selectedAccount.address
+      ) {
         setUserRole("client");
-      } else if (escrow.counterpartyType === "worker") {
+      } else if (
+        escrow.counterpartyType === "client" &&
+        escrow.userAddress === selectedAccount.address
+      ) {
         setUserRole("worker");
+      } else if (
+        escrow.counterpartyType === "worker" &&
+        escrow.counterpartyAddress === selectedAccount.address
+      ) {
+        setUserRole("worker");
+      } else if (
+        escrow.counterpartyType === "worker" &&
+        escrow.userAddress === selectedAccount.address
+      ) {
+        setUserRole("client");
       } else {
         setUserRole("none");
       }
@@ -178,22 +194,45 @@ const EscrowDetails = () => {
 
     try {
       // Uncomment to use real API when ready
-      // const result = await releaseMilestone(escrow?.id || '', selectedMilestone.id);
-      // if (result.success) {
-      //   toast({
-      //     title: 'Milestone released',
-      //     description: 'The milestone has been successfully released',
-      //     status: 'success',
-      //     duration: 5000,
-      //   });
-      // } else {
-      //   toast({
-      //     title: 'Release failed',
-      //     description: result.error || 'Failed to release milestone',
-      //     status: 'error',
-      //     duration: 5000,
-      //   });
-      // }
+      const result = await releaseMilestone(
+        escrow?.id || "",
+        selectedMilestone.id
+      );
+      if (result.success) {
+        const escrowId = result.escrowId;
+        const notificationType = "Payment Released" as const; // Use a valid notification type
+        const message = `Payment of 500 USDT has been released to your wallet.`;
+        const type = "success" as const;
+        const recipientAddress = result.recipientAddress;
+
+        try {
+          const notifyResult = await notifyCounterparty(
+            escrowId,
+            notificationType,
+            recipientAddress,
+            message,
+            type
+          );
+
+          console.log("Notification sent:", notifyResult);
+        } catch (notifyError) {
+          console.warn("Failed to send notification:", notifyError);
+          // Don't fail the entire process if notification fails
+        }
+        toast({
+          title: "Milestone released",
+          description: "The milestone has been successfully released",
+          status: "success",
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: "Release failed",
+          description: result.error || "Failed to release milestone",
+          status: "error",
+          duration: 5000,
+        });
+      }
 
       // For development, simulate successful release
       toast({
@@ -233,35 +272,66 @@ const EscrowDetails = () => {
     }
   };
 
-  const handleCompleteMilestone = async () => {
+  const handleCompleteMilestone = async (milestone: any) => {
     console.log("triggered");
     if (!selectedMilestone) return;
     console.log("further more");
 
-    // Update local state for demonstration
-    if (escrow) {
-      const updatedMilestones = escrow.milestones.map((m) =>
-        m.id === selectedMilestone.id
-          ? {
-              ...m,
-              status: "Completed" as MilestoneStatus,
-              completionDate: new Date(),
-            }
-          : m
+    try {
+      const result = await updateEscrowMilestoneStatus(
+        id!,
+        milestone,
+        "Completed"
       );
+      if (result.success) {
+        const escrowId = result.escrow.id;
+        const notificationType = "Milestone Ready for Review" as const; // Use a valid notification type
+        const message = `A Milestone has been completed and ready for review.`;
+        const type = "info" as const;
+        const recipientAddress = result.escrow.userAddress;
 
-      toast({
-        title: "Milestone completed",
-        description: "This milestone has been completed successfully",
-        status: "success",
-        duration: 5000,
-      });
+        try {
+          const notifyResult = await notifyCounterparty(
+            escrowId,
+            notificationType,
+            recipientAddress,
+            message,
+            type
+          );
 
-      setEscrow({
-        ...escrow,
-        milestones: updatedMilestones,
-      });
-    }
+          console.log("Notification sent:", notifyResult);
+        } catch (notifyError) {
+          console.warn("Failed to send notification:", notifyError);
+          // Don't fail the entire process if notification fails
+        }
+
+        if (escrow) {
+          const updatedMilestones = escrow.milestones.map((m) =>
+            m.id === selectedMilestone.id
+              ? {
+                  ...m,
+                  status: "Completed" as MilestoneStatus,
+                  completionDate: new Date(),
+                }
+              : m
+          );
+
+          toast({
+            title: "Milestone completed",
+            description: "This milestone has been completed successfully",
+            status: "success",
+            duration: 5000,
+          });
+
+          setEscrow({
+            ...escrow,
+            milestones: updatedMilestones,
+          });
+        }
+      } else {
+        throw new Error(result.error || "Failed to confirm escrow");
+      }
+    } catch (error) {}
   };
 
   // Handle milestone dispute
@@ -270,36 +340,30 @@ const EscrowDetails = () => {
 
     try {
       // Uncomment to use real API when ready
-      // const result = await disputeMilestone(escrow?.id || '', selectedMilestone.id, disputeReason);
-      // if (result.success) {
-      //   toast({
-      //     title: 'Dispute filed',
-      //     description: 'The milestone has been marked as disputed',
-      //     status: 'info',
-      //     duration: 5000,
-      //   });
-      // } else {
-      //   toast({
-      //     title: 'Dispute failed',
-      //     description: result.error || 'Failed to dispute milestone',
-      //     status: 'error',
-      //     duration: 5000,
-      //   });
-      // }
+      const result = await disputeMilestone(escrow?.id || '', selectedMilestone.id, disputeReason);
+      if (result.success) {
+        toast({
+          title: 'Dispute filed',
+          description: 'The milestone has been marked as disputed',
+          status: 'info',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Dispute failed',
+          description: result.error || 'Failed to dispute milestone',
+          status: 'error',
+          duration: 5000,
+        });
+      }
 
-      // For development, simulate successful dispute
-      toast({
-        title: "Dispute filed",
-        description: "The milestone has been marked as disputed",
-        status: "info",
-        duration: 5000,
-      });
+    
 
       // Update local state for demonstration
       if (escrow) {
         const updatedMilestones = escrow.milestones.map((m) =>
           m.id === selectedMilestone.id
-            ? { ...m, status: "disputed" as MilestoneStatus }
+            ? { ...m, status: "Disputed" as MilestoneStatus }
             : m
         );
 
@@ -354,6 +418,42 @@ const EscrowDetails = () => {
     }
   };
 
+  const handleStartMilestone = async (milestone: any) => {
+    if (!milestone) return;
+
+    try {
+      const result = await updateEscrowMilestoneStatus(
+        id!,
+        milestone,
+        "InProgress"
+      );
+      if (result.success) {
+        toast({
+          title: "Escrow milestone updated",
+          description: "The escrow milestone has started.",
+          status: "success",
+          duration: 5000,
+          isClosable: true,
+        });
+        // Update local state
+        if (escrow) {
+          const updatedMilestones = escrow.milestones.map((m) =>
+            m.id === milestone.id
+              ? { ...m, status: "InProgress" as MilestoneStatus }
+              : m
+          );
+
+          setEscrow({
+            ...escrow,
+            milestones: updatedMilestones,
+          });
+        }
+      } else {
+        throw new Error(result.error || "Failed to confirm escrow");
+      }
+    } catch (error) {}
+  };
+
   // Calculate progress
   const calculateProgress = () => {
     if (!escrow) return 0;
@@ -390,6 +490,12 @@ const EscrowDetails = () => {
         return (
           <Badge colorScheme="blue" display="flex" alignItems="center">
             <FiClock style={{ marginRight: "4px" }} /> Active
+          </Badge>
+        );
+      case "Inactive":
+        return (
+          <Badge colorScheme="gray" display="flex" alignItems="center">
+            <FiClock style={{ marginRight: "4px" }} /> Inactive
           </Badge>
         );
       case "InProgress":
@@ -446,7 +552,14 @@ const EscrowDetails = () => {
   // Determine if dispute is allowed
   const canDisputeMilestone = (milestone: Milestone) => {
     if (userRole === "none") return false;
-    if (milestone.status !== "Active") return false;
+    if (milestone.status !== "Completed") return false;
+    if (escrow?.status !== "Active") return false;
+    return true;
+  };
+  // Determine if escrow can start is allowed
+  const canStartMilestone = (milestone: Milestone) => {
+    if (userRole === "none") return false;
+    if (milestone.status !== "Pending") return false;
     if (escrow?.status !== "Active") return false;
     return true;
   };
@@ -682,7 +795,7 @@ const EscrowDetails = () => {
                               leftIcon={<FiThumbsUp />}
                               onClick={() => {
                                 setSelectedMilestone(milestone);
-                                handleCompleteMilestone();
+                                handleCompleteMilestone(milestone);
                               }}
                             >
                               Complete
@@ -698,11 +811,22 @@ const EscrowDetails = () => {
                               leftIcon={<FiFlag />}
                               onClick={() => {
                                 setSelectedMilestone(milestone);
-                                setDisputeReason("");
                                 disputeModal.onOpen();
                               }}
                             >
                               Dispute
+                            </Button>
+                          )}
+                          {/* Start Button - for both parties to start mileston when escrow status is active */}
+                          {canStartMilestone(milestone) && (
+                            <Button
+                              size="xs"
+                              colorScheme="orange"
+                              variant="outline"
+                              leftIcon={<FiThumbsUp />}
+                              onClick={() => handleStartMilestone(milestone)}
+                            >
+                              Start milestone
                             </Button>
                           )}
                         </HStack>

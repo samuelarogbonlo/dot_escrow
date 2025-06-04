@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Box,
   Heading,
@@ -10,15 +10,21 @@ import {
   Skeleton,
   Alert,
   AlertIcon,
-} from '@chakra-ui/react';
-import { FiPlus, FiDollarSign, FiCheckCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
-import { Link, useNavigate } from 'react-router-dom';
+} from "@chakra-ui/react";
+import {
+  FiPlus,
+  FiDollarSign,
+  FiCheckCircle,
+  FiClock,
+  FiAlertCircle,
+} from "react-icons/fi";
+import { Link, useNavigate } from "react-router-dom";
 
-import { useWallet } from '../../hooks/useWalletContext';
-import { EscrowData } from '../../hooks/useEscrowContract';
+import { useWallet } from "../../hooks/useWalletContext";
+import { EscrowData } from "../../hooks/useEscrowContract";
 
-import StatCard from '../../components/Card/StatCard';
-import EscrowCard from '../../components/Card/EscrowCard';
+import StatCard from "../../components/Card/StatCard";
+import EscrowCard from "../../components/Card/EscrowCard";
 
 const Dashboard = () => {
   const { isExtensionReady, selectedAccount, listEscrows } = useWallet();
@@ -29,7 +35,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!isExtensionReady || !selectedAccount) {
-      navigate('/connect');
+      navigate("/connect");
     }
   }, [isExtensionReady, selectedAccount, navigate]);
 
@@ -43,12 +49,24 @@ const Dashboard = () => {
       try {
         const result = await listEscrows();
         if (result.success) {
-          setEscrows(result.escrows);
+          // Filter escrows to show:
+          // 1. All escrows where user is the creator (userAddress matches)
+          // 2. Escrows where user is the counterparty AND status is "Active"
+          const filteredEscrows = result.escrows.filter((e: any) => {
+            const isUserCreator = e.userAddress === selectedAccount.address;
+            const isUserCounterparty = e.counterpartyAddress === selectedAccount.address;
+            const isActive = e.status === "Active";
+            
+            // Show if user created it, OR if user is counterparty and it's active
+            return isUserCreator || (isUserCounterparty && isActive);
+          });
+          
+          setEscrows(filteredEscrows);
         } else {
           setError(result.error);
         }
       } catch (err) {
-        setError('Failed to load escrows. Please try again.');
+        setError("Failed to load escrows. Please try again.");
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -58,35 +76,34 @@ const Dashboard = () => {
     fetchEscrows();
   }, [isExtensionReady, selectedAccount, listEscrows]);
 
- const stats = {
-  activeEscrows: escrows.filter(e => e.status === 'Active').length,
+  const stats = {
+    activeEscrows: escrows.filter((e) => e.status === "Active").length,
 
-  totalValue: escrows
-    .filter(e => e.status === 'Active') // Only active escrows
-    .reduce((sum, escrow) => sum + Number(escrow.totalAmount), 0)
-    .toLocaleString(),
+    totalValue: escrows
+      .filter((e) => e.status === "Active") // Only active escrows
+      .reduce((sum, escrow) => sum + Number(escrow.totalAmount), 0)
+      .toLocaleString(),
 
-  completedEscrows: escrows.filter(e => e.status === 'Completed').length,
+    completedEscrows: escrows.filter((e) => e.status === "Completed").length,
 
-  pendingMilestones: escrows.reduce((sum, escrow) => {
-    return (
-      sum +
-      escrow.milestones.filter(
-        m => m.status === 'Pending' || m.status === 'InProgress'
-      ).length
-    );
-  }, 0),
-};
-
+    pendingMilestones: escrows.reduce((sum, escrow) => {
+      return (
+        sum +
+        escrow.milestones.filter(
+          (m) => m.status === "Pending" || m.status === "InProgress"
+        ).length
+      );
+    }, 0),
+  };
 
   return (
     <Box>
       <Flex justify="space-between" align="center" mb={8}>
         <Heading size="lg">Dashboard</Heading>
-        <Button 
-          as={Link} 
-          to="/escrow/create" 
-          colorScheme="blue" 
+        <Button
+          as={Link}
+          to="/escrow/create"
+          colorScheme="blue"
           leftIcon={<Icon as={FiPlus} />}
         >
           Create Escrow
@@ -132,17 +149,19 @@ const Dashboard = () => {
       </SimpleGrid>
 
       <Box mb={8}>
-        <Heading size="md" mb={4}>Your Escrows</Heading>
+        <Heading size="md" mb={4}>
+          Your Escrows
+        </Heading>
 
         {isLoading ? (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-            {[1, 2, 3].map(i => (
+            {[1, 2, 3].map((i) => (
               <Skeleton key={i} height="200px" borderRadius="lg" />
             ))}
           </SimpleGrid>
         ) : escrows.length > 0 ? (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-            {escrows.map(escrow => (
+            {escrows.map((escrow) => (
               <EscrowCard key={escrow.id} escrow={escrow} />
             ))}
           </SimpleGrid>
@@ -151,11 +170,11 @@ const Dashboard = () => {
             <Text color="gray.500">
               You don't have any escrow agreements yet.
             </Text>
-            <Button 
-              mt={4} 
-              as={Link} 
-              to="/escrow/create" 
-              size="sm" 
+            <Button
+              mt={4}
+              as={Link}
+              to="/escrow/create"
+              size="sm"
               variant="outline"
             >
               Create your first escrow
