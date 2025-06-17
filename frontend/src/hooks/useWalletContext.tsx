@@ -46,18 +46,28 @@ interface WalletContextType {
     title: string,
     description: string,
     totalAmount: string,
-    milestones: any[]
+    milestones: any[],
+    transactionHash: string
   ) => Promise<any>;
- notifyCounterparty: (
+  notifyCounterparty: (
     escrowId: string,
     notificationType: string,
     recipientAddress: string,
     message?: string,
-    type?: "info" | "success" | "warning",
+    type?: "info" | "success" | "warning"
   ) => Promise<any>;
   getEscrow: (escrowId: string) => Promise<any>;
-  updateEscrowStatus: (escrowId: string, newStatus: string) => Promise<any>;
-  updateEscrowMilestoneStatus: (escrowId: string, escrowMilestone: any, newStatus: string) => Promise<any>;
+  checkTransactionStatus: (transactionHash: string) => Promise<any>;
+  updateEscrowStatus: (
+    escrowId: string,
+    newStatus: string,
+    transactionHash?: string
+  ) => Promise<any>;
+  updateEscrowMilestoneStatus: (
+    escrowId: string,
+    escrowMilestone: any,
+    newStatus: string
+  ) => Promise<any>;
   listEscrows: () => Promise<any>;
   releaseMilestone: (escrowId: string, milestoneId: string) => Promise<any>;
   disputeMilestone: (
@@ -79,6 +89,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
 
   // Initialize Polkadot API hook
   const api = usePolkadotApi();
+
+  console.log(api);
+  console.log("useWallet called");
 
   // State for direct account mode (testing)
   const [mockAccount, setMockAccount] =
@@ -104,7 +117,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
   // Update Redux state when API or extension changes
   useEffect(() => {
     const currentAccount = mockAccount || extension.selectedAccount;
-  
+
     // Only dispatch if the extension is injected and API is ready
     if (api.api && (extension.isReady || mockAccount) && extension.injected) {
       dispatch(
@@ -114,10 +127,11 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
         })
       );
     } else {
-      console.warn("Missing required data to set wallet (extension or api not ready)");
+      console.warn(
+        "Missing required data to set wallet (extension or api not ready)"
+      );
     }
   }, [api.api, extension.isReady, extension.injected, mockAccount, dispatch]);
-  
 
   // Log important state changes
   useEffect(() => {
@@ -134,6 +148,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
     const accounts = mockAccount ? mockAccounts : extension.accounts;
     const selectedAccount = mockAccount || extension.selectedAccount;
     const isExtensionReady = mockAccount ? true : extension.isReady;
+    console.log("useWallet called");
 
     return {
       // Extension state
@@ -167,7 +182,8 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       disputeMilestone: escrowContract.disputeMilestone,
       notifyCounterparty: escrowContract.notifyCounterparty,
       updateEscrowStatus: escrowContract.updateEscrowStatus,
-      updateEscrowMilestoneStatus: escrowContract.updateEscrowMilestoneStatus
+      updateEscrowMilestoneStatus: escrowContract.updateEscrowMilestoneStatus,
+      checkTransactionStatus: escrowContract.checkTransactionStatus,
     };
   }, [extension, api, escrowContract, mockAccount, mockAccounts]);
 

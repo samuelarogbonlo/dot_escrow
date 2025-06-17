@@ -107,7 +107,6 @@ const Notifications = () => {
     fetchNotification();
   }, [isExtensionReady, selectedAccount]);
 
-  console.log(notifications);
 
   const handleEscrowDetails = (escrowId: string, notificationType: string) => {
     const lowerNotificationType = notificationType.toLowerCase();

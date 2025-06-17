@@ -7,6 +7,9 @@ const ENDPOINTS = {
   LOCAL: 'ws://127.0.0.1:9944',
   // Public Polkadot testnet nodes
   WESTEND: 'wss://westend-rpc.polkadot.io',
+  WESTEND_ASSETHUB: 'wss://westend-asset-hub-rpc.polkadot.io',
+  ALEPH_TESTNET: 'wss://ws.test.azero.dev',
+  ASSETHUB: 'wss://polkadot-asset-hub-rpc.polkadot.io',
   ROCOCO: 'wss://rococo-rpc.polkadot.io',
   // For testing, use public Polkadot node
   PUBLIC: 'wss://rpc.polkadot.io',
@@ -15,7 +18,7 @@ const ENDPOINTS = {
 };
 
 // Default to testing with Westend testnet
-const DEFAULT_ENDPOINT = ENDPOINTS.WESTEND;
+const DEFAULT_ENDPOINT = ENDPOINTS.ALEPH_TESTNET;
 
 export interface PolkadotApiStatus {
   api: ApiPromise | null;

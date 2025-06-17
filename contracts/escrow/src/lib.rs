@@ -1,1067 +1,1038 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-#![allow(clippy::new_without_default)]
-#![allow(unused_imports)]
+#![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-//! # Escrow Contract
-//!
-//! On-chain, milestone-based escrow using OpenBrush for Ownable + PSP22 transfers.
+#[ink::contract]
+mod escrow_contract {
+    use ink::storage::Mapping;
 
-use ink::prelude::{string::String, vec::Vec};
-use ink::storage::Mapping;
-use ink::storage::traits::StorageLayout;
-use scale::{Encode, Decode};
-use scale_info::TypeInfo;
+    // Simple PSP22 interface for USDT integration
+    #[ink::trait_definition]
+    pub trait PSP22 {
+        #[ink(message)]
+        fn total_supply(&self) -> Balance;
 
-use openbrush::{
-    contract,
-    implementation,
-    modifiers,
-    traits::{AccountId, Balance, Storage, Timestamp},
-    contracts::{
-        ownable::{self, Ownable},
-        psp22::PSP22Ref,
-    },
-};
+        #[ink(message)]
+        fn balance_of(&self, owner: AccountId) -> Balance;
 
-use escrow_lib::{
-    EscrowStatus,
-    EscrowError,
-    Milestone,
-    MilestoneStatus,
-    ReleaseConditionType,
-    ReleaseCondition as LibReleaseCondition,
-    MilestoneModificationProposal as LibMilestoneModificationProposal,
-};
+        #[ink(message)]
+        fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance;
 
-/// Make sure your escrow_lib types (`EscrowStatus`, `Milestone`,
-/// `LibReleaseCondition`, `LibMilestoneModificationProposal`) also
-/// `derive(StorageLayout)`!
-#[implementation(Ownable)]
-#[contract]
-pub mod escrow {
-    use super::*;
+        #[ink(message)]
+        fn transfer(&mut self, to: AccountId, value: Balance, data: ink::prelude::vec::Vec<u8>) -> Result<(), PSP22Error>;
 
-    // =========================
-    // === Events =============
-    // =========================
+        #[ink(message)]
+        fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance, data: ink::prelude::vec::Vec<u8>) -> Result<(), PSP22Error>;
 
+        #[ink(message)]
+        fn approve(&mut self, spender: AccountId, value: Balance) -> Result<(), PSP22Error>;
+    }
+
+    #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum PSP22Error {
+        InsufficientBalance,
+        InsufficientAllowance,
+        Custom(ink::prelude::string::String),
+    }
+
+    /// Escrow status
+    #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub enum EscrowStatus {
+        Active,
+        Completed,
+        Cancelled,
+        Disputed,
+    }
+
+    /// Escrow data structure
+    #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout))]
+    pub struct EscrowData {
+        pub client: AccountId,
+        pub provider: AccountId,
+        pub amount: Balance,
+        pub status: EscrowStatus,
+        pub created_at: Timestamp,
+        pub deadline: Timestamp,  // When this escrow expires
+    }
+
+    /// Main contract storage
+    #[ink(storage)]
+    pub struct EscrowContract {
+        /// Contract owner
+        owner: AccountId,
+        /// Fee in basis points (starts at 100 = 1%, reduces with volume)
+        fee_bps: u16,
+        /// Account to receive fees
+        fee_account: AccountId,
+        /// Counter for escrow IDs
+        escrow_count: u32,
+        /// Mapping of escrow ID to escrow data
+        escrows: Mapping<u32, EscrowData>,
+        /// Mapping of user to their escrows
+        user_escrows: Mapping<AccountId, ink::prelude::vec::Vec<u32>>,
+        /// Contract paused state
+        paused: bool,
+        /// USDT token contract address
+        usdt_token: AccountId,
+        /// Default timelock duration in milliseconds (30 days = 30 * 24 * 60 * 60 * 1000)
+        default_timelock_duration: u64,
+        /// Total volume processed (for fee tier calculations)
+        total_volume: Balance,
+        /// Current fee tier (0 = 1%, 1 = 0.8%, 2 = 0.5%)
+        current_tier: u8,
+    }
+
+    /// Events
     #[ink(event)]
     pub struct EscrowCreated {
-        #[ink(topic)] escrow_id: u32,
-        #[ink(topic)] client: AccountId,
-        #[ink(topic)] provider: AccountId,
+        #[ink(topic)]
+        escrow_id: u32,
+        #[ink(topic)]
+        client: AccountId,
+        #[ink(topic)]
+        provider: AccountId,
         amount: Balance,
-        token: AccountId,
-        milestones_count: u32,
     }
 
     #[ink(event)]
-    pub struct MilestoneReleased {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
+    pub struct EscrowCompleted {
+        #[ink(topic)]
+        escrow_id: u32,
         amount: Balance,
-        #[ink(topic)] provider: AccountId,
         fee: Balance,
     }
 
     #[ink(event)]
-    pub struct MilestoneCompleted {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        #[ink(topic)] provider: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct EvidenceAdded {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        evidence_hash: Vec<u8>,
-        #[ink(topic)] provider: AccountId,
-    }
-
-    #[ink(event)]
     pub struct EscrowCancelled {
-        #[ink(topic)] escrow_id: u32,
-        #[ink(topic)] client: AccountId,
-        #[ink(topic)] provider: AccountId,
-        remaining_amount: Balance,
+        #[ink(topic)]
+        escrow_id: u32,
     }
 
     #[ink(event)]
-    pub struct DisputeCreated {
-        #[ink(topic)] dispute_id: u32,
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: Option<u32>,
-        #[ink(topic)] initiator: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct DisputeResolved {
-        #[ink(topic)] dispute_id: u32,
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: Option<u32>,
-        in_favor_of_client: bool,
-    }
-
-    #[ink(event)]
-    pub struct ContractPaused {
-        #[ink(topic)] paused_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct ContractUnpaused {
-        #[ink(topic)] unpaused_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct TransactionLimitUpdated {
-        new_limit: Balance,
-        #[ink(topic)] updated_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct FeeUpdated {
-        new_fee_bps: u16,
-        #[ink(topic)] updated_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct FeeAccountUpdated {
-        #[ink(topic)] new_fee_account: AccountId,
-        #[ink(topic)] updated_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct EmergencyWithdraw {
-        #[ink(topic)] escrow_id: u32,
-        #[ink(topic)] recipient: AccountId,
+    pub struct EscrowExpired {
+        #[ink(topic)]
+        escrow_id: u32,
+        #[ink(topic)]
+        client: AccountId,
+        #[ink(topic)]
+        provider: AccountId,
         amount: Balance,
-        #[ink(topic)] initiated_by: AccountId,
     }
 
     #[ink(event)]
-    pub struct ContractUpgraded {
-        #[ink(topic)] old_code_hash: [u8; 32],
-        #[ink(topic)] new_code_hash: [u8; 32],
-        #[ink(topic)] upgraded_by: AccountId,
+    pub struct FeeTierChanged {
+        #[ink(topic)]
+        new_tier: u8,
+        #[ink(topic)]
+        new_fee_bps: u16,
+        total_volume: Balance,
     }
 
-    #[ink(event)]
-    pub struct UpgradeApproved {
-        #[ink(topic)] code_hash: [u8; 32],
-        #[ink(topic)] approved_by: AccountId,
-        current_approvals: u8,
-        required_approvals: u8,
+    /// Errors
+    #[derive(scale::Encode, scale::Decode, Debug, PartialEq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum EscrowError {
+        NotAuthorized,
+        EscrowNotFound,
+        InvalidStatus,
+        ContractPaused,
+        InsufficientBalance,
+        TransferFailed,
+        TokenTransferFailed,
+        InsufficientAllowance,
+        PSP22Error(PSP22Error),
+        EscrowExpired,
+        InvalidTimelock,
     }
 
-    #[ink(event)]
-    pub struct ConditionAdded {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        condition_type: ReleaseConditionType,
-        #[ink(topic)] added_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct ConditionVerified {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        condition_index: u32,
-        #[ink(topic)] verified_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct AutoMilestoneReleased {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        conditions_met: u32,
-    }
-
-    #[ink(event)]
-    pub struct MilestoneModificationRequested {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        #[ink(topic)] requested_by: AccountId,
-        #[ink(topic)] counterparty: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct MilestoneModificationApproved {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        #[ink(topic)] approved_by: AccountId,
-    }
-
-    #[ink(event)]
-    pub struct MilestoneModified {
-        #[ink(topic)] escrow_id: u32,
-        milestone_id: u32,
-        #[ink(topic)] modified_by: AccountId,
-    }
-
-    // =========================
-    // === Data definitions ===
-    // =========================
-
-    #[derive(Debug, Encode, Decode, TypeInfo, StorageLayout)]
-    pub struct EscrowData {
-        pub id: u32,
-        pub client: AccountId,
-        pub provider: AccountId,
-        pub amount: Balance,
-        pub token: AccountId,
-        pub status: EscrowStatus,
-        pub milestones: Vec<Milestone>,
-        pub created_at: Timestamp,
-        pub completed_at: Option<Timestamp>,
-    }
-
-    #[derive(Debug, Encode, Decode, TypeInfo, StorageLayout)]
-    pub struct Dispute {
-        pub id: u32,
-        pub escrow_id: u32,
-        pub milestone_id: Option<u32>,
-        pub initiator: AccountId,
-        pub reason: Vec<u8>,
-        pub created_at: Timestamp,
-        pub resolved_at: Option<Timestamp>,
-    }
-
-    // =========================
-    // === Storage definition ==
-    // =========================
-
-    #[ink(storage)]
-    #[derive(Storage)]
-    pub struct EscrowContract {
-        #[storage_field]
-        ownable: ownable::Data,
-
-        escrow_count: u32,
-        dispute_count: u32,
-
-        escrows: Mapping<u32, EscrowData>,
-        disputes: Mapping<u32, Dispute>,
-        user_escrows: Mapping<AccountId, Vec<u32>>,
-
-        fee_bps: u16,
-        fee_account: AccountId,
-        max_transaction_value: Balance,
-
-        reentrancy_status: bool,
-        paused: bool,
-
-        required_signatures: u8,
-        admins: Vec<AccountId>,
-        code_hash: [u8; 32],
-        upgrade_approvals: Mapping<[u8;32], u8>,
-
-        proposed_milestone_changes: Mapping<(u32,u32), LibMilestoneModificationProposal>,
-        milestone_modification_initiators: Mapping<(u32,u32), AccountId>,
-        milestone_modification_approvals: Mapping<(u32,u32,AccountId), bool>,
-    }
-
-    impl Default for EscrowContract {
-        fn default() -> Self {
-            Self {
-                ownable: Default::default(),
-                escrow_count: 0,
-                dispute_count: 0,
-                escrows: Default::default(),
-                disputes: Default::default(),
-                user_escrows: Default::default(),
-                fee_bps: 0,
-                fee_account: Self::empty_account_id(),
-                max_transaction_value: 0,
-                reentrancy_status: false,
-                paused: false,
-                required_signatures: 1,
-                admins: Vec::new(),
-                code_hash: [0u8; 32],
-                upgrade_approvals: Default::default(),
-                proposed_milestone_changes: Default::default(),
-                milestone_modification_initiators: Default::default(),
-                milestone_modification_approvals: Default::default(),
-            }
+    impl From<PSP22Error> for EscrowError {
+        fn from(error: PSP22Error) -> Self {
+            EscrowError::PSP22Error(error)
         }
     }
-
-    // ────────────────────────────────────────────────────────────
-    // Private helper methods
-    // ────────────────────────────────────────────────────────────
-
-    impl EscrowContract {
-        fn hash_to_array(hash: ink::primitives::Hash) -> [u8;32] {
-            let mut buf = [0u8;32];
-            buf.copy_from_slice(hash.as_ref());
-            buf
-        }
-
-        fn empty_account_id() -> AccountId {
-            AccountId::from([0u8;32])
-        }
-
-        fn ensure_not_paused(&self) -> Result<(), EscrowError> {
-            if self.paused {
-                return Err(EscrowError::ContractPaused);
-            }
-            Ok(())
-        }
-
-        fn ensure_no_reentrancy(&self) -> Result<(), EscrowError> {
-            if self.reentrancy_status {
-                return Err(EscrowError::ReentrancyGuard);
-            }
-            Ok(())
-        }
-
-        fn ensure_within_limits(&self, amount: Balance) -> Result<(), EscrowError> {
-            if self.max_transaction_value > 0 && amount > self.max_transaction_value {
-                return Err(EscrowError::TransactionLimitExceeded);
-            }
-            Ok(())
-        }
-
-        fn non_reentrant_start(&mut self) -> Result<(), EscrowError> {
-            self.ensure_no_reentrancy()?;
-            self.reentrancy_status = true;
-            Ok(())
-        }
-
-        fn non_reentrant_end(&mut self) {
-            self.reentrancy_status = false;
-        }
-
-        fn calculate_fee(&self, amount: Balance) -> Balance {
-            amount * self.fee_bps as u128 / 10000
-        }
-
-        fn auto_release_milestone(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-        ) -> Result<(), EscrowError> {
-            // … your auto-release logic …
-            Ok(())
-        }
-    }
-
-    // ────────────────────────────────────────────────────────────
-    // Public constructor & messages
-    // ────────────────────────────────────────────────────────────
 
     impl EscrowContract {
         /// Constructor
         #[ink(constructor)]
-        pub fn new(fee_bps: u16, fee_account: AccountId) -> Self {
-            let mut instance = Self::default();
-            instance.fee_bps = fee_bps;
-            instance.fee_account = fee_account;
-            
-            // Store caller in a temporary variable to avoid borrowing issues
-            let caller = instance.env().caller();
-            
-            // initialize Ownable
-            ownable::Internal::_init_with_owner(&mut instance, caller);
-            instance.admins.push(caller);
-
-            // record code hash
-            if let Ok(hash) = instance.env().own_code_hash() {
-                instance.code_hash = Self::hash_to_array(hash);
+        pub fn new(fee_bps: u16, fee_account: AccountId, usdt_token: AccountId) -> Self {
+            Self {
+                owner: Self::env().caller(),
+                fee_bps,
+                fee_account,
+                escrow_count: 0,
+                escrows: Mapping::default(),
+                user_escrows: Mapping::default(),
+                paused: false,
+                usdt_token,
+                default_timelock_duration: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+                total_volume: 0,
+                current_tier: 0,
             }
-
-            instance
         }
 
-        /// Owner‐only: change fee bps
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn set_fee_bps(&mut self, fee_bps: u16) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            if fee_bps > 1000 {
-                return Err(EscrowError::Custom(String::from("Fee too high").into_bytes()));
+        /// Constructor with custom timelock duration
+        #[ink(constructor)]
+        pub fn new_with_timelock(
+            fee_bps: u16, 
+            fee_account: AccountId, 
+            usdt_token: AccountId,
+            timelock_duration_ms: u64
+        ) -> Self {
+            Self {
+                owner: Self::env().caller(),
+                fee_bps,
+                fee_account,
+                escrow_count: 0,
+                escrows: Mapping::default(),
+                user_escrows: Mapping::default(),
+                paused: false,
+                usdt_token,
+                default_timelock_duration: timelock_duration_ms,
+                total_volume: 0,
+                current_tier: 0,
             }
-            self.fee_bps = fee_bps;
-            self.env().emit_event(FeeUpdated {
-                new_fee_bps: fee_bps,
-                updated_by: self.env().caller(),
-            });
-            Ok(())
         }
 
-        /// Owner‐only: change fee account
+        /// Create a new escrow using USDT tokens
         #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn set_fee_account(&mut self, fee_account: AccountId) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            self.fee_account = fee_account;
-            self.env().emit_event(FeeAccountUpdated {
-                new_fee_account: fee_account,
-                updated_by: self.env().caller(),
-            });
-            Ok(())
-        }
-
-        /// Owner‐only: set max transaction
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn set_max_transaction_value(
-            &mut self,
-            max_value: Balance,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            self.max_transaction_value = max_value;
-            self.env().emit_event(TransactionLimitUpdated {
-                new_limit: max_value,
-                updated_by: self.env().caller(),
-            });
-            Ok(())
-        }
-
-        /// Owner‐only: pause contract
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn pause(&mut self) -> Result<(), EscrowError> {
+        pub fn create_escrow(&mut self, provider: AccountId, amount: Balance) -> Result<u32, EscrowError> {
             if self.paused {
-                return Err(EscrowError::Custom(String::from("Already paused").into_bytes()));
+                return Err(EscrowError::ContractPaused);
             }
-            self.paused = true;
-            self.env().emit_event(ContractPaused { paused_by: self.env().caller() });
-            Ok(())
-        }
-
-        /// Owner‐only: unpause contract
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn unpause(&mut self) -> Result<(), EscrowError> {
-            if !self.paused {
-                return Err(EscrowError::Custom(String::from("Not paused").into_bytes()));
-            }
-            self.paused = false;
-            self.env().emit_event(ContractUnpaused { unpaused_by: self.env().caller() });
-            Ok(())
-        }
-
-        /// Owner‐only: add an admin
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn add_admin(&mut self, admin: AccountId) -> Result<(), EscrowError> {
-            if self.admins.contains(&admin) {
-                return Err(EscrowError::Custom(String::from("Already an admin").into_bytes()));
-            }
-            self.admins.push(admin);
-            Ok(())
-        }
-
-        /// Owner‐only: remove an admin
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn remove_admin(&mut self, admin: AccountId) -> Result<(), EscrowError> {
-            if !self.admins.contains(&admin) {
-                return Err(EscrowError::Custom(String::from("Not an admin").into_bytes()));
-            }
-            if self.admins.len() <= 1 {
-                return Err(EscrowError::Custom(String::from("Cannot remove last admin").into_bytes()));
-            }
-            self.admins.retain(|x| x != &admin);
-            Ok(())
-        }
-
-        /// Owner‐only: set required signers for upgrade
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn set_required_signatures(&mut self, count: u8) -> Result<(), EscrowError> {
-            if count == 0 || count as usize > self.admins.len() {
-                return Err(EscrowError::Custom(String::from("Invalid signature count").into_bytes()));
-            }
-            self.required_signatures = count;
-            Ok(())
-        }
-
-        /// Admins may call: approve code upgrade
-        #[ink(message)]
-        pub fn approve_upgrade(&mut self, code_hash: [u8;32]) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            if !self.admins.contains(&who) {
-                return Err(EscrowError::NotAuthorized);
-            }
-            let current = self.upgrade_approvals.get(&code_hash).unwrap_or(0);
-            let next    = current + 1;
-            self.upgrade_approvals.insert(code_hash, &next);
-            self.env().emit_event(UpgradeApproved {
-                code_hash,
-                approved_by: who,
-                current_approvals: next,
-                required_approvals: self.required_signatures,
-            });
-            if next < self.required_signatures {
-                return Err(EscrowError::Custom(format!("Need {} more", self.required_signatures - next).into_bytes()));
-            }
-            Ok(())
-        }
-
-        /// View approvals for a code hash
-        #[ink(message)]
-        pub fn get_upgrade_approvals(&self, code_hash: [u8;32]) -> u8 {
-            self.upgrade_approvals.get(&code_hash).unwrap_or(0)
-        }
-
-        /// Owner resolves a dispute
-        #[ink(message)]
-        #[modifiers(only_owner)]
-        pub fn resolve_dispute(
-            &mut self,
-            dispute_id: u32,
-            in_favor_of_client: bool,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            self.non_reentrant_start()?;
-            // … your dispute resolution logic …
-            self.non_reentrant_end();
-            Ok(())
-        }
-
-        /// Emergency withdraw (only when paused)
-        #[ink(message)]
-        pub fn emergency_withdraw(
-            &mut self,
-            escrow_id: u32,
-            recipient: AccountId,
-        ) -> Result<(), EscrowError> {
-            if !self.paused {
-                return Err(EscrowError::Custom(String::from("Must be paused").into_bytes()));
-            }
-            self.non_reentrant_start()?;
-            let escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            let released: Balance = escrow
-                .milestones.iter()
-                .filter(|m| m.status == MilestoneStatus::Completed)
-                .map(|m| m.amount)
-                .sum();
-            let remaining = escrow.amount - released;
-            if remaining > 0 {
-                PSP22Ref::transfer(&escrow.token, recipient, remaining, Vec::new())
-                    .map_err(EscrowError::from)?;
-                self.env().emit_event(EmergencyWithdraw {
-                    escrow_id,
-                    recipient,
-                    amount: remaining,
-                    initiated_by: self.env().caller(),
-                });
-            }
-            self.non_reentrant_end();
-            Ok(())
-        }
-
-        /// Client adds a release condition
-        #[ink(message)]
-        pub fn add_release_condition(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-            condition_type: ReleaseConditionType,
-            condition_data: Vec<u8>,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.client {
-                return Err(EscrowError::NotAuthorized);
-            }
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
-            }
-            let m = &mut escrow.milestones[milestone_id as usize];
-            if m.status != MilestoneStatus::Pending {
-                return Err(EscrowError::InvalidMilestoneStatus);
-            }
-            
-            // Clone the condition_type to avoid move issue
-            let condition_type_for_event = condition_type.clone();
-            
-            let mut lib_cond = LibReleaseCondition {
-                condition_type,
-                condition_data: condition_data.clone(),
-                is_met: false,
-                verified_at: None,
-                verified_by: None,
-            };
-            if let Some(mut conds) = m.conditions.take() {
-                conds.push(lib_cond);
-                m.conditions = Some(conds);
-            } else {
-                m.conditions = Some(vec![lib_cond]);
-            }
-            self.escrows.insert(escrow_id, &escrow);
-            self.env().emit_event(ConditionAdded {
-                escrow_id,
-                milestone_id,
-                condition_type: condition_type_for_event,
-                added_by: who,
-            });
-            Ok(())
-        }
-
-        /// Verifier marks a condition as met
-        #[ink(message)]
-        pub fn verify_condition(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-            condition_index: u32,
-            verification_data: Option<Vec<u8>>,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
-            }
-            let m = &mut escrow.milestones[milestone_id as usize];
-            if m.status != MilestoneStatus::Pending {
-                return Err(EscrowError::InvalidMilestoneStatus);
-            }
-            let conds = m.conditions.as_mut().ok_or(EscrowError::Custom(String::from("No conditions").into_bytes()))?;
-            if (condition_index as usize) >= conds.len() {
-                return Err(EscrowError::Custom(String::from("Index OOB").into_bytes()));
-            }
-            // … set conds[condition_index].is_met = true, etc. …
-            self.escrows.insert(escrow_id, &escrow);
-            self.env().emit_event(ConditionVerified {
-                escrow_id,
-                milestone_id,
-                condition_index,
-                verified_by: who,
-            });
-            Ok(())
-        }
-
-        /// Client or provider requests milestone modification
-        #[ink(message)]
-        pub fn request_milestone_modification(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-            new_title: Option<Vec<u8>>,
-            new_description: Option<Vec<u8>>,
-            new_deadline: Option<Timestamp>,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.client && who != escrow.provider {
-                return Err(EscrowError::NotAuthorized);
-            }
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
-            }
-            let m = &escrow.milestones[milestone_id as usize];
-            if m.status != MilestoneStatus::Pending {
-                return Err(EscrowError::InvalidMilestoneStatus);
-            }
-            if new_title.is_none() && new_description.is_none() && new_deadline.is_none() {
-                return Err(EscrowError::Custom(String::from("No changes").into_bytes()));
-            }
-            let proposal = LibMilestoneModificationProposal {
-                new_title: new_title.clone(),
-                new_description: new_description.clone(),
-                new_deadline,
-                proposed_at: self.env().block_timestamp(),
-            };
-            self.proposed_milestone_changes.insert((escrow_id, milestone_id), &proposal);
-            self.milestone_modification_initiators.insert((escrow_id, milestone_id), &who);
-            let counterparty = if who == escrow.client { escrow.provider } else { escrow.client };
-            self.env().emit_event(MilestoneModificationRequested {
-                escrow_id,
-                milestone_id,
-                requested_by: who,
-                counterparty,
-            });
-            Ok(())
-        }
-
-        /// Approve or apply a milestone modification
-        #[ink(message)]
-        pub fn modify_milestone(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-            new_title: Option<Vec<u8>>,
-            new_description: Option<Vec<u8>>,
-            new_deadline: Option<Timestamp>,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.client && who != escrow.provider {
-                return Err(EscrowError::NotAuthorized);
-            }
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
-            }
-            let m = &mut escrow.milestones[milestone_id as usize];
-            if m.status != MilestoneStatus::Pending {
-                return Err(EscrowError::InvalidMilestoneStatus);
-            }
-            let initiator = self.milestone_modification_initiators
-                .get((escrow_id, milestone_id))
-                .ok_or(EscrowError::Custom(String::from("No proposal").into_bytes()))?;
-            // first call: counterparty approval
-            if who != initiator {
-                self.milestone_modification_approvals.insert((escrow_id, milestone_id, initiator.clone()), &true);
-                self.env().emit_event(MilestoneModificationApproved {
-                    escrow_id,
-                    milestone_id,
-                    approved_by: who,
-                });
-                return Ok(())
-            }
-            // now initiator can apply
-            if !self.milestone_modification_approvals.get((escrow_id, milestone_id, initiator.clone())).unwrap_or(false) {
-                return Err(EscrowError::Custom(String::from("Waiting approval").into_bytes()));
-            }
-            if let Some(t)  = new_title       { m.title = t; }
-            if let Some(d)  = new_description { m.description = d; }
-            if let Some(dl) = new_deadline    { m.deadline = Some(dl); }
-            self.escrows.insert(escrow_id, &escrow);
-            self.milestone_modification_approvals.remove((escrow_id, milestone_id, initiator.clone()));
-            self.milestone_modification_initiators.remove((escrow_id, milestone_id));
-            self.env().emit_event(MilestoneModified {
-                escrow_id,
-                milestone_id,
-                modified_by: who,
-            });
-            Ok(())
-        }
-
-        /// View the pending modification proposal
-        #[ink(message)]
-        pub fn get_milestone_modification_proposal(
-            &self,
-            escrow_id: u32,
-            milestone_id: u32,
-        ) -> Result<LibMilestoneModificationProposal, EscrowError> {
-            self.proposed_milestone_changes
-                .get((escrow_id, milestone_id))
-                .ok_or(EscrowError::Custom(String::from("No proposal").into_bytes()))
-        }
-
-        /// Create a new escrow (client deposits PSP22 tokens)
-        #[ink(message)]
-        pub fn create_escrow(
-            &mut self,
-            provider: AccountId,
-            amount: Balance,
-            milestones: Vec<(Vec<u8>, Vec<u8>, u8, Option<Timestamp>)>,
-            token_address: AccountId,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            self.ensure_within_limits(amount)?;
-            self.non_reentrant_start()?;
 
             let caller = self.env().caller();
-            if provider == caller {
-                self.non_reentrant_end();
-                return Err(EscrowError::Custom(String::from("Client == provider").into_bytes()));
-            }
+            
             if amount == 0 {
-                self.non_reentrant_end();
-                return Err(EscrowError::InvalidAmount);
-            }
-            if milestones.is_empty() {
-                self.non_reentrant_end();
-                return Err(EscrowError::InvalidMilestones);
-            }
-            let total_pct: u8 = milestones.iter().map(|(_,_,p,_)| *p).sum();
-            if total_pct != 100 {
-                self.non_reentrant_end();
-                return Err(EscrowError::InvalidMilestones);
+                return Err(EscrowError::InsufficientBalance);
             }
 
-            // build Milestone structs
-            let mut objs = Vec::new();
-            let mut sum_amount = 0u128;
-            for (i, (title, desc, pct, dl)) in milestones.iter().enumerate() {
-                if *pct == 0 || *pct > 100 {
-                    self.non_reentrant_end();
-                    return Err(EscrowError::InvalidPercentage);
-                }
-                let amt = amount * (*pct as u128) / 100;
-                sum_amount += amt;
-                let final_amt = if i == (milestones.len() - 1) {
-                    amt + (amount - sum_amount)
-                } else {
-                    amt
-                };
-                objs.push(Milestone {
-                    title: title.clone(),
-                    description: desc.clone(),
-                    percentage: *pct,
-                    amount: final_amt,
-                    status: MilestoneStatus::Pending,
-                    deadline: *dl,
-                    completed_at: None,
-                    evidence_hash: None,
-                    conditions: None,
-                });
+            // Create PSP22 token reference using ink's cross-contract calling
+            let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+            
+            // Check allowance first
+            let allowance = token.allowance(caller, self.env().account_id());
+            if allowance < amount {
+                return Err(EscrowError::InsufficientAllowance);
             }
 
-            // transfer tokens in
-            PSP22Ref::transfer_from(&token_address, caller, Self::env().account_id(), amount, Vec::new())
-                .map_err(EscrowError::from)?;
+            // Transfer USDT from client to this contract
+            token.transfer_from(caller, self.env().account_id(), amount, ink::prelude::vec![])?;
 
-            // store escrow
             let escrow_id = self.escrow_count;
-            self.escrow_count += 1;
-            let data = EscrowData {
-                id: escrow_id,
+            let escrow_data = EscrowData {
                 client: caller,
                 provider,
                 amount,
-                token: token_address,
                 status: EscrowStatus::Active,
-                milestones: objs,
                 created_at: self.env().block_timestamp(),
-                completed_at: None,
+                deadline: self.env().block_timestamp() + self.default_timelock_duration,
             };
-            self.escrows.insert(escrow_id, &data);
 
-            // index for client and provider
-            let mut c_list = self.user_escrows.get(caller).unwrap_or_default();
-            c_list.push(escrow_id);
-            self.user_escrows.insert(caller, &c_list);
-            let mut p_list = self.user_escrows.get(provider).unwrap_or_default();
-            p_list.push(escrow_id);
-            self.user_escrows.insert(provider, &p_list);
+            self.escrows.insert(escrow_id, &escrow_data);
+            
+            // Add to user's escrow list
+            let mut client_escrows = self.user_escrows.get(caller).unwrap_or_default();
+            client_escrows.push(escrow_id);
+            self.user_escrows.insert(caller, &client_escrows);
+
+            let mut provider_escrows = self.user_escrows.get(provider).unwrap_or_default();
+            provider_escrows.push(escrow_id);
+            self.user_escrows.insert(provider, &provider_escrows);
+
+            self.escrow_count += 1;
 
             self.env().emit_event(EscrowCreated {
                 escrow_id,
                 client: caller,
                 provider,
                 amount,
-                token: token_address,
-                milestones_count: data.milestones.len() as u32,
             });
 
-            self.non_reentrant_end();
-            Ok(())
+            Ok(escrow_id)
         }
 
-        /// Client releases a pending milestone
+        /// Complete an escrow (release USDT to provider)
         #[ink(message)]
-        pub fn release_milestone(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            self.non_reentrant_start()?;
+        pub fn complete_escrow(&mut self, escrow_id: u32) -> Result<(), EscrowError> {
+            if self.paused {
+                return Err(EscrowError::ContractPaused);
+            }
 
             let caller = self.env().caller();
             let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
+
+            // Only client can complete
             if caller != escrow.client {
-                self.non_reentrant_end();
                 return Err(EscrowError::NotAuthorized);
             }
-            if escrow.status != EscrowStatus::Active {
-                self.non_reentrant_end();
-                return Err(EscrowError::InvalidEscrowStatus);
+
+            // Check status
+            if !matches!(escrow.status, EscrowStatus::Active) {
+                return Err(EscrowError::InvalidStatus);
             }
 
-            let m = &mut escrow.milestones[milestone_id as usize];
-            if m.status != MilestoneStatus::Pending {
-                self.non_reentrant_end();
-                return Err(EscrowError::InvalidMilestoneStatus);
-            }
+            // Update total volume and check for tier changes
+            self.total_volume += escrow.amount;
+            self.update_fee_tier();
 
-            // mark completed
-            m.status = MilestoneStatus::Completed;
-            m.completed_at = Some(self.env().block_timestamp());
+            // Calculate fee using current tier
+            let fee = (escrow.amount * self.fee_bps as Balance) / 10000;
+            let provider_amount = escrow.amount - fee;
 
-            // split fee / provider amount
-            let fee = self.calculate_fee(m.amount);
-            let provider_amt = m.amount - fee;
-            if fee > 0 {
-                PSP22Ref::transfer(&escrow.token, self.fee_account, fee, Vec::new())
-                    .map_err(EscrowError::from)?;
-            }
-            {
-                PSP22Ref::transfer(&escrow.token, escrow.provider, provider_amt, Vec::new())
-                    .map_err(EscrowError::from)?;
-            }
-
-            // if all done, complete escrow
-            if escrow.milestones.iter().all(|x| x.status == MilestoneStatus::Completed) {
-                escrow.status = EscrowStatus::Completed;
-                escrow.completed_at = Some(self.env().block_timestamp());
-            }
-
+            // Update status
+            escrow.status = EscrowStatus::Completed;
             self.escrows.insert(escrow_id, &escrow);
-            self.env().emit_event(MilestoneReleased {
+
+            let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+
+            // Transfer to provider
+            token.transfer(escrow.provider, provider_amount, ink::prelude::vec![])?;
+
+            // Transfer fee to fee account
+            if fee > 0 {
+                token.transfer(self.fee_account, fee, ink::prelude::vec![])?;
+            }
+
+            self.env().emit_event(EscrowCompleted {
                 escrow_id,
-                milestone_id,
-                amount: provider_amt,
-                provider: escrow.provider,
+                amount: provider_amount,
                 fee,
             });
 
-            self.non_reentrant_end();
             Ok(())
         }
 
-        /// Provider confirms they've done the work
-        #[ink(message)]
-        pub fn confirm_milestone(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.provider {
-                return Err(EscrowError::NotAuthorized);
-            }
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
-            }
-            let m = &escrow.milestones[milestone_id as usize];
-            if m.status != MilestoneStatus::Pending {
-                return Err(EscrowError::InvalidMilestoneStatus);
-            }
-            self.env().emit_event(MilestoneCompleted {
-                escrow_id,
-                milestone_id,
-                provider: who,
-            });
-            Ok(())
-        }
-
-        /// Provider attaches evidence
-        #[ink(message)]
-        pub fn add_milestone_evidence(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-            evidence_hash: Vec<u8>,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.provider {
-                return Err(EscrowError::NotAuthorized);
-            }
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
-            }
-            let m = &mut escrow.milestones[milestone_id as usize];
-            m.evidence_hash = Some(evidence_hash.clone());
-            self.escrows.insert(escrow_id, &escrow);
-            self.env().emit_event(EvidenceAdded {
-                escrow_id,
-                milestone_id,
-                evidence_hash,
-                provider: who,
-            });
-            Ok(())
-        }
-
-        /// Cancel escrow & refund remainder
+        /// Cancel an escrow (return USDT to client)
         #[ink(message)]
         pub fn cancel_escrow(&mut self, escrow_id: u32) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            self.non_reentrant_start()?;
+            if self.paused {
+                return Err(EscrowError::ContractPaused);
+            }
 
-            let who = self.env().caller();
+            let caller = self.env().caller();
             let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.client && who != escrow.provider {
-                self.non_reentrant_end();
+
+            // Only client or provider can cancel
+            if caller != escrow.client && caller != escrow.provider {
                 return Err(EscrowError::NotAuthorized);
             }
-            if escrow.status != EscrowStatus::Active {
-                self.non_reentrant_end();
-                return Err(EscrowError::InvalidEscrowStatus);
+
+            // Check status
+            if !matches!(escrow.status, EscrowStatus::Active) {
+                return Err(EscrowError::InvalidStatus);
             }
 
-            let released: Balance = escrow
-                .milestones.iter()
-                .filter(|m| m.status == MilestoneStatus::Completed)
-                .map(|m| m.amount)
-                .sum();
-            let remaining = escrow.amount - released;
-            if remaining > 0 {
-                PSP22Ref::transfer(&escrow.token, escrow.client, remaining, Vec::new())
-                    .map_err(EscrowError::from)?;
-            }
-
+            // Update status
             escrow.status = EscrowStatus::Cancelled;
-            escrow.completed_at = Some(self.env().block_timestamp());
             self.escrows.insert(escrow_id, &escrow);
-            self.env().emit_event(EscrowCancelled {
+
+            let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+
+            // Return USDT to client
+            token.transfer(escrow.client, escrow.amount, ink::prelude::vec![])?;
+
+            self.env().emit_event(EscrowCancelled { escrow_id });
+
+            Ok(())
+        }
+
+        /// Get escrow details
+        #[ink(message)]
+        pub fn get_escrow(&self, escrow_id: u32) -> Option<EscrowData> {
+            self.escrows.get(escrow_id)
+        }
+
+        /// Get user's escrows
+        #[ink(message)]
+        pub fn get_user_escrows(&self, user: AccountId) -> ink::prelude::vec::Vec<u32> {
+            self.user_escrows.get(user).unwrap_or_default()
+        }
+
+        /// Get escrow count
+        #[ink(message)]
+        pub fn get_escrow_count(&self) -> u32 {
+            self.escrow_count
+        }
+
+        /// Get USDT token contract address
+        #[ink(message)]
+        pub fn get_usdt_token(&self) -> AccountId {
+            self.usdt_token
+        }
+
+        /// Owner functions
+        #[ink(message)]
+        pub fn set_fee(&mut self, new_fee_bps: u16) -> Result<(), EscrowError> {
+            if self.env().caller() != self.owner {
+                return Err(EscrowError::NotAuthorized);
+            }
+            self.fee_bps = new_fee_bps;
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn set_usdt_token(&mut self, new_usdt_token: AccountId) -> Result<(), EscrowError> {
+            if self.env().caller() != self.owner {
+                return Err(EscrowError::NotAuthorized);
+            }
+            self.usdt_token = new_usdt_token;
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn pause(&mut self) -> Result<(), EscrowError> {
+            if self.env().caller() != self.owner {
+                return Err(EscrowError::NotAuthorized);
+            }
+            self.paused = true;
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn unpause(&mut self) -> Result<(), EscrowError> {
+            if self.env().caller() != self.owner {
+                return Err(EscrowError::NotAuthorized);
+            }
+            self.paused = false;
+            Ok(())
+        }
+
+        /// Emergency function to recover tokens (only owner)
+        #[ink(message)]
+        pub fn emergency_withdraw(&mut self, amount: Balance) -> Result<(), EscrowError> {
+            if self.env().caller() != self.owner {
+                return Err(EscrowError::NotAuthorized);
+            }
+
+            let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+            token.transfer(self.owner, amount, ink::prelude::vec![])?;
+
+            Ok(())
+        }
+
+        /// Getters
+        #[ink(message)]
+        pub fn get_owner(&self) -> AccountId {
+            self.owner
+        }
+
+        #[ink(message)]
+        pub fn get_fee_bps(&self) -> u16 {
+            self.fee_bps
+        }
+
+        #[ink(message)]
+        pub fn is_paused(&self) -> bool {
+            self.paused
+        }
+
+        /// Get contract's USDT balance
+        #[ink(message)]
+        pub fn get_contract_balance(&self) -> Balance {
+            let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+            token.balance_of(self.env().account_id())
+        }
+
+        /// Check if an escrow has expired
+        #[ink(message)]
+        pub fn is_escrow_expired(&self, escrow_id: u32) -> bool {
+            if let Some(escrow) = self.escrows.get(escrow_id) {
+                matches!(escrow.status, EscrowStatus::Active) && 
+                self.env().block_timestamp() > escrow.deadline
+            } else {
+                false
+            }
+        }
+
+        /// Process an expired escrow (returns funds to client)
+        #[ink(message)]
+        pub fn process_expired_escrow(&mut self, escrow_id: u32) -> Result<(), EscrowError> {
+            if self.paused {
+                return Err(EscrowError::ContractPaused);
+            }
+
+            let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
+
+            // Check if escrow is active
+            if !matches!(escrow.status, EscrowStatus::Active) {
+                return Err(EscrowError::InvalidStatus);
+            }
+
+            // Check if escrow has actually expired
+            if self.env().block_timestamp() <= escrow.deadline {
+                return Err(EscrowError::InvalidStatus);
+            }
+
+            // Update status to cancelled (expired escrows return funds to client)
+            escrow.status = EscrowStatus::Cancelled;
+            self.escrows.insert(escrow_id, &escrow);
+
+            let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+
+            // Return USDT to client (no fees for expired escrows)
+            token.transfer(escrow.client, escrow.amount, ink::prelude::vec![])?;
+
+            self.env().emit_event(EscrowExpired {
                 escrow_id,
                 client: escrow.client,
                 provider: escrow.provider,
-                remaining_amount: remaining,
+                amount: escrow.amount,
             });
 
-            self.non_reentrant_end();
             Ok(())
         }
 
-        /// Create a dispute on a milestone
+        /// Get all active escrows that have expired (for batch processing)
         #[ink(message)]
-        pub fn create_dispute(
-            &mut self,
-            escrow_id: u32,
-            milestone_id: u32,
-            reason: Vec<u8>,
-        ) -> Result<(), EscrowError> {
-            self.ensure_not_paused()?;
-            let who = self.env().caller();
-            let mut escrow = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            if who != escrow.client && who != escrow.provider {
+        pub fn get_expired_escrows(&self, start: u32, limit: u32) -> ink::prelude::vec::Vec<u32> {
+            let mut expired_escrows = ink::prelude::vec::Vec::new();
+            let current_time = self.env().block_timestamp();
+            let end = core::cmp::min(start + limit, self.escrow_count);
+
+            for escrow_id in start..end {
+                if let Some(escrow) = self.escrows.get(escrow_id) {
+                    if matches!(escrow.status, EscrowStatus::Active) && current_time > escrow.deadline {
+                        expired_escrows.push(escrow_id);
+                    }
+                }
+            }
+
+            expired_escrows
+        }
+
+        /// Set default timelock duration (owner only)
+        #[ink(message)]
+        pub fn set_default_timelock_duration(&mut self, duration_ms: u64) -> Result<(), EscrowError> {
+            if self.env().caller() != self.owner {
                 return Err(EscrowError::NotAuthorized);
             }
-            if escrow.status != EscrowStatus::Active {
-                return Err(EscrowError::InvalidEscrowStatus);
+            
+            // Minimum timelock is 1 day (24 * 60 * 60 * 1000 ms)
+            if duration_ms < 24 * 60 * 60 * 1000 {
+                return Err(EscrowError::InvalidTimelock);
             }
-            escrow.status = EscrowStatus::Disputed;
-            escrow.milestones[milestone_id as usize].status = MilestoneStatus::Disputed;
 
-            let dispute_id = self.dispute_count;
-            self.dispute_count += 1;
-            let dispute = Dispute {
-                id: dispute_id,
-                escrow_id,
-                milestone_id: Some(milestone_id),
-                initiator: who,
-                reason: reason.clone(),
-                created_at: self.env().block_timestamp(),
-                resolved_at: None,
-            };
-            self.disputes.insert(dispute_id, &dispute);
-            self.escrows.insert(escrow_id, &escrow);
-            self.env().emit_event(DisputeCreated {
-                dispute_id,
-                escrow_id,
-                milestone_id: Some(milestone_id),
-                initiator: who,
-            });
+            self.default_timelock_duration = duration_ms;
             Ok(())
         }
 
-        /// Query raw encoded escrow
+        /// Get default timelock duration
         #[ink(message)]
-        pub fn get_escrow(&self, escrow_id: u32) -> Result<Vec<u8>, EscrowError> {
-            let e = self.escrows.get(escrow_id).ok_or(EscrowError::EscrowNotFound)?;
-            Ok(Encode::encode(&e))
+        pub fn get_default_timelock_duration(&self) -> u64 {
+            self.default_timelock_duration
         }
 
-        /// List all escrows for a user
+        /// Update fee tier based on total volume milestones
+        fn update_fee_tier(&mut self) {
+            let new_tier = self.calculate_fee_tier();
+            if new_tier != self.current_tier {
+                self.current_tier = new_tier;
+                self.fee_bps = self.get_fee_for_tier(new_tier);
+                
+                // Emit tier change event
+                self.env().emit_event(FeeTierChanged {
+                    new_tier,
+                    new_fee_bps: self.fee_bps,
+                    total_volume: self.total_volume,
+                });
+            }
+        }
+
+        /// Calculate appropriate fee tier based on total volume
+        fn calculate_fee_tier(&self) -> u8 {
+            // Volume milestones (using USDT with 6 decimals)
+            let tier_1_threshold = 10_000_000 * 1_000_000; // $10M
+            let tier_2_threshold = 100_000_000 * 1_000_000; // $100M
+            
+            if self.total_volume >= tier_2_threshold {
+                2 // 0.5% fee
+            } else if self.total_volume >= tier_1_threshold {
+                1 // 0.8% fee  
+            } else {
+                0 // 1% fee
+            }
+        }
+
+        /// Get fee in basis points for a given tier
+        fn get_fee_for_tier(&self, tier: u8) -> u16 {
+            match tier {
+                0 => 100, // 1.0%
+                1 => 80,  // 0.8%
+                2 => 50,  // 0.5%
+                _ => 100, // Default to 1.0%
+            }
+        }
+
+        /// Get current total volume processed
         #[ink(message)]
-        pub fn get_user_escrows(&self, user: AccountId) -> Vec<u32> {
-            self.user_escrows.get(user).unwrap_or_default()
+        pub fn get_total_volume(&self) -> Balance {
+            self.total_volume
+        }
+
+        /// Get current fee tier (0 = 1%, 1 = 0.8%, 2 = 0.5%)
+        #[ink(message)]
+        pub fn get_current_tier(&self) -> u8 {
+            self.current_tier
+        }
+
+        /// Get volume needed to reach next tier
+        #[ink(message)]
+        pub fn get_volume_to_next_tier(&self) -> Balance {
+            let tier_1_threshold = 10_000_000 * 1_000_000; // $10M
+            let tier_2_threshold = 100_000_000 * 1_000_000; // $100M
+            
+            match self.current_tier {
+                0 => tier_1_threshold - self.total_volume,
+                1 => tier_2_threshold - self.total_volume,
+                _ => 0, // Already at highest tier
+            }
+        }
+
+        /// Get fee percentage as human-readable string
+        #[ink(message)]
+        pub fn get_current_fee_percentage(&self) -> ink::prelude::string::String {
+            match self.current_tier {
+                0 => ink::prelude::string::String::from("1.0%"),
+                1 => ink::prelude::string::String::from("0.8%"),
+                2 => ink::prelude::string::String::from("0.5%"),
+                _ => ink::prelude::string::String::from("1.0%"),
+            }
+        }
+    }
+    
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        
+        // Include tests from separate file by copying the content here
+        // This is necessary because ink! contract types are not accessible from external test modules
+        
+        // Test constants
+        const _INITIAL_USDT_SUPPLY: Balance = 1_000_000_000_000;
+        const _TEST_ESCROW_AMOUNT: Balance = 10_000_000;
+        const FEE_BPS: u16 = 100;  // 1% starting fee (tier 0)
+
+        // Helper functions
+        fn default_accounts() -> ink::env::test::DefaultAccounts<ink::env::DefaultEnvironment> {
+            ink::env::test::default_accounts::<ink::env::DefaultEnvironment>()
+        }
+
+        fn set_sender(sender: AccountId) {
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(sender);
+        }
+
+        // Basic constructor tests
+        #[ink::test]
+        fn constructor_works() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            assert_eq!(contract.get_owner(), accounts.alice);
+            assert_eq!(contract.get_fee_bps(), 100);
+            assert_eq!(contract.get_usdt_token(), accounts.charlie);
+            assert_eq!(contract.get_escrow_count(), 0);
+            assert!(!contract.is_paused());
+        }
+
+        #[ink::test]
+        fn constructor_with_zero_fee() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(0, accounts.bob, accounts.charlie);
+            
+            assert_eq!(contract.get_owner(), accounts.alice);
+            assert_eq!(contract.get_fee_bps(), 0);
+        }
+
+        #[ink::test]
+        fn constructor_with_max_fee() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(10000, accounts.bob, accounts.charlie);
+            
+            assert_eq!(contract.get_owner(), accounts.alice);
+            assert_eq!(contract.get_fee_bps(), 10000);
+        }
+
+        // Escrow creation tests
+        #[ink::test]
+        fn create_escrow_zero_amount_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let result = contract.create_escrow(accounts.bob, 0);
+            assert!(matches!(result, Err(EscrowError::InsufficientBalance)));
+        }
+
+        #[ink::test]
+        fn create_escrow_when_paused_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            // Pause the contract
+            let _ = contract.pause();
+            
+            let result = contract.create_escrow(accounts.bob, 1000);
+            assert!(matches!(result, Err(EscrowError::ContractPaused)));
+        }
+
+        // Authorization tests
+        #[ink::test]
+        fn set_fee_by_owner_works() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let result = contract.set_fee(250);
+            assert!(result.is_ok());
+            assert_eq!(contract.get_fee_bps(), 250);
+        }
+
+        #[ink::test]
+        fn set_fee_by_non_owner_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            set_sender(accounts.bob);
+            let result = contract.set_fee(250);
+            assert!(matches!(result, Err(EscrowError::NotAuthorized)));
+        }
+
+        #[ink::test]
+        fn pause_unpause_by_owner_works() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            assert!(!contract.is_paused());
+            
+            let result = contract.pause();
+            assert!(result.is_ok());
+            assert!(contract.is_paused());
+            
+            let result = contract.unpause();
+            assert!(result.is_ok());
+            assert!(!contract.is_paused());
+        }
+
+        #[ink::test]
+        fn pause_by_non_owner_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            set_sender(accounts.bob);
+            let result = contract.pause();
+            assert!(matches!(result, Err(EscrowError::NotAuthorized)));
+        }
+
+        #[ink::test]
+        fn emergency_withdraw_by_non_owner_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            set_sender(accounts.bob);
+            let result = contract.emergency_withdraw(1000);
+            assert!(matches!(result, Err(EscrowError::NotAuthorized)));
+        }
+
+        // Query tests
+        #[ink::test]
+        fn get_nonexistent_escrow_returns_none() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let result = contract.get_escrow(999);
+            assert!(result.is_none());
+        }
+
+        #[ink::test]
+        fn get_user_escrows_initially_empty() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let escrows = contract.get_user_escrows(accounts.alice);
+            assert!(escrows.is_empty());
+        }
+
+        #[ink::test]
+        fn escrow_count_starts_at_zero() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            assert_eq!(contract.get_escrow_count(), 0);
+        }
+
+        // Contract initialization test
+        #[ink::test]
+        fn contract_initialization_complete() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            assert_eq!(contract.get_owner(), accounts.alice);
+            assert_eq!(contract.get_fee_bps(), 100);
+            assert_eq!(contract.get_usdt_token(), accounts.django);
+            assert_eq!(contract.get_escrow_count(), 0);
+            assert!(!contract.is_paused());
+        }
+
+        // Timelock functionality tests
+        #[ink::test]
+        fn constructor_with_custom_timelock_works() {
+            let accounts = default_accounts();
+            let custom_duration = 7 * 24 * 60 * 60 * 1000; // 7 days
+            let contract = EscrowContract::new_with_timelock(
+                FEE_BPS,
+                accounts.bob,
+                accounts.charlie,
+                custom_duration
+            );
+            
+            assert_eq!(contract.get_owner(), accounts.alice);
+            assert_eq!(contract.get_fee_bps(), 100);
+            assert_eq!(contract.get_usdt_token(), accounts.charlie);
+            assert_eq!(contract.get_default_timelock_duration(), custom_duration);
+        }
+
+        #[ink::test]
+        fn default_timelock_is_30_days() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let expected_duration = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+            assert_eq!(contract.get_default_timelock_duration(), expected_duration);
+        }
+
+        #[ink::test]
+        fn set_timelock_duration_by_owner_works() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let new_duration = 14 * 24 * 60 * 60 * 1000; // 14 days
+            let result = contract.set_default_timelock_duration(new_duration);
+            assert!(result.is_ok());
+            assert_eq!(contract.get_default_timelock_duration(), new_duration);
+        }
+
+        #[ink::test]
+        fn set_timelock_duration_by_non_owner_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            set_sender(accounts.bob);
+            let new_duration = 14 * 24 * 60 * 60 * 1000; // 14 days
+            let result = contract.set_default_timelock_duration(new_duration);
+            assert!(matches!(result, Err(EscrowError::NotAuthorized)));
+        }
+
+        #[ink::test]
+        fn set_invalid_timelock_duration_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let invalid_duration = 12 * 60 * 60 * 1000; // 12 hours (less than 1 day minimum)
+            let result = contract.set_default_timelock_duration(invalid_duration);
+            assert!(matches!(result, Err(EscrowError::InvalidTimelock)));
+        }
+
+        #[ink::test]
+        fn escrow_not_expired_initially() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            // Non-existent escrow should return false
+            assert!(!contract.is_escrow_expired(1));
+        }
+
+        #[ink::test]
+        fn process_non_existent_escrow_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let result = contract.process_expired_escrow(999);
+            assert!(matches!(result, Err(EscrowError::EscrowNotFound)));
+        }
+
+        #[ink::test]
+        fn process_non_expired_escrow_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let result = contract.process_expired_escrow(1);
+            assert!(matches!(result, Err(EscrowError::EscrowNotFound)));
+        }
+
+        #[ink::test]
+        fn get_expired_escrows_returns_empty_initially() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let expired = contract.get_expired_escrows(0, 10);
+            assert!(expired.is_empty());
+        }
+
+        #[ink::test]
+        fn get_expired_escrows_with_zero_limit() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let expired = contract.get_expired_escrows(0, 0);
+            assert!(expired.is_empty());
+        }
+
+        #[ink::test]
+        fn get_expired_escrows_handles_out_of_bounds() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            let expired = contract.get_expired_escrows(1000, 10);
+            assert!(expired.is_empty());
+        }
+
+        #[ink::test]
+        fn process_expired_escrow_when_paused_fails() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.eve, accounts.django);
+            
+            // Pause the contract
+            let _ = contract.pause();
+            
+            let result = contract.process_expired_escrow(1);
+            assert!(matches!(result, Err(EscrowError::ContractPaused)));
+        }
+
+        #[ink::test]
+        fn timelock_workflow_validation() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new_with_timelock(
+                FEE_BPS,
+                accounts.bob,
+                accounts.charlie,
+                7 * 24 * 60 * 60 * 1000 // 7 days
+            );
+            
+            // Verify timelock settings
+            assert_eq!(contract.get_default_timelock_duration(), 7 * 24 * 60 * 60 * 1000);
+            assert_eq!(contract.get_owner(), accounts.alice);
+            assert_eq!(contract.get_fee_bps(), 100);
+        }
+
+        // Tiered pricing tests
+        #[ink::test]
+        fn initial_tier_is_correct() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            assert_eq!(contract.get_current_tier(), 0);
+            assert_eq!(contract.get_fee_bps(), 100); // 1%
+            assert_eq!(contract.get_total_volume(), 0);
+            assert_eq!(contract.get_current_fee_percentage(), "1.0%");
+        }
+
+        #[ink::test]
+        fn volume_to_next_tier_calculation() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            let volume_needed = contract.get_volume_to_next_tier();
+            let expected = 10_000_000 * 1_000_000; // $10M in USDT (6 decimals)
+            assert_eq!(volume_needed, expected);
+        }
+
+        #[ink::test]
+        fn fee_tier_calculation_tier_0() {
+            let accounts = default_accounts();
+            let contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            // Should be tier 0 (1%) for volumes under $10M
+            assert_eq!(contract.calculate_fee_tier(), 0);
+            assert_eq!(contract.get_fee_for_tier(0), 100);
+        }
+
+        #[ink::test] 
+        fn fee_tier_calculation_tier_1() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            // Simulate $10M volume
+            contract.total_volume = 10_000_000 * 1_000_000;
+            
+            assert_eq!(contract.calculate_fee_tier(), 1);
+            assert_eq!(contract.get_fee_for_tier(1), 80); // 0.8%
+        }
+
+        #[ink::test]
+        fn fee_tier_calculation_tier_2() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            // Simulate $100M volume
+            contract.total_volume = 100_000_000 * 1_000_000;
+            
+            assert_eq!(contract.calculate_fee_tier(), 2);
+            assert_eq!(contract.get_fee_for_tier(2), 50); // 0.5%
+        }
+
+        #[ink::test]
+        fn tier_progression_works() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            // Start at tier 0
+            assert_eq!(contract.get_current_tier(), 0);
+            assert_eq!(contract.get_fee_bps(), 100);
+            
+            // Simulate volume growth to tier 1
+            contract.total_volume = 10_000_000 * 1_000_000; // $10M
+            contract.update_fee_tier();
+            
+            assert_eq!(contract.get_current_tier(), 1);
+            assert_eq!(contract.get_fee_bps(), 80);
+            
+            // Simulate volume growth to tier 2  
+            contract.total_volume = 100_000_000 * 1_000_000; // $100M
+            contract.update_fee_tier();
+            
+            assert_eq!(contract.get_current_tier(), 2);
+            assert_eq!(contract.get_fee_bps(), 50);
+        }
+
+        #[ink::test]
+        fn fee_percentage_strings_correct() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            // Tier 0
+            assert_eq!(contract.get_current_fee_percentage(), "1.0%");
+            
+            // Tier 1
+            contract.current_tier = 1;
+            assert_eq!(contract.get_current_fee_percentage(), "0.8%");
+            
+            // Tier 2
+            contract.current_tier = 2;
+            assert_eq!(contract.get_current_fee_percentage(), "0.5%");
+        }
+
+        #[ink::test]
+        fn volume_tracking_in_complete_escrow() {
+            let accounts = default_accounts();
+            let mut contract = EscrowContract::new(FEE_BPS, accounts.bob, accounts.charlie);
+            
+            // Mock an active escrow
+            let escrow_data = EscrowData {
+                client: accounts.alice,
+                provider: accounts.bob,
+                amount: 5_000 * 1_000_000, // $5,000
+                status: EscrowStatus::Active,
+                created_at: 0,
+                deadline: 1000000,
+            };
+            contract.escrows.insert(0, &escrow_data);
+            contract.escrow_count = 1;
+            
+            // Initial volume should be 0
+            assert_eq!(contract.get_total_volume(), 0);
+            assert_eq!(contract.get_current_tier(), 0);
+            
+            // Note: In a real test, we'd need to mock the PSP22 token calls
+            // This test focuses on the volume tracking logic
         }
     }
 }

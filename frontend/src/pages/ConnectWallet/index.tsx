@@ -338,6 +338,15 @@ const ConnectWallet = () => {
                       <Radio value={endpoints?.WESTEND || 'wss://westend-rpc.polkadot.io'}>
                         Westend Testnet
                       </Radio>
+                      <Radio value={endpoints?.WESTEND_ASSETHUB || 'wss://westend-asset-hub-rpc.polkadot.io'}>
+                        Westend AssetHub Testnet
+                      </Radio>
+                      <Radio value={endpoints?.ASSETHUB || 'wss://polkadot-asset-hub-rpc.polkadot.io'}>
+                        Asset hub
+                      </Radio>
+                      <Radio value={endpoints?.ALEPH_TESTNET || 'wss://ws.test.azero.dev'}>
+                        Aleph Testnet
+                      </Radio>
                       <Radio value={endpoints?.ROCOCO || 'wss://rococo-rpc.polkadot.io'}>
                         Rococo Testnet
                       </Radio>

@@ -1,65 +1,43 @@
 {
   "escrows": [
     {
-      "id": "fa62",
+      "id": "ff24",
       "userAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
       "counterpartyAddress": "5Cd7qa35tKhXZVd9K7t1QFqsSwcDfoMJFBVphrZwzjvUgTWr",
-      "counterpartyType": "worker",
-      "totalAmount": "1500",
-      "status": "Active",
-      "title": "Graphics Design",
-      "description": "To create a brand logo",
+      "counterpartyType": "client",
+      "totalAmount": "4000",
+      "status": "Inactive",
+      "title": "Frontend Engineering",
+      "description": "To fix the bugs in an existing code base and also write documentation on the features used.",
       "milestones": [
         {
-          "id": "milestone-6018",
-          "description": "Logo Review",
-          "amount": "500",
-          "status": "Completed",
-          "deadline": 1749676228758
+          "id": "milestone-6213",
+          "description": "Code review documentation",
+          "amount": "1500",
+          "status": "Pending",
+          "deadline": 1749920507778
         },
         {
-          "id": "milestone-3136",
-          "description": "Final Logo Review",
-          "amount": "1000",
+          "id": "milestone-5795",
+          "description": "Final Review ",
+          "amount": "2500",
           "status": "Pending",
-          "deadline": 1750201200000
+          "deadline": 1750374000000
         }
       ],
-      "createdAt": 1749071529096,
-      "updatedBy": "5Cd7qa35tKhXZVd9K7t1QFqsSwcDfoMJFBVphrZwzjvUgTWr",
-      "updatedAt": 1749071681580
+      "createdAt": 1749315842412
     }
   ],
   "notify": [
     {
-      "id": "ba2c",
-      "escrowId": "fa62",
+      "id": "6d01",
+      "escrowId": "ff24",
       "notificationType": "Escrow Created",
       "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "message": "An escrow with fa62 has been created, Please check details to agree",
+      "message": "An escrow with ff24 has been created, Please check details to agree",
       "type": "info",
       "recipientAddress": "5Cd7qa35tKhXZVd9K7t1QFqsSwcDfoMJFBVphrZwzjvUgTWr",
-      "timestamp": 1749071529234,
-      "read": false
-    },
-    {
-      "id": "dde3",
-      "escrowId": "fa62",
-      "notificationType": "Milestone Ready for Review",
-      "senderAddress": "5Cd7qa35tKhXZVd9K7t1QFqsSwcDfoMJFBVphrZwzjvUgTWr",
-      "message": "A Milestone has been completed and ready for review.",
-      "type": "info",
-      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "timestamp": 1749071893218,
-      "read": false
-    },
-    {
-      "id": "4d60",
-      "notificationType": "Payment Released",
-      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "message": "Payment of 500 USDT has been released to your wallet.",
-      "type": "success",
-      "timestamp": 1749072455007,
+      "timestamp": 1749315842518,
       "read": false
     }
   ]

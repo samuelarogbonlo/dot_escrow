@@ -1,14 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use ink::prelude::vec::Vec;
-use ink::storage::traits::StorageLayout;
 use openbrush::traits::{AccountId, Balance, Timestamp};
 use openbrush::contracts::psp22::PSP22Error;
 use scale::{Decode, Encode};
 use scale_info::TypeInfo;
 
 /// The status of an escrow.
-#[derive(Debug, PartialEq, Eq, Encode, Decode, TypeInfo, StorageLayout)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub enum EscrowStatus {
     /// The escrow is active and funds are locked.
     Active,
@@ -21,7 +20,7 @@ pub enum EscrowStatus {
 }
 
 /// The status of a milestone.
-#[derive(Debug, PartialEq, Eq, Encode, Decode, TypeInfo, StorageLayout)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub enum MilestoneStatus {
     /// The milestone is pending completion.
     Pending,
@@ -32,7 +31,7 @@ pub enum MilestoneStatus {
 }
 
 /// Types of conditions that can trigger automatic milestone release.
-#[derive(Debug, PartialEq, Eq, Encode, Decode, TypeInfo, StorageLayout, Clone)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode, TypeInfo, Clone)]
 pub enum ReleaseConditionType {
     /// Condition verified by a specific third-party account
     ThirdPartyVerification,
@@ -43,7 +42,7 @@ pub enum ReleaseConditionType {
 }
 
 /// A condition that must be met for automatic milestone release.
-#[derive(Debug, Encode, Decode, TypeInfo, StorageLayout)]
+#[derive(Debug, Encode, Decode)]
 pub struct ReleaseCondition {
     /// The type of condition
     pub condition_type: ReleaseConditionType,
@@ -58,7 +57,7 @@ pub struct ReleaseCondition {
 }
 
 /// Proposal for modifying a milestone (shared between contract and client code).
-#[derive(Debug, Encode, Decode, TypeInfo, StorageLayout)]
+#[derive(Debug, Encode, Decode)]
 pub struct MilestoneModificationProposal {
     pub new_title: Option<Vec<u8>>,
     pub new_description: Option<Vec<u8>>,
@@ -67,7 +66,7 @@ pub struct MilestoneModificationProposal {
 }
 
 /// A milestone for an escrow.
-#[derive(Debug, Encode, Decode, TypeInfo, StorageLayout)]
+#[derive(Debug, Encode, Decode)]
 pub struct Milestone {
     /// The title of the milestone.
     pub title: Vec<u8>,
@@ -90,7 +89,7 @@ pub struct Milestone {
 }
 
 /// Errors that can occur during escrow operations.
-#[derive(Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(Debug, PartialEq, Eq, Encode, Decode)]
 pub enum EscrowError {
     /// An error occurred in the PSP22 token operations.
     PSP22Error(PSP22Error),
@@ -143,7 +142,7 @@ impl From<openbrush::contracts::ownable::OwnableError> for EscrowError {
 }
 
 /// Events emitted by the escrow contract (not stored in mappings)
-#[derive(Debug, Encode, Decode, TypeInfo)]
+#[derive(Debug, Encode, Decode)]
 pub enum EscrowEvent {
     /// A new escrow was created
     EscrowCreated {

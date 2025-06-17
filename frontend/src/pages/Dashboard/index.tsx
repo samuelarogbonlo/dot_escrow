@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Heading,
@@ -25,12 +25,20 @@ import { EscrowData } from "../../hooks/useEscrowContract";
 
 import StatCard from "../../components/Card/StatCard";
 import EscrowCard from "../../components/Card/EscrowCard";
+import USDTBalance from "@/components/USDT/USDTBalance";
+import PSP22StablecoinBalance from "@/components/PSP22StableCoinBalance/PSP22StablecoinBalance";
+import { useUSDTContract } from "@/hooks/useUSDTContract";
+import { usePSP22StablecoinContract } from "@/hooks/usePSP22StablecoinContract";
 
 const Dashboard = () => {
   const { isExtensionReady, selectedAccount, listEscrows } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [escrows, setEscrows] = useState<EscrowData[]>([]);
+  
+  // Use the PSP22 hook
+  const { contract, balance, isLoading: psp22Loading } = usePSP22StablecoinContract();
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,42 +47,59 @@ const Dashboard = () => {
     }
   }, [isExtensionReady, selectedAccount, navigate]);
 
+  // Log contract info only when it changes, not on every render
   useEffect(() => {
-    const fetchEscrows = async () => {
-      if (!isExtensionReady || !selectedAccount) return;
+    if (contract) {
+      console.log("PSP22 Contract initialized:", contract);
+    }
+  }, [contract]);
 
-      setIsLoading(true);
-      setError(null);
+  // Log balance info only when it changes
+  useEffect(() => {
+    if (balance) {
+      console.log("PSP22 Balance updated:", balance);
+    }
+  }, [balance]);
 
-      try {
-        const result = await listEscrows();
-        if (result.success) {
-          // Filter escrows to show:
-          // 1. All escrows where user is the creator (userAddress matches)
-          // 2. Escrows where user is the counterparty AND status is "Active"
-          const filteredEscrows = result.escrows.filter((e: any) => {
-            const isUserCreator = e.userAddress === selectedAccount.address;
-            const isUserCounterparty = e.counterpartyAddress === selectedAccount.address;
-            const isActive = e.status === "Active";
-            
-            // Show if user created it, OR if user is counterparty and it's active
-            return isUserCreator || (isUserCounterparty && isActive);
-          });
-          
-          setEscrows(filteredEscrows);
-        } else {
-          setError(result.error);
-        }
-      } catch (err) {
-        setError("Failed to load escrows. Please try again.");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
+  // Memoize the fetchEscrows function to prevent unnecessary re-renders
+  const fetchEscrows = useCallback(async () => {
+    if (!isExtensionReady || !selectedAccount) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await listEscrows();
+      if (result.success) {
+        // Filter escrows to show:
+        // 1. All escrows where user is the creator (userAddress matches)
+        // 2. Escrows where user is the counterparty AND status is "Active"
+        const filteredEscrows = result.escrows.filter((e: any) => {
+          const isUserCreator = e.userAddress === selectedAccount.address;
+          const isUserCounterparty =
+            e.counterpartyAddress === selectedAccount.address;
+          const isActive = e.status === "Active";
+
+          // Show if user created it, OR if user is counterparty and it's active
+          return isUserCreator || (isUserCounterparty && isActive);
+        });
+
+        setEscrows(filteredEscrows);
+      } else {
+        setError(result.error);
       }
-    };
-
-    fetchEscrows();
+    } catch (err) {
+      setError("Failed to load escrows. Please try again.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [isExtensionReady, selectedAccount, listEscrows]);
+
+  // Use the memoized function in useEffect
+  useEffect(() => {
+    fetchEscrows();
+  }, [fetchEscrows]);
 
   const stats = {
     activeEscrows: escrows.filter((e) => e.status === "Active").length,
@@ -117,7 +142,10 @@ const Dashboard = () => {
         </Alert>
       )}
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
+      <PSP22StablecoinBalance />
+      
+
+      <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} spacing={6} mb={8}>
         <StatCard
           label="Active Escrows"
           value={stats.activeEscrows}
