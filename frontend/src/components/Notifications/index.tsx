@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWallet } from "../../hooks/useWalletContext";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -10,7 +10,7 @@ import {
   Text,
   Flex,
   Icon,
-  CloseButton,
+  useOutsideClick,
   useColorModeValue,
   Collapse,
   IconButton,
@@ -36,47 +36,11 @@ type Notification = {
   read: boolean;
 };
 
-// Placeholder data - in real app, this would come from Redux store
-const mockNotifications = [
-  {
-    id: "1",
-    title: "Escrow Created",
-    message:
-      "Your escrow agreement with 0x123...456 has been created successfully.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-    type: "success",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Milestone Ready for Review",
-    message: "Client has marked Milestone #1 as ready for review.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    type: "info",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Payment Released",
-    message: "Payment of 500 USDT has been released to your wallet.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    type: "success",
-    read: true,
-  },
-  {
-    id: "4",
-    title: "Escrow Cancel",
-    message: "An escrow has been cancelled. Can you please verify this?",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    type: "success",
-    read: true,
-  },
-];
-
 const Notifications = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { isExtensionReady, selectedAccount } = useWallet();
   const navigate = useNavigate();
+  const notificationRef = useRef<HTMLDivElement>(null);
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -85,6 +49,13 @@ const Notifications = () => {
 
   const toggleNotifications = () => setIsOpen(!isOpen);
 
+
+  useOutsideClick({
+    ref: notificationRef,
+    handler: () => setIsOpen(false),
+    enabled: isOpen, // Only listen when notification is open
+  });
+
   useEffect(() => {
     const fetchNotification = async () => {
       if (!isExtensionReady || !selectedAccount) return;
@@ -92,7 +63,9 @@ const Notifications = () => {
       try {
         const response = await axios.get(`http://localhost:3006/notify`);
 
-        const notificationList = response.data.filter((m: any) => m.recipientAddress === selectedAccount.address)
+        const notificationList = response.data.filter(
+          (m: any) => m.recipientAddress === selectedAccount.address
+        );
 
         setNotifications(notificationList);
       } catch (error) {
@@ -107,29 +80,87 @@ const Notifications = () => {
     fetchNotification();
   }, [isExtensionReady, selectedAccount]);
 
-
   const handleEscrowDetails = (escrowId: string, notificationType: string) => {
     const lowerNotificationType = notificationType.toLowerCase();
 
-    if (lowerNotificationType.includes("escrow created")) {
+    if (lowerNotificationType.includes("escrow funded")) {
+      navigate(`/confirm_escrow/${escrowId}`);
+    }
+    if (lowerNotificationType.includes("escrow proposal")) {
       navigate(`/confirm_escrow/${escrowId}`);
     }
 
-    setIsOpen(isOpen)
+    if (lowerNotificationType.includes("milestone ready")) {
+      navigate(`/milestone_detail/${escrowId}`);
+    }
+    
+    if (lowerNotificationType.includes("milestone ready")) {
+      navigate(`/milestone_detail/${escrowId}`);
+    }
+
+    setIsOpen(isOpen);
   };
 
-  const markAsRead = (id: string) => {
-    setNotifications(
-      notifications.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
-    );
-  };
+  const markAsRead = async (id: string) => {
+    try {
+      // Optimistically update the UI first
+      setNotifications(
+        notifications.map((notification) =>
+          notification.id === id
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
 
-  const removeNotification = (id: string) => {
-    setNotifications(
-      notifications.filter((notification) => notification.id !== id)
-    );
+      // Make API call to update read status on backend
+      const response = await axios.patch(
+        `http://localhost:3006/notify/${id}`,
+        {
+          read: true,
+        }
+      );
+
+      if (!response.data.success) {
+        // If API call fails, revert the optimistic update
+        setNotifications(
+          notifications.map((notification) =>
+            notification.id === id
+              ? { ...notification, read: false }
+              : notification
+          )
+        );
+
+        console.error(
+          "Failed to mark notification as read:",
+          response.data.error
+        );
+        // Optionally show a toast notification about the error
+      }
+    } catch (error) {
+      // If API call fails, revert the optimistic update
+      setNotifications(
+        notifications.map((notification) =>
+          notification.id === id
+            ? { ...notification, read: false }
+            : notification
+        )
+      );
+
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to mark notification as read";
+      console.error("Error marking notification as read:", errorMessage);
+
+      // Optionally show a toast notification about the error
+      // toast({
+      //   title: 'Error',
+      //   description: 'Failed to mark notification as read',
+      //   status: 'error',
+      //   duration: 3000,
+      //   isClosable: true,
+      // });
+    }
   };
 
   const getIcon = (type: string) => {
@@ -167,10 +198,10 @@ const Notifications = () => {
     }).format(date);
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => n.read === false).length;
 
   return (
-    <Box position="relative" height="fit-content" zIndex="10">
+    <Box position="relative" height="fit-content" zIndex="10" ref={notificationRef}>
       <Flex direction="column" height="100%" position="relative">
         {/* Notification bell */}
         <Box position="relative">
@@ -179,22 +210,20 @@ const Notifications = () => {
             icon={<BellIcon />}
             onClick={toggleNotifications}
             variant="ghost"
-            position="relative"
             size="lg"
-          >
-            {unreadCount > 0 && (
-              <Badge
-                position="absolute"
-                top="0"
-                right="0"
-                colorScheme="red"
-                borderRadius="full"
-                fontSize="xs"
-              >
-                {unreadCount}
-              </Badge>
-            )}
-          </IconButton>
+          />
+          {unreadCount > 0 && (
+            <Badge
+              position="absolute"
+              top="0"
+              right="0"
+              colorScheme="red"
+              borderRadius="full"
+              fontSize="xs"
+            >
+              {unreadCount}
+            </Badge>
+          )}
         </Box>
 
         {/* Notifications panel */}
@@ -255,10 +284,6 @@ const Notifications = () => {
                           {notification.notificationType}
                         </Text>
                       </Flex>
-                      <CloseButton
-                        size="sm"
-                        onClick={() => removeNotification(notification.id)}
-                      />
                     </Flex>
                     <Text mt={1} fontSize="sm">
                       {notification.message}

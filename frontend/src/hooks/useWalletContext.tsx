@@ -4,14 +4,12 @@ import React, {
   ReactNode,
   useMemo,
   useEffect,
-  useState,
 } from "react";
 import { useDispatch } from "react-redux";
 import { usePolkadotExtension } from "./usePolkadotExtension";
 import { usePolkadotApi } from "./usePolkadotApi";
 import { useEscrowContract } from "./useEscrowContract";
 import { setWallet } from "../store/slices/walletSlice";
-import type { InjectedAccountWithMeta } from "@polkadot/extension-inject/types";
 
 interface WalletContextType {
   // Extension state
@@ -35,7 +33,7 @@ interface WalletContextType {
   selectAccount: (address: string) => boolean;
   disconnectApi: () => Promise<any>;
   connectApi: (endpoint?: string) => Promise<any>;
-  setDirectAccount: (account: InjectedAccountWithMeta) => void;
+  getSigner: (address: string) => Promise<any>; 
 
   // Escrow contract
   createEscrow: (
@@ -90,40 +88,22 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
   // Initialize Polkadot API hook
   const api = usePolkadotApi();
 
-  console.log(api);
-  console.log("useWallet called");
-
-  // State for direct account mode (testing)
-  const [mockAccount, setMockAccount] =
-    useState<InjectedAccountWithMeta | null>(null);
-  const [mockAccounts, setMockAccounts] = useState<InjectedAccountWithMeta[]>(
-    []
-  );
-
-  // Set up direct account for testing
-  const setDirectAccount = (account: InjectedAccountWithMeta) => {
-    console.log("[WalletContext] Setting direct account:", account.address);
-    setMockAccount(account);
-    setMockAccounts([account]);
-  };
 
   // Initialize escrow contract hook with extension and API data
   const escrowContract = useEscrowContract({
     api: api.api,
-    account: mockAccount || extension.selectedAccount,
+    account: extension.selectedAccount,
     getSigner: extension.getSigner,
   });
 
   // Update Redux state when API or extension changes
   useEffect(() => {
-    const currentAccount = mockAccount || extension.selectedAccount;
-
     // Only dispatch if the extension is injected and API is ready
-    if (api.api && (extension.isReady || mockAccount) && extension.injected) {
+    if (api.api && extension.isReady && extension.injected) {
       dispatch(
         setWallet({
           api: api.api,
-          extension: extension.injected, // <-- Correct object here
+          extension: extension.injected,
         })
       );
     } else {
@@ -131,30 +111,30 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
         "Missing required data to set wallet (extension or api not ready)"
       );
     }
-  }, [api.api, extension.isReady, extension.injected, mockAccount, dispatch]);
+  }, [api.api, extension.isReady, extension.injected, dispatch]);
 
   // Log important state changes
   useEffect(() => {
-    const currentAccount = mockAccount || extension.selectedAccount;
     console.log("[WalletContext] Extension ready:", extension.isReady);
     console.log("[WalletContext] API ready:", api.isReady);
-    console.log("[WalletContext] Selected account:", currentAccount?.address);
-    console.log("[WalletContext] Using mock account:", !!mockAccount);
-  }, [extension.isReady, api.isReady, extension.selectedAccount, mockAccount]);
+    console.log("[WalletContext] Selected account:", extension.selectedAccount?.address);
+    console.log("[WalletContext] Accounts count:", extension.accounts?.length || 0);
+    
+    // Debug: Log if an account gets auto-selected
+    if (extension.selectedAccount && extension.accounts?.length > 0) {
+      console.log("[WalletContext] Account selection detected - was this user-initiated?");
+    }
+  }, [extension.isReady, api.isReady, extension.selectedAccount, extension.accounts]);
 
   // Combine all values into a single context value
   const contextValue = useMemo(() => {
-    // If we have a mock account, override extension status
-    const accounts = mockAccount ? mockAccounts : extension.accounts;
-    const selectedAccount = mockAccount || extension.selectedAccount;
-    const isExtensionReady = mockAccount ? true : extension.isReady;
-    console.log("useWallet called");
+    console.log("useWallet contextValue updated");
 
     return {
       // Extension state
-      accounts,
-      selectedAccount,
-      isExtensionReady,
+      accounts: extension.accounts || [],
+      selectedAccount: extension.selectedAccount,
+      isExtensionReady: extension.isReady,
       isExtensionLoading: extension.isLoading,
       extensionError: extension.error,
 
@@ -165,14 +145,14 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       apiError: api.error,
       currentEndpoint: api.currentEndpoint,
       endpoints: api.endpoints,
-
+      
       // Actions
       connectExtension: extension.connectExtension,
       refreshAccounts: extension.refreshAccounts,
       selectAccount: extension.selectAccount,
       disconnectApi: api.disconnect,
       connectApi: api.connect,
-      setDirectAccount,
+      getSigner: extension.getSigner,
 
       // Escrow contract
       createEscrow: escrowContract.createEscrow,
@@ -185,7 +165,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       updateEscrowMilestoneStatus: escrowContract.updateEscrowMilestoneStatus,
       checkTransactionStatus: escrowContract.checkTransactionStatus,
     };
-  }, [extension, api, escrowContract, mockAccount, mockAccounts]);
+  }, [extension, api, escrowContract]);
 
   return (
     <WalletContext.Provider value={contextValue}>

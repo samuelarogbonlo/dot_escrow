@@ -1,6 +1,7 @@
 import { Box, VStack, Icon, Text, Flex, useColorModeValue, Divider } from '@chakra-ui/react'
 import { Link, useLocation } from 'react-router-dom'
-import { FiHome, FiFileText, FiDollarSign, FiAlertCircle, FiSettings } from 'react-icons/fi'
+import { FiHome, FiFileText, FiDollarSign, FiAlertCircle, FiSettings, FiTarget  } from 'react-icons/fi'
+
 
 const NavItem = ({ icon, children, to }: { icon: React.ElementType; children: React.ReactNode; to: string }) => {
   const location = useLocation()
@@ -65,6 +66,9 @@ const Sidebar = () => {
         </NavItem>
         <NavItem icon={FiFileText} to="/escrow/create">
           Create Escrow
+        </NavItem>
+        <NavItem icon={FiTarget} to="/milestone">
+          Milestones
         </NavItem>
         <NavItem icon={FiDollarSign} to="/transactions">
           Transactions

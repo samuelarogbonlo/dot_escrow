@@ -41,12 +41,8 @@ import {
 } from '@chakra-ui/react';
 import { 
   FiSearch, 
-  FiFilter, 
   FiChevronDown, 
-  FiChevronUp,
-  FiCheck, 
-  FiX, 
-  FiClock, 
+  FiChevronUp, 
   FiDollarSign,
   FiCalendar,
   FiUser

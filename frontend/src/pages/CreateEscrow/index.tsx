@@ -131,14 +131,14 @@ const CreateEscrow = () => {
 
   const {
     balance,
-    allowance,
     checkSufficientBalance,
     checkSufficientAllowance,
     transferToken,
     ESCROW_CONTRACT_ADDRESS,
-    isLoading: usdcLoading,
     error: usdcError,
   } = usePSP22StablecoinContract();
+
+  const adjustedAmount = (Number(formData.totalAmount) * 1.01).toString();
 
   // Effects
   useEffect(() => {
@@ -146,7 +146,7 @@ const CreateEscrow = () => {
     if (approvalState === "approved") {
       setApprovalState("idle");
     }
-  }, [formData.totalAmount]);
+  }, [adjustedAmount]);
 
   // Helper functions
   const updateFormData = (data: Partial<EscrowFormData>) => {
@@ -239,8 +239,6 @@ const CreateEscrow = () => {
       if (formData.counterpartyType === "worker") {
         // CLIENT creating escrow - needs to deposit funds
 
-        const adjustedAmount = (Number(formData.totalAmount) * 1.01).toString();
-
         const hasBalance = checkSufficientBalance(adjustedAmount);
         const hasAllowance = checkSufficientAllowance(adjustedAmount);
 
@@ -274,7 +272,7 @@ const CreateEscrow = () => {
 
   const executeUSDCTransfer = useCallback(
     async (amount: string, userAddress: string) => {
-      if (!api || selectedAccount.address) {
+      if (!api || !selectedAccount?.address) {
         throw new Error("API or account not available");
       }
 
@@ -302,13 +300,13 @@ const CreateEscrow = () => {
           throw new Error(transferResult.error || "USDC transfer failed");
         }
 
-        // Generate a transaction hash (in real implementation, this would come from the blockchain)
-        // For now, we'll generate a mock hash since the transferUSDC doesn't return one
-        const txHash = `0x${Date.now().toString(16)}${Math.random()
-          .toString(16)
-          .slice(2, 10)}`;
+        // Use the real transaction hash from the blockchain
+        const txHash = transferResult.txHash;
 
-        console.log("[executeUSDCTransfer] USDC transfer successful:", txHash);
+        if (!txHash) {
+          throw new Error("Transaction hash not available");
+        }
+
         return { success: true, txHash };
       } catch (error) {
         console.error(
@@ -337,7 +335,7 @@ const CreateEscrow = () => {
     },
     [
       api,
-      selectedAccount.address,
+      selectedAccount?.address,
       transferToken,
       checkSufficientBalance,
       ESCROW_CONTRACT_ADDRESS,
@@ -402,7 +400,7 @@ const CreateEscrow = () => {
     setApprovalState("creating");
 
     try {
-      const userAddress = selectedAccount.address;
+      const creatorAddress = selectedAccount.address;
       const counterpartyAddress = formData.counterpartyAddress;
       const counterpartyType = formData.counterpartyType;
 
@@ -428,13 +426,10 @@ const CreateEscrow = () => {
           throw new Error("USDC approval required for client escrow creation");
         }
 
-        // Calculate amount with 1% markup
-        const adjustedAmount = (Number(formData.totalAmount) * 1.01).toString();
-
         // Execute USDC transfer transaction
         executeTransaction = await executeUSDCTransfer(
           adjustedAmount,
-          userAddress
+          creatorAddress
         );
 
         if (executeTransaction.success) {
@@ -444,18 +439,18 @@ const CreateEscrow = () => {
 
           if (transactionHash.success === true) {
             result = await createEscrow(
-              userAddress, // client address (creator)
+              creatorAddress, // client address (creator)
               counterpartyAddress, // worker address
               counterpartyType,
               "Active", // Active since funds are deposited
               formData.title,
               formData.description,
-              formData.totalAmount,
+              adjustedAmount,
               milestones,
               executeTransaction.txHash
             );
 
-            successMessage = `Escrow created and funded with ${formData.totalAmount} USDC. Worker can now start work.`;
+            successMessage = `Escrow created and funded with ${adjustedAmount} USDC. Worker can now start work.`;
             notificationMessage = `A new escrow (ID: ${result.escrowId}) has been created and funded by the client. You can now start working on the milestones.`;
           }
         }
@@ -463,13 +458,13 @@ const CreateEscrow = () => {
         // WORKER is creating escrow for CLIENT
         // This creates escrow but waits for client approval/funding
         result = await createEscrow(
-          userAddress, // worker address (creator)
+          creatorAddress, // worker address (creator)
           counterpartyAddress, // client address (will fund later)
           counterpartyType,
           "Inactive", // Pending client approval
           formData.title,
           formData.description,
-          formData.totalAmount,
+          adjustedAmount,
           milestones,
           "" //Pending transaction Hash
         );
@@ -626,7 +621,7 @@ const CreateEscrow = () => {
             )}
 
             <PSP22StablecoinApproval
-              requiredAmount={formData.totalAmount}
+              requiredAmount={adjustedAmount}
               onApprovalComplete={handleApprovalComplete}
               onApprovalStart={handleApprovalStart}
               onError={handleApprovalError}

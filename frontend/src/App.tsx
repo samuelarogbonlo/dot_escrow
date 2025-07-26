@@ -9,6 +9,8 @@ import Transactions from "./pages/Transactions";
 import DisputeResolution from "./pages/DisputeResolution";
 import ConfirmDetails from "./pages/ConfirmEscrow";
 import Settings from "./pages/Settings";
+import MilestoneTracking from "./pages/MilestoneTracking";
+import MilestoneDetail from "./pages/MilestoneDetails/MilestoneDetail";
 
 const App = () => {
   const bgColor = useColorModeValue("white", "gray.900");
@@ -23,7 +25,9 @@ const App = () => {
           <Route path="confirm_escrow/:id" element={<ConfirmDetails />} />
           <Route path="escrow/:id" element={<EscrowDetails />} />
           <Route path="transactions" element={<Transactions />} />
-          <Route path="disputes/:id" element={<DisputeResolution />} />
+          <Route path="disputes" element={<DisputeResolution />} />
+          <Route path="milestone" element={<MilestoneTracking />} />
+          <Route path="milestone_detail/:escrowId/:milestoneId" element={<MilestoneDetail />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

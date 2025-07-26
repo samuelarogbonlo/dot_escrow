@@ -3,7 +3,6 @@ import { ApiPromise } from '@polkadot/api';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { Signer } from '@polkadot/api/types';
 import axios from 'axios'
-import { useUSDTContract } from './useUSDTContract'; // Import the USDT hook
 
 // Create a mock signer for testing
 const createMockSigner = (): Signer => {
@@ -22,9 +21,7 @@ const createMockSigner = (): Signer => {
 
 export interface EscrowData {
   id: string;
-  creator: string;
-  worker: string;
-  client: string;
+  creatorAddress: string;
   counterpartyAddress: string;
   counterpartyType: string;
   title: string;
@@ -36,7 +33,7 @@ export interface EscrowData {
     id: string;
     description: string;
     amount: string;
-    status: 'Pending' | 'InProgress' | 'Completed' | 'Disputed';
+    status: 'Pending' | 'InProgress' | 'Completed' | 'Disputed' | 'Overdue';
     deadline: number;
   }[];
 }
@@ -70,7 +67,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
   }, [account, getSigner]);
 
- 
+
   // Helper function to check transaction status
   const checkTransactionStatus = useCallback(async (transactionHash: string) => {
     if (!api) {
@@ -80,27 +77,110 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     try {
       console.log('[checkTransactionStatus] Checking transaction:', transactionHash);
 
-      // For test accounts, return mock success
-      if (account?.meta.source === 'test') {
-        console.log('[checkTransactionStatus] Mock success for test account');
-        return {
-          success: true,
-          receipt: {
-            status: 1,
-            transactionHash,
-            blockNumber: Date.now()
+      // Option 1: Try to get transaction info using runtime call
+      try {
+        // First, we need to find the transaction to get its details
+        const latestBlockHash = await api.rpc.chain.getBlockHash();
+
+        // Check if transactionPaymentApi is available
+        if (api.call.transactionPaymentApi && api.call.transactionPaymentApi.queryInfo) {
+          // We need the actual transaction object, not just the hash
+          // So we'll search for it first, then query info
+          console.log('[checkTransactionStatus] Searching for transaction to get payment info...');
+
+          const latestBlock = await api.rpc.chain.getBlock(latestBlockHash);
+          const currentBlockNumber = latestBlock.block.header.number.toNumber();
+
+          // Search recent blocks for the transaction
+          const blocksToSearch = 10; // Search fewer blocks for the initial check
+          const startBlock = Math.max(1, currentBlockNumber - blocksToSearch);
+
+          for (let blockNum = currentBlockNumber; blockNum >= startBlock; blockNum--) {
+            try {
+              const blockHash = await api.rpc.chain.getBlockHash(blockNum);
+              const signedBlock = await api.rpc.chain.getBlock(blockHash);
+
+              const txFound = signedBlock.block.extrinsics.find(
+                ext => ext.hash.toHex() === transactionHash
+              );
+
+              if (txFound) {
+                console.log(`[checkTransactionStatus] Transaction found in block ${blockNum}, querying payment info...`);
+
+                // Now we can query the transaction payment info
+                try {
+                  const txPaymentInfo = await api.call.transactionPaymentApi.queryInfo(
+                    txFound,
+                    blockHash
+                  );
+
+                  console.log('[checkTransactionStatus] Payment info retrieved:', txPaymentInfo);
+
+                  // Check if the block is finalized
+                  const finalizedHash = await api.rpc.chain.getFinalizedHead();
+                  const finalizedBlock = await api.rpc.chain.getBlock(finalizedHash);
+                  const finalizedBlockNumber = finalizedBlock.block.header.number.toNumber();
+                  const isFinalized = blockNum <= finalizedBlockNumber;
+
+
+
+                  return {
+                    success: true,
+                    receipt: {
+                      status: 1,
+                      transactionHash,
+                      blockHash: blockHash.toHex(),
+                      blockNumber: blockNum,
+                      finalized: isFinalized,
+
+                    }
+                  };
+                } catch (paymentError) {
+                  console.log('[checkTransactionStatus] Payment info query failed:', paymentError);
+                  // Continue with basic transaction info
+                  const finalizedHash = await api.rpc.chain.getFinalizedHead();
+                  const finalizedBlock = await api.rpc.chain.getBlock(finalizedHash);
+                  const finalizedBlockNumber = finalizedBlock.block.header.number.toNumber();
+                  const isFinalized = blockNum <= finalizedBlockNumber;
+
+                  return {
+                    success: true,
+                    receipt: {
+                      status: 1,
+                      transactionHash,
+                      blockHash: blockHash.toHex(),
+                      blockNumber: blockNum,
+                      finalized: isFinalized
+                    }
+                  };
+                }
+              }
+            } catch (error) {
+              console.warn(`[checkTransactionStatus] Error checking block ${blockNum}:`, error);
+              continue;
+            }
           }
-        };
+        } else {
+          console.log('[checkTransactionStatus] transactionPaymentApi not available, falling back to block search...');
+        }
+      } catch (error) {
+        console.log('[checkTransactionStatus] Runtime call failed, searching blocks...', error);
       }
 
-      // Poll for transaction confirmation
-      let attempts = 0;
-      const maxAttempts = 30; // 30 attempts with 2-second intervals = 1 minute max wait
+      // Fallback: Extended block search (your original logic)
+      const latestBlockHash = await api.rpc.chain.getBlockHash();
+      const latestBlock = await api.rpc.chain.getBlock(latestBlockHash);
+      const currentBlockNumber = latestBlock.block.header.number.toNumber();
 
-      while (attempts < maxAttempts) {
+      // Search the last 50 blocks (adjust as needed)
+      const blocksToSearch = 50;
+      const startBlock = Math.max(1, currentBlockNumber - blocksToSearch);
+
+      console.log(`[checkTransactionStatus] Fallback: Searching blocks ${startBlock} to ${currentBlockNumber}`);
+
+      for (let blockNum = currentBlockNumber; blockNum >= startBlock; blockNum--) {
         try {
-          // Get block hash where transaction was included
-          const blockHash = await api.rpc.chain.getBlockHash();
+          const blockHash = await api.rpc.chain.getBlockHash(blockNum);
           const signedBlock = await api.rpc.chain.getBlock(blockHash);
 
           // Check if our transaction is in this block
@@ -109,35 +189,37 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
           );
 
           if (txFound) {
-            console.log('[checkTransactionStatus] Transaction found and confirmed');
+            console.log(`[checkTransactionStatus] Transaction found in block ${blockNum}`);
+
+            // Check if the block is finalized
+            const finalizedHash = await api.rpc.chain.getFinalizedHead();
+            const finalizedBlock = await api.rpc.chain.getBlock(finalizedHash);
+            const finalizedBlockNumber = finalizedBlock.block.header.number.toNumber();
+
+            const isFinalized = blockNum <= finalizedBlockNumber;
+
             return {
               success: true,
               receipt: {
                 status: 1,
                 transactionHash,
                 blockHash: blockHash.toHex(),
-                blockNumber: signedBlock.block.header.number.toNumber()
+                blockNumber: blockNum,
+                finalized: isFinalized
               }
             };
           }
-
-          // Transaction not yet confirmed, wait and try again
-          console.log(`[checkTransactionStatus] Attempt ${attempts + 1}/${maxAttempts} - waiting...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-
         } catch (error) {
-          console.warn(`[checkTransactionStatus] Check attempt ${attempts + 1} failed:`, error);
-          attempts++;
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.warn(`[checkTransactionStatus] Error checking block ${blockNum}:`, error);
+          continue; // Continue to next block
         }
       }
 
-      // Transaction not confirmed within timeout
-      console.error('[checkTransactionStatus] Transaction confirmation timeout');
+      // Transaction not found
+      console.log('[checkTransactionStatus] Transaction not found in recent blocks');
       return {
         success: false,
-        error: "Transaction confirmation timeout - please check manually"
+        error: "Transaction not found in recent blocks"
       };
 
     } catch (error) {
@@ -147,11 +229,11 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         error: error instanceof Error ? error.message : "Failed to check transaction status"
       };
     }
-  }, [api, account]);
+  }, [api]);
 
   // Create a new escrow
   const createEscrow = useCallback(async (
-    userAddress: string,
+    creatorAddress: string,
     counterpartyAddress: string,
     counterpartyType: string,
     status: string,
@@ -173,7 +255,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       }
 
       console.log('Creating escrow with:', {
-        userAddress,
+        creatorAddress,
         counterpartyAddress,
         counterpartyType,
         status,
@@ -185,7 +267,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       });
 
       const escrowFormData = {
-        userAddress,
+        creatorAddress,
         counterpartyAddress,
         counterpartyType,
         totalAmount,
@@ -253,8 +335,9 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
   }, [api, account]);
 
+
   // Update escrow status
-  const updateEscrowStatus = useCallback(async (escrowId: string, newStatus: string, transactionHash?: string) => {
+  const updateEscrowStatus = useCallback(async (escrowId: string, newStatus: string, transactionHash?: string, note?: string) => {
     if (!api || !account) {
       return { success: false, error: 'API or account not available' };
     }
@@ -272,6 +355,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       const updateData = {
         status: newStatus,
         transactionHash: transactionHash,
+        note: note,
         updatedBy: account.address,
         updatedAt: Date.now()
       };
@@ -338,7 +422,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       // Update only the specific milestone while preserving all others
       const updatedMilestones = currentEscrow.milestones.map((m: any) =>
         m.id === milestone.id
-          ? { ...m, status: newStatus }
+          ? { ...milestone, status: newStatus }
           : m
       );
 
@@ -499,14 +583,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return { success: false, error: signerResult.error };
       }
 
-      console.log('Notifying counterparty for escrow:', {
-        escrowId,
-        notificationType,
-        recipientAddress,
-        message,
-        type,
-        senderAddress: account.address
-      });
+
 
       // Prepare notification data
       const notificationData = {

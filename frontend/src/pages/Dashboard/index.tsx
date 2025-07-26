@@ -25,20 +25,16 @@ import { EscrowData } from "../../hooks/useEscrowContract";
 
 import StatCard from "../../components/Card/StatCard";
 import EscrowCard from "../../components/Card/EscrowCard";
-import USDTBalance from "@/components/USDT/USDTBalance";
 import PSP22StablecoinBalance from "@/components/PSP22StableCoinBalance/PSP22StablecoinBalance";
-import { useUSDTContract } from "@/hooks/useUSDTContract";
-import { usePSP22StablecoinContract } from "@/hooks/usePSP22StablecoinContract";
 
 const Dashboard = () => {
   const { isExtensionReady, selectedAccount, listEscrows } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [escrows, setEscrows] = useState<EscrowData[]>([]);
-  
+
   // Use the PSP22 hook
-  const { contract, balance, isLoading: psp22Loading } = usePSP22StablecoinContract();
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,20 +42,6 @@ const Dashboard = () => {
       navigate("/connect");
     }
   }, [isExtensionReady, selectedAccount, navigate]);
-
-  // Log contract info only when it changes, not on every render
-  useEffect(() => {
-    if (contract) {
-      console.log("PSP22 Contract initialized:", contract);
-    }
-  }, [contract]);
-
-  // Log balance info only when it changes
-  useEffect(() => {
-    if (balance) {
-      console.log("PSP22 Balance updated:", balance);
-    }
-  }, [balance]);
 
   // Memoize the fetchEscrows function to prevent unnecessary re-renders
   const fetchEscrows = useCallback(async () => {
@@ -75,7 +57,7 @@ const Dashboard = () => {
         // 1. All escrows where user is the creator (userAddress matches)
         // 2. Escrows where user is the counterparty AND status is "Active"
         const filteredEscrows = result.escrows.filter((e: any) => {
-          const isUserCreator = e.userAddress === selectedAccount.address;
+          const isUserCreator = e.creatorAddress === selectedAccount.address;
           const isUserCounterparty =
             e.counterpartyAddress === selectedAccount.address;
           const isActive = e.status === "Active";
@@ -83,6 +65,8 @@ const Dashboard = () => {
           // Show if user created it, OR if user is counterparty and it's active
           return isUserCreator || (isUserCounterparty && isActive);
         });
+
+        
 
         setEscrows(filteredEscrows);
       } else {
@@ -105,8 +89,11 @@ const Dashboard = () => {
     activeEscrows: escrows.filter((e) => e.status === "Active").length,
 
     totalValue: escrows
-      .filter((e) => e.status === "Active") // Only active escrows
-      .reduce((sum, escrow) => sum + Number(escrow.totalAmount), 0)
+      .filter((e) => e.status === "Active")
+      .reduce(
+        (sum, escrow) => sum + Math.round(Number(escrow.totalAmount) / 1.01),
+        0
+      )
       .toLocaleString(),
 
     completedEscrows: escrows.filter((e) => e.status === "Completed").length,
@@ -143,7 +130,6 @@ const Dashboard = () => {
       )}
 
       <PSP22StablecoinBalance />
-      
 
       <SimpleGrid columns={{ base: 2, md: 2, lg: 4 }} spacing={6} mb={8}>
         <StatCard

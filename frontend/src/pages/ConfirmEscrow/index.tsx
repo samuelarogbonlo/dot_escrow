@@ -57,12 +57,13 @@ interface Milestone {
 interface Escrow {
   id: string;
   title: string;
-  userAddress: string;
+  creatorAddress: string;
   counterpartyType: string;
   counterpartyAddress: string;
   description: string;
   totalAmount: string;
   status: EscrowStatus;
+  note: string;
   createdAt: Date;
   milestones: Milestone[];
 }
@@ -106,12 +107,10 @@ const ConfirmDetails = () => {
   // USDC contract hook
   const {
     balance,
-    allowance,
     checkSufficientBalance,
     checkSufficientAllowance,
     transferToken,
     ESCROW_CONTRACT_ADDRESS,
-    isLoading: usdcLoading,
     error: usdcError,
   } = usePSP22StablecoinContract();
 
@@ -153,7 +152,10 @@ const ConfirmDetails = () => {
   const isClientConfirming = escrow?.counterpartyType === "client";
 
   // USDC Transfer function
-  const executeUSDCTransfer = async (amount: string, userAddress: string) => {
+  const executeUSDCTransfer = async (
+    amount: string,
+    creatorAddress: string
+  ) => {
     if (!selectedAccount?.address) {
       throw new Error("Account not available");
     }
@@ -161,7 +163,7 @@ const ConfirmDetails = () => {
     try {
       console.log("[executeUSDCTransfer] Starting USDC transfer:", {
         amount,
-        from: userAddress,
+        from: creatorAddress,
         to: ESCROW_CONTRACT_ADDRESS,
       });
 
@@ -303,7 +305,7 @@ const ConfirmDetails = () => {
     setApprovalState("confirming");
 
     try {
-      const userAddress = selectedAccount.address;
+      const creatorAddress = selectedAccount.address;
 
       // Calculate amount with 1% markup
       const adjustedAmount = (Number(escrow.totalAmount) * 1.01).toString();
@@ -311,7 +313,7 @@ const ConfirmDetails = () => {
       // Execute USDC transfer
       const executeTransaction = await executeUSDCTransfer(
         adjustedAmount,
-        userAddress
+        creatorAddress
       );
 
       if (executeTransaction.success) {
@@ -684,10 +686,7 @@ const ConfirmDetails = () => {
 
   // Check if escrow can be confirmed (status is pending or inactive)
   const canConfirm =
-    escrow.status === "pending" ||
-    escrow.status === "inactive" ||
-    escrow.status === "Pending" ||
-    escrow.status === "Inactive";
+    escrow.status === "Pending" || escrow.status === "Inactive";
 
   return (
     <VStack spacing={6} align="stretch">
@@ -719,6 +718,31 @@ const ConfirmDetails = () => {
                 {escrow.description || "No description provided"}
               </Text>
             </Flex>
+
+            {escrow.note !== "" && (
+              <Flex
+                width="100%"
+                justify="space-between"
+                alignItems="flex-start"
+              >
+                <Text color={labelColor}>Cancel Note:</Text>
+                <Text
+                  color="gray.700"
+                  fontSize="sm"
+                  lineHeight="1.5"
+                  p={3}
+                  bg="gray.50"
+                  rounded="md"
+                  border="1px"
+                  borderColor="gray.200"
+                  fontWeight="medium"
+                  textAlign="right"
+                  maxW="60%"
+                >
+                  {escrow.note}
+                </Text>
+              </Flex>
+            )}
 
             <Flex width="100%" justify="space-between">
               <Text color={labelColor}>Total Amount:</Text>
@@ -764,7 +788,7 @@ const ConfirmDetails = () => {
                 </Badge>
               </HStack>
               <Text fontWeight="medium">
-                {formatAddress(escrow.userAddress)}
+                {formatAddress(escrow.creatorAddress)}
               </Text>
             </Flex>
 
@@ -826,58 +850,45 @@ const ConfirmDetails = () => {
           ) : (
             <Text color="red.500">No milestones defined</Text>
           )}
-
-          {Math.abs(totalMilestoneAmount - totalAmount) > 0.01 && (
-            <Alert status="error" mt={4} borderRadius="md">
-              <AlertIcon />
-              <AlertTitle fontSize="sm">
-                {totalMilestoneAmount > totalAmount
-                  ? `Milestone total exceeds escrow amount by ${(
-                      totalMilestoneAmount - totalAmount
-                    ).toFixed(2)} USDT`
-                  : `Milestone total is less than escrow amount by ${(
-                      totalAmount - totalMilestoneAmount
-                    ).toFixed(2)} USDT`}
-              </AlertTitle>
-            </Alert>
-          )}
         </CardBody>
       </Card>
 
       {/* Additional Information */}
-      <Card variant="outline" borderColor={borderColor} bg={cardBg}>
-        <CardHeader pb={2}>
-          <Heading size="sm">Additional Information</Heading>
-        </CardHeader>
-        <CardBody pt={0}>
-          <VStack align="start" spacing={3}>
-            <Flex width="100%" justify="space-between">
-              <Text color={labelColor}>Platform Fee:</Text>
-              <Text fontWeight="medium">
-                {(totalAmount * 0.01).toFixed(2)} USDT (1%)
-              </Text>
-            </Flex>
-
-            {isClientConfirming && (
+      {escrow.note === "" && (
+        <Card variant="outline" borderColor={borderColor} bg={cardBg}>
+          <CardHeader pb={2}>
+            <Heading size="sm">Additional Information</Heading>
+          </CardHeader>
+          <CardBody pt={0}>
+            <VStack align="start" spacing={3}>
               <Flex width="100%" justify="space-between">
-                <Text color={labelColor}>Total to Pay:</Text>
-                <Text fontWeight="bold" color="green.500">
-                  {(totalAmount * 1.01).toFixed(2)} USDT
+                <Text color={labelColor}>Platform Fee:</Text>
+                <Text fontWeight="medium">
+                  {(totalAmount * 0.01).toFixed(2)} USDT (1%)
                 </Text>
               </Flex>
-            )}
 
-            <Divider />
+              {isClientConfirming && (
+                <Flex width="100%" justify="space-between">
+                  <Text color={labelColor}>Total to Pay:</Text>
+                  <Text fontWeight="bold" color="green.500">
+                    {(totalAmount * 1.0).toFixed(2)} USDT
+                  </Text>
+                </Flex>
+              )}
 
-            <Text fontSize="sm" color="gray.500">
-              By {isClientConfirming ? "funding" : "confirming"} this escrow,
-              you agree to the terms and conditions of the .escrow platform.
-              Once {isClientConfirming ? "funded" : "confirmed"}, the escrow
-              will be active on the blockchain.
-            </Text>
-          </VStack>
-        </CardBody>
-      </Card>
+              <Divider />
+
+              <Text fontSize="sm" color="gray.500">
+                By {isClientConfirming ? "funding" : "confirming"} this escrow,
+                you agree to the terms and conditions of the .escrow platform.
+                Once {isClientConfirming ? "funded" : "confirmed"}, the escrow
+                will be active on the blockchain.
+              </Text>
+            </VStack>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Wallet Status */}
       <Card variant="outline" borderColor={borderColor} bg={cardBg}>
@@ -888,11 +899,11 @@ const ConfirmDetails = () => {
           <VStack align="start" spacing={3}>
             <Flex width="100%" justify="space-between" align="center">
               <Text color={labelColor}>Connected Account:</Text>
-              {escrow.userAddress ? (
+              {escrow.creatorAddress ? (
                 <HStack>
                   <Badge colorScheme="green">Connected</Badge>
                   <Text fontWeight="medium">
-                    {formatAddress(escrow.userAddress)}
+                    {formatAddress(escrow.creatorAddress)}
                   </Text>
                 </HStack>
               ) : (
@@ -918,6 +929,7 @@ const ConfirmDetails = () => {
       </Card>
 
       {/* Action Buttons */}
+
       {canConfirm && (
         <Flex justify="space-between" mt={6}>
           <Button
@@ -947,7 +959,35 @@ const ConfirmDetails = () => {
           </Button>
         </Flex>
       )}
+      {!canConfirm && escrow.status === "Cancelled" && (
+        <Flex justify="space-between" mt={6}>
+          <Button
+            colorScheme="red"
+            variant="outline"
+            size="lg"
+            onClick={handleRejectEscrow}
+            isLoading={isRejecting}
+            loadingText="Rejecting..."
+            disabled={isConfirming}
+            flex={1}
+            mr={4}
+          >
+            Dispute
+          </Button>
 
+          <Button
+            colorScheme="green"
+            size="lg"
+            onClick={handleConfirmEscrow}
+            isLoading={isConfirming}
+            loadingText="Accepting..."
+            disabled={isRejecting}
+            flex={1}
+          >
+            Accept
+          </Button>
+        </Flex>
+      )}
       {!canConfirm && escrow.status === "Active" && (
         <Alert status="success" borderRadius="md">
           <AlertIcon />
