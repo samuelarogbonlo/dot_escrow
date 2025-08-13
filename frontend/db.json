@@ -1,11 +1,39 @@
 {
   "escrows": [
-   
+    {
+      "id": "91c4",
+      "creatorAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "counterpartyAddress": "14fTUJGF6iek9ckHPM3uHUDrKF5ptn6sPEBgqVbRy6zYy7zy",
+      "counterpartyType": "worker",
+      "totalAmount": "1010",
+      "status": "Active",
+      "title": "Ty",
+      "description": "njnk",
+      "milestones": [
+        {
+          "id": "milestone-1755079055199-0",
+          "description": "Test Blockchain Escrow",
+          "amount": "1000",
+          "status": "Pending",
+          "deadline": 1755683830842
+        }
+      ],
+      "transactionHash": "0x856df6180307e17a20fd161580e6726a6868e945c516d638ac26bf8faf27b098",
+      "createdAt": 1755079065875
+    }
   ],
   "notify": [
-    
+    {
+      "id": "f06e",
+      "escrowId": "91c4",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow (ID: 91c4) has been created and funded by the client. You can now start working on the milestones.",
+      "type": "info",
+      "recipientAddress": "14fTUJGF6iek9ckHPM3uHUDrKF5ptn6sPEBgqVbRy6zYy7zy",
+      "timestamp": 1755079065892,
+      "read": false
+    }
   ],
-  "comment": [
-  
-  ]
+  "comment": []
 }
