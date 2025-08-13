@@ -1,5 +1,5 @@
-// contractABI/EscrowContract.ts
-// Complete structure to match the useEscrowContract hook functionality
+// contractABI/EscrowABI.ts
+// FIXED VERSION - Corrected BTreeMap type definitions
 
 export const ESCROW_CONTRACT_ABI = {
     source: {
@@ -1304,7 +1304,7 @@ export const ESCROW_CONTRACT_ABI = {
                                         type: 2
                                     }
                                 ],
-                                index:1,
+                                index: 1,
                                 name: "Err"
                             }
                         ]
@@ -1463,7 +1463,7 @@ export const ESCROW_CONTRACT_ABI = {
             id: 27,
             type: {
                 def: {
-                    primitive: "u32"
+                    primitive: "u64"
                 }
             }
         },
@@ -1484,34 +1484,24 @@ export const ESCROW_CONTRACT_ABI = {
                     composite: {
                         fields: [
                             {
-                                name: "milestone_id",
-                                type: 4,
-                                typeName: "String"
-                            },
-                            {
                                 name: "transaction_hash",
                                 type: 4,
                                 typeName: "String"
                             },
                             {
-                                name: "amount_released",
+                                name: "status",
                                 type: 4,
                                 typeName: "String"
                             },
                             {
-                                name: "receiver_address",
-                                type: 1,
-                                typeName: "AccountId"
-                            },
-                            {
-                                name: "released_at",
-                                type: 11,
-                                typeName: "u64"
+                                name: "message",
+                                type: 4,
+                                typeName: "String"
                             }
                         ]
                     }
                 },
-                path: ["MilestoneReleaseResult"]
+                path: ["ReleaseResponse"]
             }
         },
         {
@@ -1526,29 +1516,19 @@ export const ESCROW_CONTRACT_ABI = {
                                 typeName: "String"
                             },
                             {
-                                name: "milestone_id",
+                                name: "status",
                                 type: 4,
                                 typeName: "String"
                             },
                             {
-                                name: "filed_by",
-                                type: 1,
-                                typeName: "AccountId"
-                            },
-                            {
-                                name: "reason",
+                                name: "message",
                                 type: 4,
                                 typeName: "String"
-                            },
-                            {
-                                name: "created_at",
-                                type: 11,
-                                typeName: "u64"
                             }
                         ]
                     }
                 },
-                path: ["DisputeResult"]
+                path: ["DisputeResponse"]
             }
         },
         {
@@ -1563,29 +1543,19 @@ export const ESCROW_CONTRACT_ABI = {
                                 typeName: "String"
                             },
                             {
-                                name: "notification_type",
+                                name: "status",
                                 type: 4,
                                 typeName: "String"
                             },
                             {
-                                name: "recipient_address",
-                                type: 1,
-                                typeName: "AccountId"
-                            },
-                            {
                                 name: "message",
-                                type: 19,
-                                typeName: "Option<String>"
-                            },
-                            {
-                                name: "sent_at",
-                                type: 11,
-                                typeName: "u64"
+                                type: 4,
+                                typeName: "String"
                             }
                         ]
                     }
                 },
-                path: ["NotificationResult"]
+                path: ["NotificationResponse"]
             }
         },
         {
@@ -1605,19 +1575,14 @@ export const ESCROW_CONTRACT_ABI = {
                                 typeName: "String"
                             },
                             {
-                                name: "block_number",
-                                type: 19,
-                                typeName: "Option<String>"
-                            },
-                            {
                                 name: "confirmations",
-                                type: 12,
-                                typeName: "u32"
+                                type: 11,
+                                typeName: "u64"
                             },
                             {
-                                name: "gas_used",
-                                type: 19,
-                                typeName: "Option<String>"
+                                name: "block_number",
+                                type: 11,
+                                typeName: "u64"
                             }
                         ]
                     }
@@ -1645,98 +1610,20 @@ export const ESCROW_CONTRACT_ABI = {
             id: 34,
             type: {
                 def: {
-                    composite: {
-                        fields: [
-                            {
-                                name: "key",
-                                type: 4,
-                                typeName: "String"
-                            },
-                            {
-                                name: "value",
-                                type: 17,
-                                typeName: "EscrowData"
-                            }
-                        ]
+                    sequence: {
+                        type: 35
                     }
-                },
-                path: ["BTreeMapEntry"]
+                }
+            }
+        },
+        {
+            id: 35,
+            type: {
+                def: {
+                    tuple: [4, 17]
+                }
             }
         }
     ],
     version: "4"
-} as const;
-
-// Type definitions for better TypeScript support
-export interface EscrowData {
-    id: string;
-    creator: string;
-    worker: string;
-    client: string;
-    counterparty_address: string;
-    counterparty_type: string;
-    title: string;
-    description: string;
-    total_amount: string;
-    status: string;
-    created_at: number;
-    milestones: Milestone[];
-}
-
-export interface Milestone {
-    id: string;
-    description: string;
-    amount: string;
-    status: string;
-    deadline: number;
-}
-
-export interface MilestoneReleaseResult {
-    milestone_id: string;
-    transaction_hash: string;
-    amount_released: string;
-    receiver_address: string;
-    released_at: number;
-}
-
-export interface DisputeResult {
-    dispute_id: string;
-    milestone_id: string;
-    filed_by: string;
-    reason: string;
-    created_at: number;
-}
-
-export interface NotificationResult {
-    notification_id: string;
-    notification_type: string;
-    recipient_address: string;
-    message?: string;
-    sent_at: number;
-}
-
-export interface TransactionStatus {
-    transaction_hash: string;
-    status: string;
-    block_number?: string;
-    confirmations: number;
-    gas_used?: string;
-}
-
-export enum EscrowStatus {
-    Active = "Active",
-    Completed = "Completed",
-    Disputed = "Disputed",
-    Cancelled = "Cancelled",
-    Inactive = "Inactive",
-    Pending = "Pending",
-    Rejected = "Rejected"
-}
-
-export enum MilestoneStatus {
-    Pending = "Pending",
-    InProgress = "InProgress",
-    Completed = "Completed",
-    Disputed = "Disputed",
-    Overdue = "Overdue"
-}
+};

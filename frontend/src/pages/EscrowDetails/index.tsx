@@ -37,7 +37,6 @@ import {
   FiAlertTriangle,
   FiChevronLeft,
   FiThumbsUp,
-  FiFlag,
   FiCalendar,
   FiDollarSign,
   FiUser,
@@ -47,8 +46,6 @@ import { useWallet } from "../../hooks/useWalletContext";
 
 import CompleteMilestoneModal from "@/components/Modal/CompleteMilestoneModal";
 import ReleaseMilestoneModal from "@/components/Modal/ReleaseMilestoneModal";
-import CancelEscrowModal from "@/components/Modal/CancelEscrowModal";
-import DisputeMilestoneModal from "@/components/Modal/DisputeMilestoneModal";
 import Countdown from "@/components/CountDownTiming/CountDown";
 
 // Define types
@@ -85,8 +82,6 @@ const EscrowDetails = () => {
 
   // Modals
   const releaseModal = useDisclosure();
-  const disputeModal = useDisclosure();
-  const cancelModal = useDisclosure();
   const completeModal = useDisclosure();
 
   // State
@@ -96,7 +91,6 @@ const EscrowDetails = () => {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [disputeReason, setDisputeReason] = useState("");
   const [userRole, setUserRole] = useState<UserRole>("none");
 
   // Wallet connection
@@ -105,7 +99,6 @@ const EscrowDetails = () => {
     getEscrow,
     updateEscrowMilestoneStatus,
     releaseMilestone,
-    disputeMilestone,
     notifyCounterparty,
     isApiReady,
     isExtensionReady,
@@ -277,19 +270,22 @@ const EscrowDetails = () => {
     }
   };
 
-  const handleCompleteMilestone = async (note: string, files: Array<{name: string, url: string, type: string, size: number}>) => {
+  const handleCompleteMilestone = async (
+    note: string,
+    files: Array<{ name: string; url: string; type: string; size: number }>
+  ) => {
     console.log("handleCompleteMilestone triggered");
 
     if (!selectedMilestone) {
       return;
     }
 
-
     try {
       // Create milestone data with note and files
       const milestoneData = {
         ...selectedMilestone,
         completionNote: note,
+        completionDate: Date.now(),
         evidenceFiles: files,
       };
 
@@ -360,126 +356,6 @@ const EscrowDetails = () => {
     }
   };
 
-  // Handle milestone dispute
-  const handleDisputeMilestone = async (note: string) => {
-    if (!selectedMilestone) return;
-
-    try {
-      // Uncomment to use real API when ready
-      const result = await disputeMilestone(
-        escrow?.id || "",
-        selectedMilestone.id,
-        disputeReason
-      );
-      if (result.success) {
-        toast({
-          title: "Dispute filed",
-          description: "The milestone has been marked as disputed",
-          status: "info",
-          duration: 5000,
-        });
-      } else {
-        toast({
-          title: "Dispute failed",
-          description: result.error || "Failed to dispute milestone",
-          status: "error",
-          duration: 5000,
-        });
-      }
-
-      // Update local state for demonstration
-      if (escrow) {
-        const updatedMilestones = escrow.milestones.map((m) =>
-          m.id === selectedMilestone.id
-            ? { ...m, status: "Disputed" as MilestoneStatus }
-            : m
-        );
-
-        setEscrow({
-          ...escrow,
-          milestones: updatedMilestones,
-        });
-      }
-
-      disputeModal.onClose();
-      setDisputeReason("");
-    } catch (err) {
-      console.error("Error disputing milestone:", err);
-      toast({
-        title: "Dispute failed",
-        description: "An error occurred while trying to dispute the milestone",
-        status: "error",
-        duration: 5000,
-      });
-    }
-  };
-
-  // Handle escrow cancellation
-const handleCancelEscrow = async (note: string) => {
-  if (!escrow?.id) {
-    return;
-  }
-
-  try {
-    // Check if escrow is active and send notification accordingly
-    if (escrow.status === "Active") {
-      // Determine the recipient address (the other party)
-      const recipientAddress = selectedAccount?.address === escrow.creatorAddress 
-        ? escrow.counterpartyAddress 
-        : escrow.creatorAddress;
-
-      const escrowId = escrow.id;
-      const notificationType = "Escrow Cancelled" as const;
-      const message = `The escrow "${escrow.title}" has been cancelled. Reason: ${note}`;
-      const type = "warning" as const;
-
-      try {
-        const notifyResult = await notifyCounterparty(
-          escrowId,
-          notificationType,
-          recipientAddress,
-          message,
-          type
-        );
-        console.log("Cancellation notification sent:", notifyResult);
-      } catch (notifyError) {
-        console.warn("Failed to send cancellation notification:", notifyError);
-        // Don't fail the entire process if notification fails
-      }
-    } else {
-      // If escrow is not active, delete the notice (you might need to implement this function)
-      // This assumes you have a function to delete notifications
-      console.log("Escrow is not active, deleting notice if exists");
-      // You might want to call a deleteNotification function here if available
-      // await deleteNotification(escrow.id);
-    }
-
-    toast({
-      title: "Escrow cancelled",
-      description: "The escrow has been cancelled successfully",
-      status: "info",
-      duration: 5000,
-    });
-
-    // Update local state for demonstration
-    if (escrow) {
-      setEscrow({
-        ...escrow,
-        status: "Cancelled" as EscrowStatus,
-      });
-    }
-
-    cancelModal.onClose();
-  } catch (err) {
-    console.error("Error cancelling escrow:", err);
-    toast({
-      title: "Cancellation failed",
-      description: "An error occurred while trying to cancel the escrow",
-      status: "error",
-      duration: 5000,
-    });
-  }
-};
 
   const handleStartMilestone = async (milestone: any) => {
     if (!milestone) return;
@@ -579,10 +455,10 @@ const handleCancelEscrow = async (note: string) => {
             <FiAlertTriangle style={{ marginRight: "4px" }} /> Disputed
           </Badge>
         );
-      case "Cancelled":
+      case "Rejected":
         return (
           <Badge colorScheme="red" display="flex" alignItems="center">
-            <FiXCircle style={{ marginRight: "4px" }} /> Cancelled
+            <FiXCircle style={{ marginRight: "4px" }} /> Rejected
           </Badge>
         );
       case "Pending":
@@ -612,13 +488,6 @@ const handleCancelEscrow = async (note: string) => {
     return true;
   };
 
-  // Determine if dispute is allowed
-  const canDisputeMilestone = (milestone: Milestone) => {
-    if (userRole === "none") return false;
-    if (milestone.status !== "Completed") return false;
-    if (escrow?.status !== "Active") return false;
-    return true;
-  };
   // Determine if escrow can start is allowed
   const canStartMilestone = (milestone: Milestone) => {
     if (userRole === "none") return false;
@@ -690,26 +559,6 @@ const handleCancelEscrow = async (note: string) => {
             {getStatusBadge(escrow.status)}
           </HStack>
         </Box>
-
-        {/* Actions */}
-        {escrow.status === "Active" && (
-          <HStack spacing={2}>
-            {/* Cancel Escrow Button - available to both parties */}
-            {(userRole === "client" || userRole === "worker") && (
-              <Button
-                colorScheme="red"
-                variant="outline"
-                size="sm"
-                leftIcon={<FiXCircle />}
-                onClick={() => {
-                  cancelModal.onOpen();
-                }}
-              >
-                Cancel Escrow
-              </Button>
-            )}
-          </HStack>
-        )}
       </Flex>
 
       {/* Main content grid */}
@@ -754,7 +603,7 @@ const handleCancelEscrow = async (note: string) => {
                     <HStack>
                       <FiDollarSign />
                       <Text fontWeight="medium">
-                        Total Amount: {" "}
+                        Total Amount:{" "}
                         {escrow.milestones.reduce(
                           (sum, milestone) => sum + Number(milestone.amount),
                           0
@@ -781,7 +630,7 @@ const handleCancelEscrow = async (note: string) => {
               </Grid>
             </CardBody>
           </Card>
-
+          68
           {/* Milestones Card */}
           <Card variant="outline" bg={cardBg}>
             <CardHeader pb={2}>
@@ -793,6 +642,7 @@ const handleCancelEscrow = async (note: string) => {
                   <Card
                     key={milestone.id}
                     variant="outline"
+                    cursor="pointer"
                     onClick={() => handleMilestoneNavigation(milestone)}
                     borderColor={
                       milestone.status === "Active" ? "blue.500" : borderColor
@@ -801,6 +651,7 @@ const handleCancelEscrow = async (note: string) => {
                       boxShadow: "md",
                       borderColor:
                         milestone.status === "Active" ? "blue.500" : "gray.300",
+                      backgroundColor: "gray.100",
                     }}
                     transition="all 0.2s"
                   >
@@ -869,22 +720,6 @@ const handleCancelEscrow = async (note: string) => {
                             </Button>
                           )}
 
-                          {/* Dispute Button - for both parties and active milestones */}
-                          {canDisputeMilestone(milestone) && (
-                            <Button
-                              size="xs"
-                              colorScheme="orange"
-                              variant="outline"
-                              leftIcon={<FiFlag />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedMilestone(milestone);
-                                disputeModal.onOpen();
-                              }}
-                            >
-                              Dispute
-                            </Button>
-                          )}
                           {/* Start Button - for both parties to start mileston when escrow status is active */}
                           {canStartMilestone(milestone) && (
                             <Button
@@ -966,7 +801,13 @@ const handleCancelEscrow = async (note: string) => {
                 <GridItem>
                   <Stat bg={statBg} p={3} borderRadius="md">
                     <StatLabel>Total Amount</StatLabel>
-                    <StatNumber>{escrow.milestones.reduce((sum, milestone) => sum + Number(milestone.amount), 0)} USDT</StatNumber>
+                    <StatNumber>
+                      {escrow.milestones.reduce(
+                        (sum, milestone) => sum + Number(milestone.amount),
+                        0
+                      )}{" "}
+                      USDT
+                    </StatNumber>
                     <StatHelpText>Locked in escrow</StatHelpText>
                   </Stat>
                 </GridItem>
@@ -1103,22 +944,6 @@ const handleCancelEscrow = async (note: string) => {
         onClose={releaseModal.onClose}
         milestone={selectedMilestone}
         onConfirm={handleReleaseMilestone}
-      />
-
-      <CancelEscrowModal
-        isOpen={cancelModal.isOpen}
-        onClose={cancelModal.onClose}
-        onConfirm={handleCancelEscrow}
-        escrow={escrow}
-      />
-
-      <DisputeMilestoneModal
-        isOpen={disputeModal.isOpen}
-        onClose={disputeModal.onClose}
-        milestone={selectedMilestone}
-        onConfirm={() => {
-          handleDisputeMilestone;
-        }}
       />
 
       <CompleteMilestoneModal

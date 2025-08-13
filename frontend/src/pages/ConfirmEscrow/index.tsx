@@ -167,25 +167,25 @@ const ConfirmDetails = () => {
         to: ESCROW_CONTRACT_ADDRESS,
       });
 
+      const actualRecipient = ESCROW_CONTRACT_ADDRESS;
+
       // Check if user has sufficient balance
       if (!checkSufficientBalance(amount)) {
         throw new Error(`Insufficient USDC balance. Required: ${amount} USDC`);
       }
 
       // Use the transferToken function from the USDC hook
-      const transferResult = await transferToken(
-        ESCROW_CONTRACT_ADDRESS,
-        amount
-      );
+      const transferResult = await transferToken(actualRecipient, amount);
 
       if (!transferResult.success) {
         throw new Error(transferResult.error || "USDC transfer failed");
       }
 
-      // Generate a transaction hash (in real implementation, this would come from the blockchain)
-      const txHash = `0x${Date.now().toString(16)}${Math.random()
-        .toString(16)
-        .slice(2, 10)}`;
+      const txHash = transferResult.txHash;
+
+      if (!txHash) {
+        throw new Error("Transaction hash not available");
+      }
 
       console.log("[executeUSDCTransfer] USDC transfer successful:", txHash);
       return { success: true, txHash };
@@ -258,8 +258,8 @@ const ConfirmDetails = () => {
 
     // If client is confirming (worker created escrow), show payment modal
     if (isClientConfirming) {
-      openModal();
       checkApprovalStatus();
+      openModal();
       return;
     }
 
@@ -302,32 +302,33 @@ const ConfirmDetails = () => {
     if (!escrow || !id || !selectedAccount) return;
 
     setIsConfirming(true);
-    setApprovalState("confirming");
+
+    let executeTransaction;
+    let transactionHash;
+    let result;
 
     try {
-      const creatorAddress = selectedAccount.address;
-
-      // Calculate amount with 1% markup
-      const adjustedAmount = (Number(escrow.totalAmount) * 1.01).toString();
+      const creatorAddress = escrow.counterpartyAddress;
+      const amount = escrow.totalAmount;
 
       // Execute USDC transfer
-      const executeTransaction = await executeUSDCTransfer(
-        adjustedAmount,
-        creatorAddress
-      );
+      executeTransaction = await executeUSDCTransfer(amount, creatorAddress);
 
       if (executeTransaction.success) {
-        const transactionHash = await checkTransactionStatus(
+        console.log("transaction through");
+        transactionHash = await checkTransactionStatus(
           executeTransaction.txHash
         );
 
         if (transactionHash.success === true) {
           // Update escrow status to Active
-          const result = await updateEscrowStatus(
+          result = await updateEscrowStatus(
             id,
             "Active",
             executeTransaction.txHash
           );
+
+          console.log("escrow update passed");
 
           if (result.success) {
             toast({
@@ -545,7 +546,7 @@ const ConfirmDetails = () => {
                   <Flex justify="space-between" w="full">
                     <Text>Total to Pay:</Text>
                     <Text fontWeight="bold" color="green.500">
-                      {(Number(escrow.totalAmount) * 1.01).toFixed(2)} USDC
+                      {escrow.totalAmount} USDC
                     </Text>
                   </Flex>
                   <Flex justify="space-between" w="full">

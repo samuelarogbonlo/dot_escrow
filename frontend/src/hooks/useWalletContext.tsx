@@ -71,7 +71,10 @@ interface WalletContextType {
   disputeMilestone: (
     escrowId: string,
     milestoneId: string,
-    reason: string
+    reason: string,
+    filedBy: string,
+    filedByRole: string,
+    status: string,
   ) => Promise<any>;
 }
 

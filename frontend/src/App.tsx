@@ -25,7 +25,7 @@ const App = () => {
           <Route path="confirm_escrow/:id" element={<ConfirmDetails />} />
           <Route path="escrow/:id" element={<EscrowDetails />} />
           <Route path="transactions" element={<Transactions />} />
-          <Route path="disputes" element={<DisputeResolution />} />
+          <Route path="disputes/:id" element={<DisputeResolution />} />
           <Route path="milestone" element={<MilestoneTracking />} />
           <Route path="milestone_detail/:escrowId/:milestoneId" element={<MilestoneDetail />} />
           <Route path="settings" element={<Settings />} />

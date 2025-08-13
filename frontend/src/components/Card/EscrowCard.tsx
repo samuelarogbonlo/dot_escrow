@@ -39,6 +39,8 @@ const EscrowCard = ({ escrow }: { escrow: EscrowData }) => {
         return "blue";
       case "Disputed":
         return "red";
+      case "Rejected":
+        return "red";
       case "Cancelled":
         return "gray";
       default:

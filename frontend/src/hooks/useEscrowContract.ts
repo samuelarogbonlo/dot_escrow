@@ -27,7 +27,7 @@ export interface EscrowData {
   title: string;
   description: string;
   totalAmount: string;
-  status: 'Active' | 'Completed' | 'Disputed' | 'Cancelled' | 'Inactive' | 'Pending' | 'Rejected';
+  status: 'Active' | 'Completed' | 'Disputed' | 'Inactive' | 'Pending' | 'Rejected';
   createdAt: number;
   milestones: {
     id: string;
@@ -45,6 +45,7 @@ interface UseEscrowContractOptions {
 }
 
 export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContractOptions) => {
+
   // Get USDT contract functions
 
   // Helper to get signer with test mode support
@@ -254,17 +255,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return { success: false, error: signerResult.error };
       }
 
-      console.log('Creating escrow with:', {
-        creatorAddress,
-        counterpartyAddress,
-        counterpartyType,
-        status,
-        title,
-        description,
-        totalAmount,
-        milestones,
-        transactionHash
-      });
 
       const escrowFormData = {
         creatorAddress,
@@ -286,7 +276,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         },
       });
 
-      console.log('Escrow creation response:', response.data);
 
       const id = response.data?.id;
 
@@ -522,7 +511,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
   }, [api, account, getAccountSigner]);
 
   // Dispute a milestone
-  const disputeMilestone = useCallback(async (escrowId: string, milestoneId: string, reason: string) => {
+  const disputeMilestone = useCallback(async (escrowId: string, milestoneId: string, reason: string, filedBy: string, filedByRole: string, status: string) => {
     if (!api || !account) {
       return { success: false, error: 'API or account not available' };
     }
@@ -534,28 +523,59 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return { success: false, error: signerResult.error };
       }
 
-      console.log('Disputing milestone:', { escrowId, milestoneId, reason, account: account.address });
+      // First, get the current escrow data to preserve all milestones
+      const currentEscrowResponse = await axios.get(`http://localhost:3006/escrows/${escrowId}`);
 
-      const disputeData = {
-        escrowId,
-        milestoneId,
-        reason,
-        filedBy: account.address,
-        disputeId: `dispute-${Date.now()}`,
-        createdAt: Date.now()
+      if (!currentEscrowResponse.data) {
+        return { success: false, error: 'Failed to fetch current escrow data' };
       }
 
-      const response = await axios.post(`http://localhost:3006/escrows`,
-        disputeData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const currentEscrow = currentEscrowResponse.data;
+
+      // Find the milestone to dispute
+      const milestoneIndex = currentEscrow.milestones?.findIndex((m: any) => m.id === milestoneId);
+      if (milestoneIndex === -1) {
+        return { success: false, error: 'Milestone not found' };
+      }
+
+      // Create the dispute object to add to the milestone
+      const dispute = {
+        reason,
+        filedBy,
+        filedByRole,
+        status,
+        createdAt: Date.now()
+      };
+
+      // Update the milestone with dispute data
+      const updatedMilestones = [...(currentEscrow.milestones || [])];
+      updatedMilestones[milestoneIndex] = {
+        ...updatedMilestones[milestoneIndex],
+        dispute: dispute
+      };
+
+      // Update the escrow with the disputed milestone
+      const updateEscrowResponse = await axios.put(`http://localhost:3006/escrows/${escrowId}`, {
+        ...currentEscrow,
+        milestones: updatedMilestones,
+        lastUpdated: Date.now()
       });
 
-      return {
-        success: true,
-        disputeId: `dispute-${Date.now()}`
-      };
+      if (!updateEscrowResponse.data) {
+        return { success: false, error: 'Failed to update escrow with dispute' };
+      }
+
+      const id = updateEscrowResponse.data.id;
+
+      if (id) {
+        return {
+          success: true,
+          escrowId: id,
+          message: 'Milestone disputed successfully'
+        };
+      } else {
+        return { success: false, error: 'Failed to dispute milestone - no escrow ID returned' };
+      }
     } catch (error) {
       const errorMessage = error instanceof Error
         ? error.message
@@ -632,6 +652,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
   }, [api, account, getAccountSigner]);
 
+
   return {
     createEscrow,
     getEscrow,
@@ -641,6 +662,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     notifyCounterparty,
     updateEscrowStatus,
     updateEscrowMilestoneStatus,
-    checkTransactionStatus
+    checkTransactionStatus,
   };
 };

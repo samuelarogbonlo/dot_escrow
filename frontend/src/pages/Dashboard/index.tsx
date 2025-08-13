@@ -33,6 +33,7 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [escrows, setEscrows] = useState<EscrowData[]>([]);
 
+
   // Use the PSP22 hook
 
   const navigate = useNavigate();

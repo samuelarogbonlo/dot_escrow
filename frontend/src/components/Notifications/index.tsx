@@ -49,7 +49,6 @@ const Notifications = () => {
 
   const toggleNotifications = () => setIsOpen(!isOpen);
 
-
   useOutsideClick({
     ref: notificationRef,
     handler: () => setIsOpen(false),
@@ -91,11 +90,10 @@ const Notifications = () => {
     }
 
     if (lowerNotificationType.includes("milestone ready")) {
-      navigate(`/milestone_detail/${escrowId}`);
+      navigate(`/milestone`);
     }
-    
-    if (lowerNotificationType.includes("milestone ready")) {
-      navigate(`/milestone_detail/${escrowId}`);
+    if (lowerNotificationType.includes("milestone disputed")) {
+      navigate(`/milestone`);
     }
 
     setIsOpen(isOpen);
@@ -113,12 +111,9 @@ const Notifications = () => {
       );
 
       // Make API call to update read status on backend
-      const response = await axios.patch(
-        `http://localhost:3006/notify/${id}`,
-        {
-          read: true,
-        }
-      );
+      const response = await axios.patch(`http://localhost:3006/notify/${id}`, {
+        read: true,
+      });
 
       if (!response.data.success) {
         // If API call fails, revert the optimistic update
@@ -151,15 +146,6 @@ const Notifications = () => {
           ? error.message
           : "Failed to mark notification as read";
       console.error("Error marking notification as read:", errorMessage);
-
-      // Optionally show a toast notification about the error
-      // toast({
-      //   title: 'Error',
-      //   description: 'Failed to mark notification as read',
-      //   status: 'error',
-      //   duration: 3000,
-      //   isClosable: true,
-      // });
     }
   };
 
@@ -201,7 +187,12 @@ const Notifications = () => {
   const unreadCount = notifications.filter((n) => n.read === false).length;
 
   return (
-    <Box position="relative" height="fit-content" zIndex="10" ref={notificationRef}>
+    <Box
+      position="relative"
+      height="fit-content"
+      zIndex="10"
+      ref={notificationRef}
+    >
       <Flex direction="column" height="100%" position="relative">
         {/* Notification bell */}
         <Box position="relative">
@@ -263,6 +254,11 @@ const Notifications = () => {
                   <Box
                     key={notification.id}
                     p={4}
+                    cursor="pointer"
+                    _hover={{
+                      boxShadow: "md",
+                      backgroundColor: "gray.100",
+                    }}
                     opacity={notification.read ? 0.7 : 1}
                     onClick={() =>
                       handleEscrowDetails(

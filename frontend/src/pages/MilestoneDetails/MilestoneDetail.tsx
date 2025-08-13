@@ -363,6 +363,7 @@ const MilestoneDetail = () => {
       const milestone = {
         ...milestoneData,
         completionNote: note,
+        completionDate: Date.now(),
         evidenceFiles: files,
       };
 
@@ -434,18 +435,63 @@ const MilestoneDetail = () => {
 
   // Handle milestone dispute
   const handleDisputeMilestone = async (disputeReason: string) => {
-    if (!milestoneData) return;
+    if (!milestoneData || !selectedAccount || !escrow) return;
 
     try {
+      // Determine the role of the person filing the dispute based on their wallet address
+      let filedByRole: string;
+
+      if (selectedAccount.address === escrow.counterpartyAddress) {
+        // The person filing is the counterparty
+        filedByRole = escrow.counterpartyType; // This will be either "worker" or "client"
+      } else if (selectedAccount.address === escrow.creatorAddress) {
+        // The person filing is the creator
+        // If counterparty is "worker", then creator is "client", and vice versa
+        filedByRole =
+          escrow.counterpartyType === "worker" ? "client" : "worker";
+      } else {
+        // This shouldn't happen if permissions are correct, but handle it
+        filedByRole = "unknown";
+        console.warn(
+          "Selected account doesn't match either party in the escrow"
+        );
+      }
+
+
       const result = await disputeMilestone(
-        escrow?.id || "",
-        milestoneData?.id,
-        disputeReason
+        escrow.id,
+        milestoneData.id,
+        disputeReason,
+        selectedAccount.address, // The address filing the dispute
+        filedByRole, // The role determined above
+        "Open" // Status
       );
+
       if (result.success) {
+        console.log("send notification now")
+        // Determine recipient for notification (the other party)
+        const recipientAddress =
+          selectedAccount.address === escrow.creatorAddress
+            ? escrow.counterpartyAddress
+            : escrow.creatorAddress;
+
+        // Notify the other party
+        try {
+          await notifyCounterparty(
+            escrow.id,
+            "Milestone Disputed",
+            recipientAddress,
+            `A milestone has been disputed. Reason: ${disputeReason}`,
+            "warning"
+          );
+        } catch (notifyError) {
+          console.warn("Failed to send dispute notification:", notifyError);
+          // Don't fail the dispute if notification fails
+        }
+
         toast({
           title: "Dispute filed",
-          description: "The milestone has been marked as disputed",
+          description: `The milestone has been disputed as ${filedByRole}`,
           status: "info",
           duration: 5000,
         });
@@ -453,7 +499,7 @@ const MilestoneDetail = () => {
         // Update local state
         if (escrow) {
           const updatedMilestones = escrow.milestones.map((m) =>
-            m.id === milestoneData?.id
+            m.id === milestoneData.id
               ? { ...m, status: "Dispute" as MilestoneStatus }
               : m
           );
@@ -819,7 +865,6 @@ const MilestoneDetail = () => {
                     Dispute
                   </Button>
                 )}
-
               </VStack>
             </CardBody>
           </Card>
