@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Text, HStack, Badge, useColorModeValue } from "@chakra-ui/react";
 
 interface CountdownProps {
-  targetDate: Date | string;
+  targetDate: number | string
   size?: "sm" | "md" | "lg";
 }
 

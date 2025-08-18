@@ -228,7 +228,7 @@ const DisputeResolution = () => {
   const toast = useToast();
   
   // Wallet connection
-  const { selectedAccount } = useWallet();
+  const { selectedAccount, disputeMilestone, isApiReady, isExtensionReady } = useWallet();
   
   // States
   const [dispute, setDispute] = useState<Dispute | null>(null);
@@ -256,20 +256,26 @@ const DisputeResolution = () => {
   // Fetch dispute data
   useEffect(() => {
     const fetchDisputeData = async () => {
+      if (!isApiReady || !isExtensionReady || !selectedAccount) {
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       setError(null);
       
       try {
-        // In a real app, we would fetch this from the API
-        // For this example, we'll use mock data with a slight delay
-        setTimeout(() => {
-          if (id) {
-            setDispute(mockDispute);
-          } else {
-            setError('Dispute ID not found');
-          }
-          setIsLoading(false);
-        }, 1000);
+        // TODO: In a real implementation, we would fetch dispute data from the smart contract
+        // For now, we'll use mock data but add smart contract integration later
+        if (id) {
+          // Simulate smart contract data fetch
+          console.log('[DisputeResolution] Fetching dispute data for ID:', id);
+          console.log('[DisputeResolution] Smart contract ready:', { isApiReady, isExtensionReady, selectedAccount: !!selectedAccount });
+          setDispute(mockDispute);
+        } else {
+          setError('Dispute ID not found');
+        }
+        setIsLoading(false);
       } catch (err) {
         console.error('Error fetching dispute data:', err);
         setError('Failed to load dispute data. Please try again.');
@@ -278,7 +284,7 @@ const DisputeResolution = () => {
     };
     
     fetchDisputeData();
-  }, [id]);
+  }, [id, isApiReady, isExtensionReady, selectedAccount]);
   
   // Determine user role (client, worker, or none)
   const userRole = selectedAccount ? (
@@ -444,33 +450,105 @@ const DisputeResolution = () => {
   };
   
   // Handle request mediator
-  const handleRequestMediator = () => {
-    if (!dispute) return;
+  const handleRequestMediator = async () => {
+    if (!dispute || !selectedAccount) return;
     
-    const updatedDispute = { ...dispute };
-    updatedDispute.status = 'mediation';
-    
-    // Add system message about mediation
-    updatedDispute.messages.push({
-      id: `m${updatedDispute.messages.length + 1}`,
-      sender: 'system',
-      text: 'A mediator has been requested and will review this dispute.',
-      timestamp: new Date(),
-      attachments: [],
-      isSystemMessage: true,
-    });
-    
-    setDispute(updatedDispute);
-    escalateModal.onClose();
-    
-    toast({
-      title: 'Mediator requested',
-      description: 'A mediator will be assigned to help resolve this dispute.',
-      status: 'info',
-      duration: 5000,
-    });
+    try {
+      // Call smart contract to escalate dispute to mediation
+      const result = await disputeMilestone(
+        dispute.escrowId,
+        dispute.milestoneId,
+        'Dispute escalated to mediation',
+        selectedAccount.address,
+        userRole,
+        'mediation'
+      );
+      
+      if (result.success) {
+        const updatedDispute = { ...dispute };
+        updatedDispute.status = 'mediation';
+        
+        // Add system message about mediation
+        updatedDispute.messages.push({
+          id: `m${updatedDispute.messages.length + 1}`,
+          sender: 'system',
+          text: 'A mediator has been requested and will review this dispute.',
+          timestamp: new Date(),
+          attachments: [],
+          isSystemMessage: true,
+        });
+        
+        setDispute(updatedDispute);
+        escalateModal.onClose();
+        
+        toast({
+          title: 'Mediator requested',
+          description: 'A mediator will be assigned to help resolve this dispute.',
+          status: 'info',
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: 'Failed to request mediator',
+          description: result.error || 'Please try again',
+          status: 'error',
+          duration: 5000,
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting mediator:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to request mediator. Please try again.',
+        status: 'error',
+        duration: 5000,
+      });
+    }
   };
   
+  // Create new dispute through smart contract
+  const createDispute = async (escrowId: string, milestoneId: string, reason: string) => {
+    if (!selectedAccount) return;
+    
+    try {
+      const result = await disputeMilestone(
+        escrowId,
+        milestoneId,
+        reason,
+        selectedAccount.address,
+        userRole,
+        'submitted'
+      );
+      
+      if (result.success) {
+        toast({
+          title: 'Dispute created',
+          description: 'Your dispute has been submitted successfully.',
+          status: 'success',
+          duration: 5000,
+        });
+        return result;
+      } else {
+        toast({
+          title: 'Failed to create dispute',
+          description: result.error || 'Please try again',
+          status: 'error',
+          duration: 5000,
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error('Error creating dispute:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create dispute. Please try again.',
+        status: 'error',
+        duration: 5000,
+      });
+      return null;
+    }
+  };
+
   // Get dispute status badge
   const getStatusBadge = (status: DisputeStatus) => {
     switch(status) {
@@ -525,6 +603,14 @@ const DisputeResolution = () => {
         </Flex>
         <Text color="gray.500">Case #{dispute.id} • Opened on {formatDate(dispute.createdAt)}</Text>
       </Box>
+      
+      {/* Smart Contract Integration Note */}
+      <Alert status="info" mb={4}>
+        <AlertIcon />
+        <AlertDescription>
+          This page is integrated with the smart contract for dispute resolution. Disputes are created and managed on-chain.
+        </AlertDescription>
+      </Alert>
       
       {/* Dispute overview card */}
       <Card borderRadius="md" mb={6} variant="outline">

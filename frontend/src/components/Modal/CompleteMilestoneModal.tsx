@@ -38,9 +38,9 @@ interface Milestone {
   id: string;
   description: string;
   amount: string;
-  deadline: Date;
+  deadline: number;
   status: any;
-  completionDate?: Date;
+  completionDate?: number;
 }
 
 interface UploadedFile {

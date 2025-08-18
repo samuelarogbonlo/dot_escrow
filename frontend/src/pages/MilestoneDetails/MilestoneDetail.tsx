@@ -285,11 +285,14 @@ const MilestoneDetail = () => {
     try {
       const result = await releaseMilestone(escrow?.id || "", milestoneData.id);
       if (result.success) {
-        const escrowId = result.escrowId;
+        const escrowId = escrow?.id || '';
         const notificationType = "Payment Released" as const;
         const message = `Payment of ${milestoneData.amount} USDC has been released to your wallet.`;
         const type = "success" as const;
-        const recipientAddress = result.recipientAddress;
+        // Get recipient address from escrow data (the worker who completed the milestone)
+        const recipientAddress = escrow?.counterpartyType === 'worker' 
+          ? escrow.counterpartyAddress 
+          : escrow?.creatorAddress || '';
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -378,7 +381,10 @@ const MilestoneDetail = () => {
         const notificationType = "Milestone Ready" as const;
         const message = `A Milestone has been completed and ready for review.`;
         const type = "info" as const;
-        const recipientAddress = result.escrow.userAddress;
+        // Get recipient address from escrow data
+              const recipientAddress = escrow?.creatorAddress === selectedAccount?.address
+        ? escrow?.counterpartyAddress || ''
+        : escrow?.creatorAddress || '';
 
         try {
           const notifyResult = await notifyCounterparty(

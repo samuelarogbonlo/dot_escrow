@@ -409,8 +409,9 @@ const CreateEscrow = () => {
         description: m.description,
         amount: m.amount,
         status: "Pending",
-        deadline:
-          m.deadline?.getTime() || Date.now() + 30 * 24 * 60 * 60 * 1000,
+        deadline: m.deadline
+          ? Math.floor(m.deadline.getTime() / 1000) // Convert Date to seconds
+          : Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000), // 30 days from now in seconds
       }));
 
       let result;
@@ -451,7 +452,7 @@ const CreateEscrow = () => {
             );
 
             successMessage = `Escrow created and funded with ${adjustedAmount} USDC. Worker can now start work.`;
-            notificationMessage = `A new escrow (ID: ${result.escrowId}) has been created and funded by the client. You can now start working on the milestones.`;
+            notificationMessage = `A new escrow has been created and funded with ${adjustedAmount} USDC. Worker can now start work.`;
           }
         }
       } else {
@@ -470,7 +471,7 @@ const CreateEscrow = () => {
         );
 
         successMessage = `Escrow proposal sent to client. Waiting for client approval and funding.`;
-        notificationMessage = `A worker has created an escrow proposal (ID: ${result.escrowId}) for you. Please review and approve to fund the escrow.`;
+        notificationMessage = `A worker has created an escrow proposal for you. Please review and approve to fund the escrow.`;
       }
 
       if (result.success) {
@@ -484,7 +485,7 @@ const CreateEscrow = () => {
           await notifyCounterparty(
             result.escrowId,
             notificationType,
-            result.recipientAddress,
+            counterpartyAddress,
             notificationMessage,
             "info"
           );
@@ -501,7 +502,8 @@ const CreateEscrow = () => {
         });
 
         closeModal();
-        navigate(`/escrow/${result.escrowId}`);
+        // Navigate to dashboard since we don't have a specific escrow ID yet
+        navigate(`/`);
       } else {
         throw new Error("Failed to create escrow");
       }

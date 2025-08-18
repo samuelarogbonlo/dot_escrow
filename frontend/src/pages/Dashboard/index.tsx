@@ -45,41 +45,55 @@ const Dashboard = () => {
   }, [isExtensionReady, selectedAccount, navigate]);
 
   // Memoize the fetchEscrows function to prevent unnecessary re-renders
-  const fetchEscrows = useCallback(async () => {
-    if (!isExtensionReady || !selectedAccount) return;
+ const fetchEscrows = useCallback(async () => {
+  if (!isExtensionReady || !selectedAccount) return;
 
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      const result = await listEscrows();
-      if (result.success) {
+  try {
+    const result = await listEscrows();
+    console.log('[Dashboard] listEscrows result:', result);
+    
+    if (result.success && result.escrows) {
+      // Check if escrows is an array
+      if (Array.isArray(result.escrows)) {
         // Filter escrows to show:
         // 1. All escrows where user is the creator (userAddress matches)
         // 2. Escrows where user is the counterparty AND status is "Active"
         const filteredEscrows = result.escrows.filter((e: any) => {
           const isUserCreator = e.creatorAddress === selectedAccount.address;
-          const isUserCounterparty =
-            e.counterpartyAddress === selectedAccount.address;
+          const isUserCounterparty = e.counterpartyAddress === selectedAccount.address;
           const isActive = e.status === "Active";
 
           // Show if user created it, OR if user is counterparty and it's active
           return isUserCreator || (isUserCounterparty && isActive);
         });
 
-        
-
         setEscrows(filteredEscrows);
       } else {
-        setError(result.error);
+        console.warn('[Dashboard] Escrows is not an array:', result.escrows);
+        setError('Invalid data format received from contract');
+        setEscrows([]);
       }
-    } catch (err) {
-      setError("Failed to load escrows. Please try again.");
-      console.error(err);
-    } finally {
-      setIsLoading(false);
+    } else {
+      // Handle the case where the contract call failed
+      if (result.error) {
+        console.error('[Dashboard] Contract error:', result.error);
+        setError(`Contract error: ${result.error}`);
+      } else {
+        setError('No escrows data received');
+      }
+      setEscrows([]);
     }
-  }, [isExtensionReady, selectedAccount, listEscrows]);
+  } catch (err) {
+    setError("Failed to load escrows. Please try again.");
+    console.error('[Dashboard] Error in fetchEscrows:', err);
+    setEscrows([]);
+  } finally {
+    setIsLoading(false);
+  }
+}, [isExtensionReady, selectedAccount, listEscrows]);
 
   // Use the memoized function in useEffect
   useEffect(() => {

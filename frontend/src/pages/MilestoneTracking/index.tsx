@@ -63,9 +63,9 @@ interface Milestone {
   escrowTitle: string;
   description: string;
   amount: string;
-  deadline: Date;
+  deadline: Date | number;
   status: MilestoneStatus;
-  completionDate: Date;
+  completionDate: Date | number;
   evidenceFiles?: EvidenceFile;
   notes?: string;
   isLate?: boolean;
@@ -105,10 +105,15 @@ const MilestoneTracking = () => {
         const result = await listEscrows();
 
         if (result.success) {
+          console.log('[MilestoneTracking] Raw result:', result);
+          
           // Filter escrows to show:
           // 1. All escrows where user is the creator (userAddress matches)
           // 2. Escrows where user is the counterparty AND status is "InProgress"
-          const filteredEscrows = result.escrows.filter((e: any) => {
+          const escrows = result.data || result.escrows || [];
+          console.log('[MilestoneTracking] Escrows found:', escrows.length);
+          
+          const filteredEscrows = escrows.filter((e: any) => {
             const isUserCreator = e.creatorAddress === selectedAccount.address;
             const isUserCounterparty =
               e.counterpartyAddress === selectedAccount.address;
@@ -116,16 +121,21 @@ const MilestoneTracking = () => {
             // Show if user created it, OR if user is counterparty and it's active
             return isUserCreator || isUserCounterparty;
           });
+          
+          console.log('[MilestoneTracking] Filtered escrows:', filteredEscrows.length);
           // Extract all milestones from filtered escrows
-          const allMilestones = filteredEscrows.flatMap((escrow: any) =>
-            escrow.milestones.map((milestone: any) => ({
+          const allMilestones = filteredEscrows.flatMap((escrow: any) => {
+            // Ensure milestones exist and is an array
+            const milestones = Array.isArray(escrow.milestones) ? escrow.milestones : [];
+            
+            return milestones.map((milestone: any) => ({
               ...milestone,
               // Add escrow context to each milestone for reference
-              escrowId: escrow.id,
-              escrowTitle: escrow.title,
-              escrowDescription: escrow.description,
-            }))
-          );
+              escrowId: escrow.id || '',
+              escrowTitle: escrow.title || 'Untitled Escrow',
+              escrowDescription: escrow.description || '',
+            }));
+          });
 
           setMilestones(allMilestones);
           setIsLoading(false);
@@ -182,6 +192,17 @@ const MilestoneTracking = () => {
     setFilteredMilestones(result);
   }, [milestones, searchQuery, statusFilter, sortField, sortDirection]);
 
+  // Calculate if milestone is late
+  const calculateIsLate = (milestone: Milestone) => {
+    if (milestone.status === "Completed" || !milestone.deadline) return false;
+    
+    const deadline = typeof milestone.deadline === "number" 
+      ? milestone.deadline 
+      : milestone.deadline.getTime();
+    
+    return deadline < Date.now();
+  };
+
   // Calculate statistics
   const stats = {
     total: milestones.length,
@@ -189,7 +210,7 @@ const MilestoneTracking = () => {
     active: milestones.filter((m) => m.status === "InProgress").length,
     pending: milestones.filter((m) => m.status === "Pending").length,
     disputed: milestones.filter((m) => m.status === "Disputed").length,
-    late: milestones.filter((m) => m.isLate).length,
+    late: milestones.filter((m) => calculateIsLate(m)).length,
   };
 
   // Handle sort change
@@ -204,20 +225,21 @@ const MilestoneTracking = () => {
     }
   };
 
-  // Format date
-  const formatDate = (timestamp: Date) => {
+  // Format date - handle both Date objects and timestamps
+  const formatDate = (timestamp: Date | number) => {
     if (!timestamp) return "N/A";
 
+    const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
-    }).format(timestamp);
+    }).format(date);
   };
 
-  const getRelativeTime = (timestamp: Date, isPast = false) => {
+  const getRelativeTime = (timestamp: Date | number, isPast = false) => {
     const now = new Date();
-    const date = new Date(timestamp);
+    const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
     const diffTime = Math.abs(date.getTime() - now.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -470,7 +492,11 @@ const MilestoneTracking = () => {
             key={milestone.id}
             variant="outline"
             borderColor={
-              milestone.status === "InProgress" ? "blue.500" : borderColor
+              milestone.status === "InProgress" 
+                ? calculateIsLate(milestone) 
+                  ? "orange.500" 
+                  : "blue.500" 
+                : borderColor
             }
             _hover={{ boxShadow: "md" }}
             transition="all 0.2s"
@@ -488,7 +514,7 @@ const MilestoneTracking = () => {
                         <Heading size="sm" mr={2}>
                           {milestone.description}
                         </Heading>
-                        {getStatusBadge(milestone.status, milestone.isLate)}
+                        {getStatusBadge(milestone.status, calculateIsLate(milestone))}
                       </HStack>
                       <Text fontWeight="bold">{milestone.amount} USDT</Text>
                     </Flex>
@@ -518,7 +544,7 @@ const MilestoneTracking = () => {
                         <Text
                           fontSize="sm"
                           color={
-                            milestone.isLate
+                            calculateIsLate(milestone)
                               ? "red.500"
                               : (typeof milestone.deadline === "number"
                                   ? milestone.deadline

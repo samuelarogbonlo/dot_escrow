@@ -57,9 +57,9 @@ interface Milestone {
   id: string;
   description: string;
   amount: string;
-  deadline: Date;
+  deadline: number;
   status: MilestoneStatus;
-  completionDate?: Date;
+  completionDate?: number;
 }
 
 interface Escrow {
@@ -71,7 +71,7 @@ interface Escrow {
   description: string;
   totalAmount: string;
   status: EscrowStatus;
-  createdAt: Date;
+  createdAt: number;
   milestones: Milestone[];
 }
 
@@ -147,6 +147,7 @@ const EscrowDetails = () => {
     fetchEscrow();
   }, [id, isApiReady, isExtensionReady, selectedAccount, getEscrow]);
 
+
   // Determine user role (client, worker, or none)
   useEffect(() => {
     if (escrow && selectedAccount) {
@@ -197,11 +198,14 @@ const EscrowDetails = () => {
         selectedMilestone.id
       );
       if (result.success) {
-        const escrowId = result.escrowId;
+        const escrowId = escrow?.id || '';
         const notificationType = "Payment Released" as const; // Use a valid notification type
         const message = `Payment of ${selectedMilestone.amount} USDC has been released to your wallet.`;
         const type = "success" as const;
-        const recipientAddress = result.recipientAddress;
+        // Get recipient address from escrow data (the worker who completed the milestone)
+        const recipientAddress = escrow?.counterpartyType === 'worker' 
+          ? escrow.counterpartyAddress 
+          : escrow?.creatorAddress || '';
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -284,9 +288,7 @@ const EscrowDetails = () => {
       // Create milestone data with note and files
       const milestoneData = {
         ...selectedMilestone,
-        completionNote: note,
-        completionDate: Date.now(),
-        evidenceFiles: files,
+        completionDate: Date.now(),       
       };
 
       const result = await updateEscrowMilestoneStatus(
@@ -300,7 +302,10 @@ const EscrowDetails = () => {
         const notificationType = "Milestone Ready" as const;
         const message = `A Milestone has been completed and ready for review.`;
         const type = "info" as const;
-        const recipientAddress = result.escrow.creatorAddress;
+        // Get recipient address from escrow data
+        const recipientAddress = escrow?.creatorAddress === selectedAccount?.address 
+          ? escrow?.counterpartyAddress || ''
+          : escrow?.creatorAddress || '';
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -406,13 +411,26 @@ const EscrowDetails = () => {
   };
 
   // Format date
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(date);
-  };
+ const formatDate = (timestampString: string | number) => {
+  // Handle both string and number inputs
+  let timestamp: number;
+  
+  if (typeof timestampString === 'string') {
+    // Remove commas and convert to number
+    timestamp = parseInt(timestampString.replace(/,/g, ''), 10);
+  } else {
+    timestamp = timestampString;
+  }
+  
+  // Convert seconds to milliseconds for JavaScript Date
+  const date = new Date(timestamp * 1000);
+  
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+};
 
   // Format address
   const formatAddress = (address: string) => {
