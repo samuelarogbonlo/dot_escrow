@@ -46,7 +46,7 @@ const MilestoneDetails: React.FC<MilestoneDetailsProps> = ({
   const [milestoneForm, setMilestoneForm] = useState<MilestoneFormState>({
     description: '',
     amount: '',
-    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default to 1 week from now
+    deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now
   });
 
   const getBgColor = useColorModeValue('gray.50', 'gray.700');
@@ -92,7 +92,7 @@ const MilestoneDetails: React.FC<MilestoneDetailsProps> = ({
     setMilestoneForm({
       description: '',
       amount: '',
-      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
   };
 

@@ -251,7 +251,7 @@ const EscrowDetails = () => {
             ? {
                 ...m,
                 status: "Completed" as MilestoneStatus,
-                completionDate: new Date(),
+                completionDate: Date.now(),
               }
             : m
         );
@@ -323,15 +323,15 @@ const EscrowDetails = () => {
         }
 
         if (escrow) {
-          const updatedMilestones = escrow.milestones.map((m) =>
-            m.id === selectedMilestone.id
-              ? {
-                  ...m,
-                  status: "Completed" as MilestoneStatus,
-                  completionDate: new Date(),
-                }
-              : m
-          );
+                  const updatedMilestones = escrow.milestones.map((m) =>
+          m.id === selectedMilestone.id
+            ? {
+                ...m,
+                status: "Completed" as MilestoneStatus,
+                completionDate: Date.now(),
+              }
+            : m
+        );
 
           toast({
             title: "Milestone completed",
@@ -422,15 +422,38 @@ const EscrowDetails = () => {
     timestamp = timestampString;
   }
   
+  // Validate timestamp - if it's 0, undefined, or invalid, return a default message
+  if (!timestamp || timestamp <= 0 || isNaN(timestamp)) {
+    return "Date not set";
+  }
+  
   // Convert seconds to milliseconds for JavaScript Date
   const date = new Date(timestamp * 1000);
+  
+  // Validate the resulting date
+  if (isNaN(date.getTime()) || date.getTime() <= 0) {
+    return "Invalid date";
+  }
   
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   }).format(date);
-};
+ };
+
+  // Utility function to check if a timestamp is valid
+  const isValidTimestamp = (timestamp: string | number): boolean => {
+    let ts: number;
+    
+    if (typeof timestamp === 'string') {
+      ts = parseInt(timestamp.replace(/,/g, ''), 10);
+    } else {
+      ts = timestamp;
+    }
+    
+    return ts > 0 && !isNaN(ts);
+  };
 
   // Format address
   const formatAddress = (address: string) => {
@@ -648,7 +671,7 @@ const EscrowDetails = () => {
               </Grid>
             </CardBody>
           </Card>
-          68
+          
           {/* Milestones Card */}
           <Card variant="outline" bg={cardBg}>
             <CardHeader pb={2}>

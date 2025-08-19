@@ -86,7 +86,7 @@ const defaultFormData: EscrowFormData = {
       description: "",
       amount: "",
       status: "",
-      deadline: null,
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now
     },
   ],
 };
@@ -176,6 +176,8 @@ const CreateEscrow = () => {
           errors.counterpartyAddress = "Counterparty address is required";
         } else if (formData.counterpartyAddress.length < 48) {
           errors.counterpartyAddress = "Invalid Polkadot address";
+        } else if (formData.counterpartyAddress.toLowerCase() === selectedAccount?.address.toLowerCase()) {
+          errors.counterpartyAddress = "Counterparty address cannot be the same as your address";
         }
         break;
 
@@ -209,6 +211,10 @@ const CreateEscrow = () => {
           }
           if (!milestone.deadline) {
             errors[`milestone_${index}_deadline`] = "Deadline is required";
+          } else if (!(milestone.deadline instanceof Date) || isNaN(milestone.deadline.getTime())) {
+            errors[`milestone_${index}_deadline`] = "Invalid deadline date";
+          } else if (milestone.deadline.getTime() <= Date.now()) {
+            errors[`milestone_${index}_deadline`] = "Deadline must be in the future";
           }
         });
         break;
@@ -404,15 +410,25 @@ const CreateEscrow = () => {
       const counterpartyAddress = formData.counterpartyAddress;
       const counterpartyType = formData.counterpartyType;
 
-      const milestones = formData.milestones.map((m, index) => ({
-        id: `milestone-${Date.now()}-${index}`,
-        description: m.description,
-        amount: m.amount,
-        status: "Pending",
-        deadline: m.deadline
-          ? Math.floor(m.deadline.getTime() / 1000) // Convert Date to seconds
-          : Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000), // 30 days from now in seconds
-      }));
+      const milestones = formData.milestones.map((m, index) => {
+        // Ensure we have a valid deadline
+        let deadlineTimestamp: number;
+        
+        if (m.deadline && m.deadline instanceof Date && !isNaN(m.deadline.getTime())) {
+          deadlineTimestamp = Math.floor(m.deadline.getTime() / 1000); // Convert Date to seconds
+        } else {
+          // If no valid deadline, use current time + 30 days
+          deadlineTimestamp = Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000);
+        }
+        
+        return {
+          id: `milestone-${Date.now()}-${index}`,
+          description: m.description,
+          amount: m.amount,
+          status: "Pending",
+          deadline: deadlineTimestamp,
+        };
+      });
 
       let result;
       let successMessage = "";

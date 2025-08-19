@@ -1,8 +1,32 @@
-import { ApiPromise } from '@polkadot/api';
 import { ContractPromise } from '@polkadot/api-contract';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
-import type { Signer } from '@polkadot/api/types';
 import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/EscrowABI';
+
+/**
+ * Utility function to safely convert timestamps
+ * @param timestamp - The timestamp to convert
+ * @param defaultValue - Default value if timestamp is invalid
+ * @returns A valid timestamp in milliseconds
+ */
+const safeTimestampConversion = (timestamp: any, defaultValue: number = Date.now()): number => {
+  console.log('[safeTimestampConversion] Input:', { timestamp, defaultValue, type: typeof timestamp });
+  
+  if (!timestamp || timestamp === '0' || timestamp === 0) {
+    console.log('[safeTimestampConversion] Using default value:', defaultValue);
+    return defaultValue;
+  }
+  
+  const parsed = parseInt(timestamp);
+  console.log('[safeTimestampConversion] Parsed:', parsed);
+  
+  if (isNaN(parsed) || parsed <= 0) {
+    console.log('[safeTimestampConversion] Invalid parsed value, using default:', defaultValue);
+    return defaultValue;
+  }
+  
+  console.log('[safeTimestampConversion] Returning valid timestamp:', parsed);
+  return parsed;
+};
 
 /**
  * Smart contract integration for the escrow contract.
@@ -47,7 +71,7 @@ const processContractEvents = (result: any, contract: any) => {
   if (result.events) {
     console.log('[Contract] Processing transaction events...');
 
-    result.events.forEach(({ event }, index) => {
+    result.events.forEach(({ event }: { event: any }, index: number) => {
       console.log(`[Contract] Event ${index}:`, event.section, event.method);
 
       if (event.section === 'contracts' && event.method === 'ContractEmitted') {
@@ -411,14 +435,14 @@ export const getEscrowContract = async (
             description: data.description,
             totalAmount: data.totalAmount || data.total_amount,
             status: data.status,
-            createdAt: parseInt(data.createdAt || data.created_at || '0'),
+            createdAt: safeTimestampConversion(data.createdAt || data.created_at, Math.floor(Date.now() / 1000)),
             milestones: data.milestones?.map((m: any) => ({
               id: m.id,
               description: m.description,
               amount: m.amount,
               status: m.status,
-              deadline: parseInt(m.deadline || '0'),
-              completedAt: m.completedAt ? parseInt(m.completedAt) : undefined,
+              deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
+              completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
               disputeReason: m.disputeReason || m.dispute_reason,
               disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
             })) || [],
@@ -485,8 +509,8 @@ export const listEscrowsContract = async (
 
     // Create proper WeightV2 for gasLimit
     const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 4000000000,  // 2 billion ref time units (more for list operations)
-      proofSize: 1256 * 1024 // 128KB proof size (more for list operations)
+      refTime: 5000000000,  // 2 billion ref time units (more for list operations)
+      proofSize: 2256 * 1024 // 128KB proof size (more for list operations)
     });
 
     // Call the list_escrows function (read-only query)
@@ -522,14 +546,14 @@ export const listEscrowsContract = async (
             description: escrowData.description,
             totalAmount: escrowData.totalAmount || escrowData.total_amount,
             status: escrowData.status,
-            createdAt: parseInt(escrowData.createdAt || escrowData.created_at || '0'),
+            createdAt: safeTimestampConversion(escrowData.createdAt || escrowData.created_at, Math.floor(Date.now() / 1000)),
             milestones: escrowData.milestones?.map((m: any) => ({
               id: m.id,
               description: m.description,
               amount: m.amount,
               status: m.status,
-              deadline: parseInt(m.deadline || '0'),
-              completedAt: m.completedAt ? parseInt(m.completedAt) : undefined,
+              deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
+              completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
               disputeReason: m.disputeReason || m.dispute_reason,
               disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
             })) || [],

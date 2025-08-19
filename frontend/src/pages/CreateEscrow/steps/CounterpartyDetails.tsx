@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   VStack,
   FormControl,
@@ -51,13 +51,61 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
   const textColor = useColorModeValue('gray.600', 'gray.300');
   const addressBoxBg = useColorModeValue('gray.50', 'gray.700');
 
+  // Validation function for counterparty address
+  const validateCounterpartyAddress = (address: string): string | null => {
+    if (!address.trim()) {
+      return 'Address is required';
+    }
+    
+    if (address.toLowerCase() === userAddress.toLowerCase()) {
+      return 'Counterparty address cannot be the same as your address';
+    }
+    
+    // Add additional Polkadot address format validation if needed
+    // This is a basic check - you might want to add more sophisticated validation
+    if (!/^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(address)) {
+      return 'Please enter a valid Polkadot address';
+    }
+    
+    return null;
+  };
+
+  // Validate on address change
+  useEffect(() => {
+    if (formData.counterpartyAddress) {
+      const validationError = validateCounterpartyAddress(formData.counterpartyAddress);
+      
+      // You'll need to implement a way to update errors in your parent component
+      // This assumes you have a function to update errors
+      if (validationError) {
+        // Signal error to parent component
+        // updateErrors?.({ counterpartyAddress: validationError });
+      } else {
+        // Clear error if validation passes
+        // updateErrors?.({ counterpartyAddress: '' });
+      }
+    }
+  }, [formData.counterpartyAddress, userAddress]);
+
   const handleTypeChange = (value: 'client' | 'worker') => {
     updateFormData({ counterpartyType: value });
   };
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    updateFormData({ counterpartyAddress: e.target.value });
+    const newAddress = e.target.value;
+    updateFormData({ counterpartyAddress: newAddress });
+    
+    // Immediate validation feedback
+    const validationError = validateCounterpartyAddress(newAddress);
+    if (validationError) {
+      // You'll need to implement error updating in your parent component
+      console.warn('Validation error:', validationError);
+    }
   };
+
+  // Check if current address matches user address
+  const hasAddressConflict = formData.counterpartyAddress && 
+    formData.counterpartyAddress.toLowerCase() === userAddress.toLowerCase();
 
   return (
     <VStack spacing={6} align="stretch">
@@ -123,7 +171,10 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
         </Flex>
       </Box>
 
-      <FormControl isRequired isInvalid={!!errors.counterpartyAddress}>
+      <FormControl 
+        isRequired 
+        isInvalid={Boolean(errors.counterpartyAddress) || Boolean(hasAddressConflict)}
+      >
         <FormLabel>
           {formData.counterpartyType === 'worker'
             ? 'Worker Address'
@@ -135,6 +186,7 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
             value={formData.counterpartyAddress}
             onChange={handleAddressChange}
             fontFamily="monospace"
+            borderColor={hasAddressConflict ? 'red.300' : undefined}
           />
           <InputRightElement width="4.5rem">
             <Button
@@ -150,12 +202,17 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
         <FormHelperText>
           Enter the Polkadot address of the {formData.counterpartyType === 'worker' ? 'worker' : 'client'}
         </FormHelperText>
-        {errors.counterpartyAddress && (
-          <FormErrorMessage>{errors.counterpartyAddress}</FormErrorMessage>
+        {(errors.counterpartyAddress || hasAddressConflict) && (
+          <FormErrorMessage>
+            {hasAddressConflict 
+              ? 'Counterparty address cannot be the same as your address'
+              : errors.counterpartyAddress
+            }
+          </FormErrorMessage>
         )}
       </FormControl>
     </VStack>
   );
 };
 
-export default CounterpartyDetails; 
+export default CounterpartyDetails;
