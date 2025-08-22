@@ -253,7 +253,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     description: string,
     totalAmount: string,
     milestones: { id: string, description: string, amount: string, status: 'Pending' | 'InProgress' | 'Completed' | 'Disputed' | 'Overdue', deadline: number }[],
-    transactionHash?: string | undefined// Optional transaction hash from USDT transfer
+    transactionHash?: string | undefined // Optional transaction hash from USDT transfer
   ) => {
     if (!api || !account) {
       return { success: false, error: 'API or account not available' };
@@ -265,10 +265,14 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       console.log('[useEscrowContract] Creating escrow via smart contract...');
 
       // Call the smart contract to create escrow
+      // Always use the selected account address as creator to ensure consistency
+      const actualCreatorAddress = account.address;
+      console.log('[useEscrowContract] Using creator address:', actualCreatorAddress, 'vs passed:', creatorAddress);
+      
       const result: EscrowContractCall = await createEscrowContract(
         api,
         account,
-        creatorAddress,
+        actualCreatorAddress, // Use account.address instead of passed creatorAddress
         counterpartyAddress,
         counterpartyType,
         status,
@@ -353,7 +357,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       const result: EscrowContractCall = await updateEscrowStatusContract(
         api,
         account,
-        signerResult.signer,
         escrowId,
         newStatus,
         transactionHash
@@ -482,7 +485,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       const result: EscrowContractCall = await releaseMilestoneContract(
         api,
         account,
-        signerResult.signer,
         escrowId,
         milestoneId
       );
@@ -526,7 +528,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       const result: EscrowContractCall = await disputeMilestoneContract(
         api,
         account,
-        signerResult.signer,
         escrowId,
         milestoneId,
         reason

@@ -200,7 +200,7 @@ const EscrowDetails = () => {
       if (result.success) {
         const escrowId = escrow?.id || '';
         const notificationType = "Payment Released" as const; // Use a valid notification type
-        const message = `Payment of ${selectedMilestone.amount} USDC has been released to your wallet.`;
+        const message = `Payment of ${selectedMilestone.amount} USDT has been released to your wallet.`;
         const type = "success" as const;
         // Get recipient address from escrow data (the worker who completed the milestone)
         const recipientAddress = escrow?.counterpartyType === 'worker' 
@@ -427,8 +427,8 @@ const EscrowDetails = () => {
     return "Date not set";
   }
   
-  // Convert seconds to milliseconds for JavaScript Date
-  const date = new Date(timestamp * 1000);
+  // The smart contract returns timestamps in milliseconds, so use directly
+  const date = new Date(timestamp);
   
   // Validate the resulting date
   if (isNaN(date.getTime()) || date.getTime() <= 0) {

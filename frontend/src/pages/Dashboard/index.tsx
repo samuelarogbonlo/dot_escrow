@@ -58,18 +58,37 @@ const Dashboard = () => {
     if (result.success && result.escrows) {
       // Check if escrows is an array
       if (Array.isArray(result.escrows)) {
+        console.log('[Dashboard] Raw escrows from contract:', result.escrows);
+        console.log('[Dashboard] Current user address:', selectedAccount.address);
+        
         // Filter escrows to show:
         // 1. All escrows where user is the creator (userAddress matches)
         // 2. Escrows where user is the counterparty AND status is "Active"
         const filteredEscrows = result.escrows.filter((e: any) => {
+          console.log('[Dashboard] Checking escrow:', {
+            escrow: e,
+            creatorAddress: e.creatorAddress,
+            counterpartyAddress: e.counterpartyAddress,
+            status: e.status,
+            userAddress: selectedAccount.address
+          });
+          
           const isUserCreator = e.creatorAddress === selectedAccount.address;
           const isUserCounterparty = e.counterpartyAddress === selectedAccount.address;
           const isActive = e.status === "Active";
+
+          console.log('[Dashboard] Filter check:', {
+            isUserCreator,
+            isUserCounterparty,
+            isActive,
+            shouldShow: isUserCreator || (isUserCounterparty && isActive)
+          });
 
           // Show if user created it, OR if user is counterparty and it's active
           return isUserCreator || (isUserCounterparty && isActive);
         });
 
+        console.log('[Dashboard] Filtered escrows:', filteredEscrows);
         setEscrows(filteredEscrows);
       } else {
         console.warn('[Dashboard] Escrows is not an array:', result.escrows);

@@ -265,7 +265,6 @@ mod escrow_contract {
         #[ink(message)]
         pub fn create_escrow(
             &mut self,
-            user_address: AccountId,
             counterparty_address: AccountId,
             counterparty_type: String,
             status: String,
@@ -280,9 +279,7 @@ mod escrow_contract {
             }
 
             let caller = self.env().caller();
-            if caller != user_address {
-                return Err(EscrowError::Unauthorized);
-            }
+            // Use caller as the user_address instead of requiring it as parameter
 
             // Generate unique escrow ID
             self.escrow_counter += 1;
@@ -294,7 +291,7 @@ mod escrow_contract {
             // Create escrow data
             let escrow_data = EscrowData {
                 id: escrow_id.clone(),
-                creator_address: user_address,
+                creator_address: caller,
                 counterparty_address,
                 counterparty_type: counterparty_type.clone(),
                 title: title.clone(),
@@ -310,9 +307,9 @@ mod escrow_contract {
             self.escrows.insert(&escrow_id, &escrow_data);
 
             // Update user escrows
-            let mut user_escrow_list = self.user_escrows.get(&user_address).unwrap_or_default();
+            let mut user_escrow_list = self.user_escrows.get(&caller).unwrap_or_default();
             user_escrow_list.push(escrow_id.clone());
-            self.user_escrows.insert(&user_address, &user_escrow_list);
+            self.user_escrows.insert(&caller, &user_escrow_list);
 
             // Also add to counterparty's list
             let mut counterparty_escrow_list = self.user_escrows.get(&counterparty_address).unwrap_or_default();
@@ -322,7 +319,7 @@ mod escrow_contract {
             // Emit event
             self.env().emit_event(EscrowCreated {
                 escrow_id: escrow_id.clone(),
-                creator: user_address,
+                creator: caller,
                 counterparty: counterparty_address,
                 counterparty_type,
                 title,
@@ -442,14 +439,20 @@ mod escrow_contract {
 
         /// List escrows for caller
         #[ink(message)]
-        pub fn list_escrows(&self) -> Vec<EscrowData> {
+        pub fn list_escrows(&self) -> Result<Vec<EscrowData>, EscrowError> {
+            if self.paused {
+                return Err(EscrowError::ContractPaused);
+            }
+
             let caller = self.env().caller();
             let escrow_ids = self.user_escrows.get(&caller).unwrap_or_default();
             
-            escrow_ids
+            let escrows: Vec<EscrowData> = escrow_ids
                 .iter()
                 .filter_map(|id| self.escrows.get(id))
-                .collect()
+                .collect();
+
+            Ok(escrows)
         }
 
         /// Release milestone funds
@@ -703,6 +706,23 @@ mod escrow_contract {
             }
             self.fee_bps = new_fee_bps;
             Ok(())
+        }
+
+        /// Update the PSP22 token contract address used for payments
+        #[ink(message)]
+        pub fn set_usdt_token(&mut self, new_token_address: AccountId) -> Result<(), EscrowError> {
+            let caller = self.env().caller();
+            if caller != self.owner {
+                return Err(EscrowError::Unauthorized);
+            }
+            self.usdt_token = new_token_address;
+            Ok(())
+        }
+
+        /// Get the current PSP22 token contract address
+        #[ink(message)]
+        pub fn get_usdt_token(&self) -> AccountId {
+            self.usdt_token
         }
 
         /// Getter functions
