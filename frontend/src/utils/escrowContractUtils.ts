@@ -11,9 +11,9 @@ import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/Esc
 const safeTimestampConversion = (timestamp: any, defaultValue: number = Date.now()): number => {
   console.log('[safeTimestampConversion] Input:', { timestamp, defaultValue, type: typeof timestamp });
   
-  // Only reject null, undefined, empty string, or explicitly "0"
-  if (timestamp == null || timestamp === '' || timestamp === '0' || timestamp === 0) {
-    console.log('[safeTimestampConversion] Using default value for null/empty:', defaultValue);
+  // Only reject null, undefined, empty string, or explicitly "0", or invalid low values
+  if (timestamp == null || timestamp === '' || timestamp === '0' || timestamp === 0 || timestamp === 1) {
+    console.log('[safeTimestampConversion] Using default value for null/empty/invalid:', defaultValue);
     return defaultValue;
   }
   
@@ -70,6 +70,93 @@ export interface EscrowContractCall {
   transactionHash?: string;
 }
 
+/**
+ * Dynamically estimate gas for a contract call
+ * @param api - The Polkadot API instance
+ * @param contract - The contract instance
+ * @param methodName - The name of the contract method to call
+ * @param account - The account making the call
+ * @param args - Arguments for the contract method
+ * @returns Estimated gas limit with buffer
+ */
+const estimateGas = async (
+  api: any,
+  contract: ContractPromise,
+  methodName: string,
+  account: InjectedAccountWithMeta,
+  args: any[]
+): Promise<any> => {
+  try {
+    console.log(`[GasEstimation] Estimating gas for ${methodName}`);
+    
+    // Get the contract query method
+    const query = contract.query[methodName];
+    if (!query) {
+      console.warn(`[GasEstimation] Method ${methodName} not found, using default gas`);
+      return api.registry.createType('WeightV2', {
+        refTime: 5000000000,
+        proofSize: 512 * 1024
+      });
+    }
+
+    // Perform a dry run to estimate gas
+    const { gasRequired, result, output } = await query(
+      account.address,
+      {
+        gasLimit: api.registry.createType('WeightV2', {
+          refTime: 100000000000, // Use high limit for estimation
+          proofSize: 5 * 1024 * 1024 // 5MB for estimation
+        }),
+        storageDepositLimit: null,
+      },
+      ...args
+    );
+
+    console.log(`[GasEstimation] Query result:`, {
+      gasRequired: gasRequired.toHuman(),
+      resultOk: result.isOk,
+      output: output?.toHuman()
+    });
+
+    if (result.isErr) {
+      console.warn(`[GasEstimation] Dry run failed, using safe defaults`);
+      return api.registry.createType('WeightV2', {
+        refTime: 10000000000,
+        proofSize: 1024 * 1024
+      });
+    }
+
+    // Add 25% buffer to the estimated gas
+    const refTimeBuffer = gasRequired.refTime.toBn().muln(125).divn(100);
+    const proofSizeBuffer = gasRequired.proofSize.toBn().muln(125).divn(100);
+
+    // Ensure minimum gas limits
+    const minRefTime = 1000000000; // 1 second minimum
+    const minProofSize = 256 * 1024; // 256KB minimum
+
+    const finalGasLimit = api.registry.createType('WeightV2', {
+      refTime: refTimeBuffer.lt(api.registry.createType('u64', minRefTime)) 
+        ? minRefTime 
+        : refTimeBuffer.toString(),
+      proofSize: proofSizeBuffer.lt(api.registry.createType('u64', minProofSize))
+        ? minProofSize
+        : proofSizeBuffer.toString()
+    });
+
+    console.log(`[GasEstimation] Final gas limit with buffer:`, finalGasLimit.toHuman());
+    return finalGasLimit;
+
+  } catch (error) {
+    console.error(`[GasEstimation] Error estimating gas:`, error);
+    // Return safe default on error
+    return api.registry.createType('WeightV2', {
+      refTime: 10000000000,
+      proofSize: 1024 * 1024
+    });
+  }
+};
+
+
 export interface Milestone {
   id: string;
   description: string;
@@ -92,95 +179,6 @@ export interface EscrowData {
   transactionHash?: string;
 }
 
-
-
-const processContractEvents = (result: any, _contract: any) => {
-  let escrowId: string | null = null;
-
-  if (result.events) {
-    console.log('[Contract] Processing transaction events...');
-
-    result.events.forEach(({ event }: { event: any }, index: number) => {
-      console.log(`[Contract] Event ${index}:`, event.section, event.method);
-
-      if (event.section === 'contracts' && event.method === 'ContractEmitted') {
-        const [contractAddress] = event.data;
-
-        console.log('[Contract] Contract event found!');
-        console.log('[Contract] Contract address:', contractAddress.toString());
-
-        // Check if this event is from our escrow contract
-        if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
-          console.log('[Contract] Event is from our escrow contract!');
-
-          // Get the raw event record which contains topics
-          const eventRecord = result.events[index];
-          console.log('[Contract] Full event record:', eventRecord);
-
-          // Extract topics if available
-          if (eventRecord.topics && eventRecord.topics.length > 0) {
-            console.log('[Contract] Event topics found:', eventRecord.topics.length);
-
-            // For ink! events, try to decode the topics as simple strings
-            // The smart contract generates IDs like "escrow_1", "escrow_2", etc.
-            if (eventRecord.topics.length >= 2) {
-              const escrowIdTopic = eventRecord.topics[1];
-              console.log('[Contract] Raw escrow_id topic:', escrowIdTopic.toHex());
-
-              try {
-                // Simple approach: decode hex to ASCII string
-                const escrowIdHex = escrowIdTopic.toHex();
-                const hexWithoutPrefix = escrowIdHex.replace('0x', '');
-
-                // Decode hex to string
-                let decodedString = '';
-                for (let i = 0; i < hexWithoutPrefix.length; i += 2) {
-                  const byte = parseInt(hexWithoutPrefix.substr(i, 2), 16);
-                  if (byte === 0) break; // Stop at null terminator
-                  if (byte >= 32 && byte <= 126) { // Only printable ASCII characters
-                    decodedString += String.fromCharCode(byte);
-                  }
-                }
-
-                console.log('[Contract] Decoded escrow ID:', decodedString);
-
-                // Validate it looks like an escrow ID (escrow_N format)
-                if (decodedString && decodedString.match(/^escrow_\d+$/)) {
-                  escrowId = decodedString;
-                  console.log('[Contract] ✅ Successfully extracted escrow_id:', escrowId);
-                }
-
-              } catch (decodeError) {
-                console.error('[Contract] Failed to decode escrow_id from topic:', decodeError);
-              }
-            }
-          }
-
-          // If we couldn't extract from topics, try alternative approaches
-          if (!escrowId) {
-            console.log('[Contract] Could not extract escrowId from topics, trying alternatives...');
-
-            // Alternative 1: Use transaction hash as escrowId (reliable fallback)
-            if (result.txHash) {
-              escrowId = `tx_${result.txHash.toHex().slice(2, 10)}`; // Use first 8 chars of tx hash
-              console.log('[Contract] Using transaction hash as escrowId:', escrowId);
-            }
-
-            // Alternative 2: Generate a predictable ID based on block and timestamp
-            if (!escrowId && result.status?.isFinalized) {
-              const blockHash = result.status.asFinalized.toHex();
-              escrowId = `block_${blockHash.slice(2, 10)}`;
-              console.log('[Contract] Using block hash as escrowId:', escrowId);
-            }
-          }
-        }
-      }
-    });
-  }
-
-  console.log('[Contract] Final extracted escrowId:', escrowId);
-  return escrowId;
-};
 /**
  * Create a new escrow using the smart contract - Simplified Method 1 Only
  */
@@ -205,7 +203,7 @@ export const createEscrowContract = async (
       description: milestone.description,
       amount: milestone.amount,
       status: milestone.status,
-      deadline: milestone.deadline,
+      deadline: safeTimestampConversion(milestone.deadline, Date.now() + 86400000), // Default to 24 hours from now
       completed_at: null,
       dispute_reason: null,
       dispute_filed_by: null
@@ -216,11 +214,6 @@ export const createEscrowContract = async (
     api.setSigner(injector.signer);
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
-
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 3000000000,
-      proofSize: 256 * 1024
-    });
 
     let userAccountId: any;
     let counterpartyAccountId: any;
@@ -247,6 +240,15 @@ export const createEscrowContract = async (
       contractMilestones,
       transactionHash
     });
+
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'createEscrow',
+      account,
+      [counterpartyAccountId, counterpartyType, status, title, description, totalAmount, contractMilestones, transactionHash]
+    );
 
     const tx = contract.tx.createEscrow(
       {
@@ -304,14 +306,13 @@ export const createEscrowContract = async (
           );
           console.log('[Contract] Contract events:', contractEvents);
 
-          // Try both methods to extract escrow ID
-          let escrowId: any = processContractEvents(result, contract);
+          // Use transaction hash as escrow ID for now - simpler and reliable
+          const escrowId = result.txHash.toHex();
 
           console.log('[Contract] Escrow creation result:', {
             success: true,
             transactionHash: result.txHash.toHex(),
             escrowId: escrowId,
-            allEvents: result.events?.map((e: any) => `${e.event?.section}.${e.event?.method}`)
           });
 
           resolved = true;
@@ -364,12 +365,14 @@ export const getEscrowContract = async (
     // Create contract instance
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-
-    // Create proper WeightV2 for gasLimit
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 2000000000,  // 2 billion ref time units (more for list operations)
-      proofSize: 128 * 1024 // 128KB proof size (more for list operations)
-    });
+    // Dynamically estimate gas for this query
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'getEscrow',
+      account,
+      [escrowId]
+    );
 
     // Call the get_escrow function (read-only query)
     const result = await contract.query.getEscrow(
@@ -480,11 +483,14 @@ export const listEscrowsContract = async (
     // Create contract instance
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    // Create proper WeightV2 for gasLimit
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 5000000000,  // 5 billion ref time units (more for list operations)
-      proofSize: 256 * 1024 // 256KB proof size (more for list operations)
-    });
+    // Dynamically estimate gas for this query
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'listEscrows',
+      account,
+      [] // No parameters for listEscrows
+    );
 
     // Call the list_escrows function (read-only query)
     const result = await contract.query.listEscrows(
@@ -640,10 +646,14 @@ export const updateEscrowStatusContract = async (
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 3000000000,
-      proofSize: 256 * 1024
-    });
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'updateEscrowStatus',
+      account,
+      [escrowId, newStatus, transactionHash || null]
+    );
 
     // According to ABI: update_escrow_status(escrow_id: String, new_status: String, transaction_hash: Option<String>)
     const tx = contract.tx.updateEscrowStatus(
@@ -735,10 +745,14 @@ export const updateMilestoneStatusContract = async (
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 3000000000,
-      proofSize: 256 * 1024
-    });
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'updateEscrowMilestoneStatus',
+      account,
+      [escrowId, milestone.id, newStatus]
+    );
 
     // Create and send the transaction
     const result = await new Promise<any>((resolve, reject) => {
@@ -841,10 +855,14 @@ export const disputeMilestoneContract = async (
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 3000000000,
-      proofSize: 256 * 1024
-    });
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'disputeMilestone',
+      account,
+      [escrowId, milestoneId, reason]
+    );
 
     // According to ABI: dispute_milestone(escrow_id: String, milestone_id: String, reason: String)
     const tx = contract.tx.disputeMilestone(
@@ -944,10 +962,14 @@ export const releaseMilestoneContract = async (
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 3000000000,
-      proofSize: 256 * 1024
-    });
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'releaseMilestone',
+      account,
+      [escrowId, milestoneId]
+    );
 
     // According to ABI: release_milestone(escrow_id: String, milestone_id: String)
     const tx = contract.tx.releaseMilestone(

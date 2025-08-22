@@ -286,6 +286,17 @@
       "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
       "timestamp": 1755894194893,
       "read": false
+    },
+    {
+      "id": "a873",
+      "escrowId": "0x40d68fff94934fd492660220604ab436fa45e2cf429b8fabe5d85d1748d55cd3",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 12.120000000000001 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
+      "timestamp": 1755900323133,
+      "read": false
     }
   ],
   "comment": []
