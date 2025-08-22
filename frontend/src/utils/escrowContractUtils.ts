@@ -3,29 +3,58 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/EscrowABI';
 
 /**
- * Utility function to safely convert timestamps
- * @param timestamp - The timestamp to convert
+ * Utility function to safely convert timestamps from smart contract
+ * @param timestamp - The timestamp to convert (could be seconds or milliseconds)
  * @param defaultValue - Default value if timestamp is invalid
  * @returns A valid timestamp in milliseconds
  */
 const safeTimestampConversion = (timestamp: any, defaultValue: number = Date.now()): number => {
   console.log('[safeTimestampConversion] Input:', { timestamp, defaultValue, type: typeof timestamp });
   
-  if (!timestamp || timestamp === '0' || timestamp === 0) {
-    console.log('[safeTimestampConversion] Using default value:', defaultValue);
+  // Only reject null, undefined, empty string, or explicitly "0"
+  if (timestamp == null || timestamp === '' || timestamp === '0' || timestamp === 0) {
+    console.log('[safeTimestampConversion] Using default value for null/empty:', defaultValue);
     return defaultValue;
   }
   
-  const parsed = parseInt(timestamp);
+  // Convert to string first to handle both string and number inputs
+  const timestampStr = timestamp.toString().trim();
+  
+  // Handle comma-separated numbers (from polkadot.js formatting)
+  const cleanTimestamp = timestampStr.replace(/,/g, '');
+  
+  const parsed = parseInt(cleanTimestamp, 10);
   console.log('[safeTimestampConversion] Parsed:', parsed);
   
-  if (isNaN(parsed) || parsed <= 0) {
-    console.log('[safeTimestampConversion] Invalid parsed value, using default:', defaultValue);
+  if (isNaN(parsed)) {
+    console.log('[safeTimestampConversion] Invalid number, using default:', defaultValue);
     return defaultValue;
   }
   
-  console.log('[safeTimestampConversion] Returning valid timestamp:', parsed);
-  return parsed;
+  // The smart contract uses block_timestamp() which returns milliseconds
+  // So we should use the timestamp as-is in most cases
+  let finalTimestamp = parsed;
+  
+  // Only convert if it's clearly in seconds format (very small numbers)
+  // For ink! contracts, block_timestamp() returns milliseconds since Unix epoch
+  // If the number is less than a reasonable millisecond timestamp, it might be seconds
+  if (parsed > 0 && parsed < 946684800000) { // Before year 2000 in milliseconds
+    // This might be in seconds, convert to milliseconds
+    finalTimestamp = parsed * 1000;
+    console.log('[safeTimestampConversion] Converted from seconds to milliseconds:', finalTimestamp);
+  }
+  
+  // Validate the final timestamp is reasonable (after 1970 and before year 2100)
+  const minTimestamp = 0; // Jan 1, 1970
+  const maxTimestamp = 4102444800000; // Jan 1, 2100
+  
+  if (finalTimestamp < minTimestamp || finalTimestamp > maxTimestamp) {
+    console.log('[safeTimestampConversion] Timestamp out of reasonable range, using default:', defaultValue);
+    return defaultValue;
+  }
+  
+  console.log('[safeTimestampConversion] Returning valid timestamp:', finalTimestamp);
+  return finalTimestamp;
 };
 
 /**
@@ -65,8 +94,8 @@ export interface EscrowData {
 
 
 
-const processContractEvents = (result: any, contract: any) => {
-  let escrowId = null;
+const processContractEvents = (result: any, _contract: any) => {
+  let escrowId: string | null = null;
 
   if (result.events) {
     console.log('[Contract] Processing transaction events...');
@@ -75,7 +104,7 @@ const processContractEvents = (result: any, contract: any) => {
       console.log(`[Contract] Event ${index}:`, event.section, event.method);
 
       if (event.section === 'contracts' && event.method === 'ContractEmitted') {
-        const [contractAddress, eventData] = event.data;
+        const [contractAddress] = event.data;
 
         console.log('[Contract] Contract event found!');
         console.log('[Contract] Contract address:', contractAddress.toString());
@@ -90,152 +119,58 @@ const processContractEvents = (result: any, contract: any) => {
 
           // Extract topics if available
           if (eventRecord.topics && eventRecord.topics.length > 0) {
-            console.log('[Contract] Event topics found:', eventRecord.topics);
+            console.log('[Contract] Event topics found:', eventRecord.topics.length);
 
-            // The signature topic should be at index 0
-            const signatureTopic = eventRecord.topics[0]?.toHex();
-            console.log('[Contract] Signature topic:', signatureTopic);
+            // For ink! events, try to decode the topics as simple strings
+            // The smart contract generates IDs like "escrow_1", "escrow_2", etc.
+            if (eventRecord.topics.length >= 2) {
+              const escrowIdTopic = eventRecord.topics[1];
+              console.log('[Contract] Raw escrow_id topic:', escrowIdTopic.toHex());
 
-            // Use the ACTUAL signature topic you're receiving
-            const ESCROW_CREATED_SIGNATURE = "0x00457363726f77436f6e74726163743a3a457363726f77437265617465640000";
-
-            if (signatureTopic === ESCROW_CREATED_SIGNATURE) {
-              console.log('[Contract] ✅ Confirmed EscrowCreated event!');
-
-              // Extract indexed parameters from topics
-              // Topic 0: Event signature (EscrowContract::EscrowCreated)
-              // Topic 1: escrow_id (indexed String)
-              // Topic 2: creator (indexed AccountId)  
-              // Topic 3: counterparty (indexed AccountId)
-
-              if (eventRecord.topics.length >= 2) {
-                const escrowIdTopic = eventRecord.topics[1];
-                console.log('[Contract] Raw escrow_id topic:', escrowIdTopic.toHex());
-
-                try {
-                  // For ink! contracts, indexed String parameters are often encoded directly
-                  // if they're short enough, or hashed if they're too long
-
-                  const escrowIdHex = escrowIdTopic.toHex();
-                  console.log('[Contract] Escrow ID hex:', escrowIdHex);
-
-                  // Remove 0x prefix and try to decode as UTF-8
-                  const hexWithoutPrefix = escrowIdHex.replace('0x', '');
-
-                  // Try to decode as string (remove trailing zeros)
-                  let decodedString = '';
-                  for (let i = 0; i < hexWithoutPrefix.length; i += 2) {
-                    const byte = parseInt(hexWithoutPrefix.substr(i, 2), 16);
-                    if (byte === 0) break; // Stop at null terminator
-                    decodedString += String.fromCharCode(byte);
-                  }
-
-                  console.log('[Contract] Decoded escrow ID:', decodedString);
-
-                  if (decodedString && decodedString.length > 0 && decodedString.length < 50) {
-                    escrowId = decodedString;
-                    console.log('[Contract] ✅ Successfully extracted escrow_id from topic:', escrowId);
-                  } else {
-                    // For longer strings or if decode fails, use a different approach
-                    console.log('[Contract] String might be hashed or encoded differently');
-
-                    // Try using Polkadot.js codec to decode
-                    try {
-                      // You might need to import proper types for this
-                      const codec = new Uint8Array(Buffer.from(hexWithoutPrefix, 'hex'));
-                      const decoded = new TextDecoder().decode(codec).replace(/\0/g, '');
-                      if (decoded && decoded.length > 0) {
-                        escrowId = decoded;
-                        console.log('[Contract] ✅ Decoded with TextDecoder:', escrowId);
-                      }
-                    } catch (codecError) {
-                      console.log('[Contract] TextDecoder failed, using hex as fallback');
-                      escrowId = escrowIdHex;
-                    }
-                  }
-
-                } catch (decodeError) {
-                  console.error('[Contract] Failed to decode escrow_id from topic:', decodeError);
-                  escrowId = escrowIdTopic.toHex();
-                }
-              }
-
-              // Extract creator and counterparty if needed
-              if (eventRecord.topics.length >= 3) {
-                const creatorTopic = eventRecord.topics[2];
-                console.log('[Contract] Creator AccountId:', creatorTopic.toHex());
-              }
-
-              if (eventRecord.topics.length >= 4) {
-                const counterpartyTopic = eventRecord.topics[3];
-                console.log('[Contract] Counterparty AccountId:', counterpartyTopic.toHex());
-              }
-
-              // Try to decode the non-indexed data for additional info
               try {
-                console.log('[Contract] Attempting to decode non-indexed event data...');
+                // Simple approach: decode hex to ASCII string
+                const escrowIdHex = escrowIdTopic.toHex();
+                const hexWithoutPrefix = escrowIdHex.replace('0x', '');
 
-                // For ink! contracts, you might need to use a different decoding method
-                // The eventData might contain the non-indexed parameters directly
-                console.log('[Contract] Raw event data:', eventData);
-
-                // Try different decoding approaches
-                if (typeof eventData === 'object' && eventData.toHuman) {
-                  const humanReadable = eventData.toHuman();
-                  console.log('[Contract] Human readable event data:', humanReadable);
-                }
-
-                if (typeof eventData === 'object' && eventData.toJSON) {
-                  const jsonData = eventData.toJSON();
-                  console.log('[Contract] JSON event data:', jsonData);
-                }
-
-              } catch (eventDecodeError: any) {
-                console.log('[Contract] Could not decode non-indexed data:', eventDecodeError.message);
-              }
-
-            } else {
-              console.log('[Contract] Not an EscrowCreated event');
-              console.log('[Contract] Expected:', ESCROW_CREATED_SIGNATURE);
-              console.log('[Contract] Received:', signatureTopic);
-
-              // Try to decode the signature to see what event it actually is
-              try {
-                const hexWithoutPrefix = signatureTopic.replace('0x', '');
-                let eventName = '';
+                // Decode hex to string
+                let decodedString = '';
                 for (let i = 0; i < hexWithoutPrefix.length; i += 2) {
                   const byte = parseInt(hexWithoutPrefix.substr(i, 2), 16);
-                  if (byte === 0) break;
-                  eventName += String.fromCharCode(byte);
-                }
-                console.log('[Contract] Decoded event name:', eventName);
-              } catch (e) {
-                console.log('[Contract] Could not decode event signature');
-              }
-            }
-          } else {
-            console.log('[Contract] No topics found in event record');
-
-            // Fallback for events without topics
-            try {
-              console.log('[Contract] Trying to decode event data directly...');
-              console.log('[Contract] Event data type:', typeof eventData);
-              console.log('[Contract] Event data:', eventData);
-
-              if (contract && contract.abi && contract.abi.decodeEvent) {
-                const decodedEvent = contract.abi.decodeEvent(eventData);
-                console.log('[Contract] Decoded event:', decodedEvent);
-
-                if (decodedEvent && decodedEvent.event && decodedEvent.event.identifier === 'EscrowCreated') {
-                  const eventArgs = decodedEvent.args;
-                  if (eventArgs && eventArgs.length > 0) {
-                    escrowId = eventArgs[0]?.toString();
-                    console.log('[Contract] Extracted escrowId from fallback method:', escrowId);
+                  if (byte === 0) break; // Stop at null terminator
+                  if (byte >= 32 && byte <= 126) { // Only printable ASCII characters
+                    decodedString += String.fromCharCode(byte);
                   }
                 }
+
+                console.log('[Contract] Decoded escrow ID:', decodedString);
+
+                // Validate it looks like an escrow ID (escrow_N format)
+                if (decodedString && decodedString.match(/^escrow_\d+$/)) {
+                  escrowId = decodedString;
+                  console.log('[Contract] ✅ Successfully extracted escrow_id:', escrowId);
+                }
+
+              } catch (decodeError) {
+                console.error('[Contract] Failed to decode escrow_id from topic:', decodeError);
               }
-            } catch (fallbackError: any) {
-              console.log('[Contract] Fallback decode failed:', fallbackError.message);
+            }
+          }
+
+          // If we couldn't extract from topics, try alternative approaches
+          if (!escrowId) {
+            console.log('[Contract] Could not extract escrowId from topics, trying alternatives...');
+
+            // Alternative 1: Use transaction hash as escrowId (reliable fallback)
+            if (result.txHash) {
+              escrowId = `tx_${result.txHash.toHex().slice(2, 10)}`; // Use first 8 chars of tx hash
+              console.log('[Contract] Using transaction hash as escrowId:', escrowId);
+            }
+
+            // Alternative 2: Generate a predictable ID based on block and timestamp
+            if (!escrowId && result.status?.isFinalized) {
+              const blockHash = result.status.asFinalized.toHex();
+              escrowId = `block_${blockHash.slice(2, 10)}`;
+              console.log('[Contract] Using block hash as escrowId:', escrowId);
             }
           }
         }
@@ -270,7 +205,10 @@ export const createEscrowContract = async (
       description: milestone.description,
       amount: milestone.amount,
       status: milestone.status,
-      deadline: milestone.deadline
+      deadline: milestone.deadline,
+      completed_at: null,
+      dispute_reason: null,
+      dispute_filed_by: null
     }));
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
@@ -298,12 +236,23 @@ export const createEscrowContract = async (
       };
     }
 
+    console.log('[Contract] Creating escrow with params:', {
+      userAccountId: userAccountId.toString(),
+      counterpartyAccountId: counterpartyAccountId.toString(),
+      counterpartyType,
+      status,
+      title,
+      description,
+      totalAmount,
+      contractMilestones,
+      transactionHash
+    });
+
     const tx = contract.tx.createEscrow(
       {
         gasLimit,
         storageDepositLimit: null,
       },
-      userAccountId,
       counterpartyAccountId,
       counterpartyType,
       status,
@@ -338,8 +287,32 @@ export const createEscrowContract = async (
           console.log('[Contract] Transaction finalized');
           console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
 
+          // Check if transaction was successful by looking for dispatchError
+          if (result.dispatchError) {
+            console.error('[Contract] Dispatch error in finalized transaction:', result.dispatchError);
+            resolved = true;
+            resolve({
+              success: false,
+              error: `Transaction failed: ${result.dispatchError}`
+            });
+            return;
+          }
+
+          // Check contract events to see if there were any contract-level errors
+          const contractEvents = result.events?.filter((event: any) => 
+            event.event?.section === 'contracts'
+          );
+          console.log('[Contract] Contract events:', contractEvents);
+
           // Try both methods to extract escrow ID
           let escrowId: any = processContractEvents(result, contract);
+
+          console.log('[Contract] Escrow creation result:', {
+            success: true,
+            transactionHash: result.txHash.toHex(),
+            escrowId: escrowId,
+            allEvents: result.events?.map((e: any) => `${e.event?.section}.${e.event?.method}`)
+          });
 
           resolved = true;
           resolve({
@@ -435,13 +408,13 @@ export const getEscrowContract = async (
             description: data.description,
             totalAmount: data.totalAmount || data.total_amount,
             status: data.status,
-            createdAt: safeTimestampConversion(data.createdAt || data.created_at, Math.floor(Date.now() / 1000)),
+            createdAt: safeTimestampConversion(data.createdAt || data.created_at, Date.now()),
             milestones: data.milestones?.map((m: any) => ({
               id: m.id,
               description: m.description,
               amount: m.amount,
               status: m.status,
-              deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
+              deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing // Default to 30 days from now if missing
               completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
               disputeReason: m.disputeReason || m.dispute_reason,
               disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
@@ -509,8 +482,8 @@ export const listEscrowsContract = async (
 
     // Create proper WeightV2 for gasLimit
     const gasLimit: any = api.registry.createType('WeightV2', {
-      refTime: 5000000000,  // 2 billion ref time units (more for list operations)
-      proofSize: 2256 * 1024 // 128KB proof size (more for list operations)
+      refTime: 5000000000,  // 5 billion ref time units (more for list operations)
+      proofSize: 256 * 1024 // 256KB proof size (more for list operations)
     });
 
     // Call the list_escrows function (read-only query)
@@ -529,49 +502,94 @@ export const listEscrowsContract = async (
     if (result.result.isOk) {
       const output = result.output?.toHuman();
       console.log('[Contract] Decoded list output:', output);
+      console.log('[Contract] Output type:', typeof output);
+      console.log('[Contract] Output keys:', output ? Object.keys(output) : 'null');
 
       // The output should be a Result<Vec<EscrowData>, EscrowError>
       if (output && typeof output === 'object') {
         // Check if it's a successful result
-        if ('Ok' in output && Array.isArray(output.Ok)) {
-          const escrowsData = output.Ok as any[];
+        if ('Ok' in output) {
+          console.log('[Contract] Found Ok in output, value:', output.Ok);
+          
+          // Handle nested Result structure: Result<Result<Vec<EscrowData>, EscrowError>, InkError>
+          if (output.Ok && typeof output.Ok === 'object' && 'Ok' in output.Ok) {
+            console.log('[Contract] Found nested Ok, extracting inner array:', output.Ok.Ok);
+            const escrowsData = output.Ok.Ok as any[];
 
-          // Transform the data array to match our interface
-          const transformedData: EscrowData[] = escrowsData.map((escrowData: any) => ({
-            id: escrowData.id,
-            creatorAddress: escrowData.creatorAddress || escrowData.creator_address,
-            counterpartyAddress: escrowData.counterpartyAddress || escrowData.counterparty_address,
-            counterpartyType: escrowData.counterpartyType || escrowData.counterparty_type,
-            title: escrowData.title,
-            description: escrowData.description,
-            totalAmount: escrowData.totalAmount || escrowData.total_amount,
-            status: escrowData.status,
-            createdAt: safeTimestampConversion(escrowData.createdAt || escrowData.created_at, Math.floor(Date.now() / 1000)),
-            milestones: escrowData.milestones?.map((m: any) => ({
-              id: m.id,
-              description: m.description,
-              amount: m.amount,
-              status: m.status,
-              deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
-              completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
-              disputeReason: m.disputeReason || m.dispute_reason,
-              disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
-            })) || [],
-            transactionHash: escrowData.transactionHash || escrowData.transaction_hash
-          }));
+            // Transform the data array to match our interface
+            const transformedData: EscrowData[] = escrowsData.map((escrowData: any) => ({
+              id: escrowData.id,
+              creatorAddress: escrowData.creatorAddress || escrowData.creator_address,
+              counterpartyAddress: escrowData.counterpartyAddress || escrowData.counterparty_address,
+              counterpartyType: escrowData.counterpartyType || escrowData.counterparty_type,
+              title: escrowData.title,
+              description: escrowData.description,
+              totalAmount: escrowData.totalAmount || escrowData.total_amount,
+              status: escrowData.status,
+              createdAt: safeTimestampConversion(escrowData.createdAt || escrowData.created_at, Math.floor(Date.now() / 1000)),
+              milestones: escrowData.milestones?.map((m: any) => ({
+                id: m.id,
+                description: m.description,
+                amount: m.amount,
+                status: m.status,
+                deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
+                completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
+                disputeReason: m.disputeReason || m.dispute_reason,
+                disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
+              })) || [],
+              transactionHash: escrowData.transactionHash || escrowData.transaction_hash
+            }));
 
-          return {
-            success: true,
-            data: transformedData
-          };
-        } else if ('Ok' in output && !Array.isArray(output.Ok)) {
-          // If Ok but not an array, might be empty result
-          return {
-            success: true,
-            data: []
-          };
+            return {
+              success: true,
+              data: transformedData
+            };
+          } else if ('Ok' in output && Array.isArray(output.Ok)) {
+            // Direct array format (old structure compatibility)
+            const escrowsData = output.Ok as any[];
+
+            const transformedData: EscrowData[] = escrowsData.map((escrowData: any) => ({
+              id: escrowData.id,
+              creatorAddress: escrowData.creatorAddress || escrowData.creator_address,
+              counterpartyAddress: escrowData.counterpartyAddress || escrowData.counterparty_address,
+              counterpartyType: escrowData.counterpartyType || escrowData.counterparty_type,
+              title: escrowData.title,
+              description: escrowData.description,
+              totalAmount: escrowData.totalAmount || escrowData.total_amount,
+              status: escrowData.status,
+              createdAt: safeTimestampConversion(escrowData.createdAt || escrowData.created_at, Math.floor(Date.now() / 1000)),
+              milestones: escrowData.milestones?.map((m: any) => ({
+                id: m.id,
+                description: m.description,
+                amount: m.amount,
+                status: m.status,
+                deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
+                completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
+                disputeReason: m.disputeReason || m.dispute_reason,
+                disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
+              })) || [],
+              transactionHash: escrowData.transactionHash || escrowData.transaction_hash
+            }));
+
+            return {
+              success: true,
+              data: transformedData
+            };
+          } else if ('Ok' in output && !Array.isArray(output.Ok)) {
+            // If Ok but not an array, might be empty result
+            return {
+              success: true,
+              data: []
+            };
+          } else if ('Err' in output) {
+            // Handle contract error
+            return {
+              success: false,
+              error: `Contract error: ${JSON.stringify(output.Err)}`
+            };
+          }
         } else if ('Err' in output) {
-          // Handle contract error
+          // Handle outer error
           return {
             success: false,
             error: `Contract error: ${JSON.stringify(output.Err)}`
@@ -868,7 +886,7 @@ export const disputeMilestoneContract = async (
           if (result.events) {
             result.events.forEach(({ event }) => {
               if (event.section === 'contracts' && event.method === 'ContractEmitted') {
-                const [contractAddress, eventData] = event.data;
+                const [contractAddress] = event.data;
                 if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
                   // Try to extract dispute_id from the MilestoneDisputed event
                   // This would need proper event decoding based on your event structure
@@ -1094,7 +1112,7 @@ export const notifyCounterpartyContract = async (
           if (result.events) {
             result.events.forEach(({ event }) => {
               if (event.section === 'contracts' && event.method === 'ContractEmitted') {
-                const [contractAddress, eventData] = event.data;
+                const [contractAddress] = event.data;
                 if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
                   // Try to extract notification_id from the CounterpartyNotified event
                   console.log('[Contract] CounterpartyNotified event detected');

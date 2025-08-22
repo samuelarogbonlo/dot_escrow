@@ -121,6 +121,171 @@
       "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
       "timestamp": 1755499603148,
       "read": false
+    },
+    {
+      "id": "766f",
+      "escrowId": "tx_ad817deb",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 1010 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "14DQH6PWUhZJq4ULxswFL9BvoFTLX6CLz9ncj1dGExAnqmRX",
+      "timestamp": 1755606138384,
+      "read": false
+    },
+    {
+      "id": "6db6",
+      "escrowId": "tx_afee79aa",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "14DQH6PWUhZJq4ULxswFL9BvoFTLX6CLz9ncj1dGExAnqmRX",
+      "timestamp": 1755639506666,
+      "read": false
+    },
+    {
+      "id": "8315",
+      "escrowId": "tx_7b1ab2df",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 10.1 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "15GGgB74EcBhWAYP3gEDkB3LXzBKf8BhPcsphTzDpFtGkN9C",
+      "timestamp": 1755639927867,
+      "read": false
+    },
+    {
+      "id": "834d",
+      "escrowId": "tx_35eef642",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "14fTUJGF6iek9ckHPM3uHUDrKF5ptn6sPEBgqVbRy6zYy7zy",
+      "timestamp": 1755640042503,
+      "read": false
+    },
+    {
+      "id": "a4f0",
+      "escrowId": "tx_a0c33af7",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "15GGgB74EcBhWAYP3gEDkB3LXzBKf8BhPcsphTzDpFtGkN9C",
+      "timestamp": 1755640420247,
+      "read": false
+    },
+    {
+      "id": "66a8",
+      "escrowId": "tx_dd0d52a0",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "15GGgB74EcBhWAYP3gEDkB3LXzBKf8BhPcsphTzDpFtGkN9C",
+      "timestamp": 1755641780386,
+      "read": false
+    },
+    {
+      "id": "2980",
+      "escrowId": "tx_7541f09a",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "14DQH6PWUhZJq4ULxswFL9BvoFTLX6CLz9ncj1dGExAnqmRX",
+      "timestamp": 1755642786843,
+      "read": false
+    },
+    {
+      "id": "94ec",
+      "escrowId": "tx_7bd28e5e",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
+      "timestamp": 1755643284370,
+      "read": false
+    },
+    {
+      "id": "06ce",
+      "escrowId": "tx_d39afc0e",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "14DQH6PWUhZJq4ULxswFL9BvoFTLX6CLz9ncj1dGExAnqmRX",
+      "timestamp": 1755643731420,
+      "read": false
+    },
+    {
+      "id": "2c99",
+      "escrowId": "tx_687d797e",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
+      "timestamp": 1755643799345,
+      "read": false
+    },
+    {
+      "id": "1516",
+      "escrowId": "tx_7eae4bcb",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "15GGgB74EcBhWAYP3gEDkB3LXzBKf8BhPcsphTzDpFtGkN9C",
+      "timestamp": 1755646211467,
+      "read": false
+    },
+    {
+      "id": "b44d",
+      "escrowId": "tx_43c0c27c",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "14DQH6PWUhZJq4ULxswFL9BvoFTLX6CLz9ncj1dGExAnqmRX",
+      "timestamp": 1755647465067,
+      "read": false
+    },
+    {
+      "id": "3b2a",
+      "escrowId": "tx_e5a44702",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
+      "timestamp": 1755648223975,
+      "read": false
+    },
+    {
+      "id": "b024",
+      "escrowId": "tx_27e3897a",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
+      "timestamp": 1755894034571,
+      "read": false
+    },
+    {
+      "id": "4d22",
+      "escrowId": "tx_6f63d59c",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 1.01 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
+      "timestamp": 1755894194893,
+      "read": false
     }
   ],
   "comment": []
