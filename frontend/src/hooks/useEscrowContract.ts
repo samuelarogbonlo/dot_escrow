@@ -290,7 +290,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return {
           recipientAddress: counterpartyAddress,
           success: true,
-          escrowId: result.escrowId, // Use transaction hash as temporary ID
+          escrowId: result.escrowId, 
           transactionHash: result.transactionHash
         };
       } else {

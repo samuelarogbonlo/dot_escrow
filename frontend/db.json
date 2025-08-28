@@ -32,7 +32,7 @@
       "type": "info",
       "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
       "timestamp": 1755315283375,
-      "read": false
+      "read": true
     },
     {
       "id": "c39e",
@@ -54,7 +54,7 @@
       "type": "info",
       "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
       "timestamp": 1755320426837,
-      "read": false
+      "read": true
     },
     {
       "id": "3797",
@@ -296,6 +296,39 @@
       "type": "info",
       "recipientAddress": "12go4PwxWfCmVJ1ji2hstRL9syfk4sRLZSLiSXmHunZ81YV8",
       "timestamp": 1755900323133,
+      "read": false
+    },
+    {
+      "id": "44fc",
+      "escrowId": "0x4240c3243a2ed98c2288f163031c188bf483653e75c7e48bc25ca78e693620f6",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 202 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "timestamp": 1755981167498,
+      "read": false
+    },
+    {
+      "id": "d784",
+      "escrowId": "milestone-1755981139353-0",
+      "notificationType": "Milestone Ready",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "A Milestone has been completed and ready for review.",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1755981255668,
+      "read": false
+    },
+    {
+      "id": "bef6",
+      "escrowId": "escrow_9",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 30.3 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "timestamp": 1756092129799,
       "read": false
     }
   ],

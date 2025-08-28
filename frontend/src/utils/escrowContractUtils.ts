@@ -300,14 +300,76 @@ export const createEscrowContract = async (
             return;
           }
 
-          // Check contract events to see if there were any contract-level errors
-          const contractEvents = result.events?.filter((event: any) => 
-            event.event?.section === 'contracts'
-          );
-          console.log('[Contract] Contract events:', contractEvents);
-
-          // Use transaction hash as escrow ID for now - simpler and reliable
-          const escrowId = result.txHash.toHex();
+          // Extract escrow ID from the EscrowCreated event
+          let escrowId: string | null = null;
+          
+          console.log('[Contract] All events:', result.events);
+          
+          if (result.events) {
+            result.events.forEach(({ event }, index) => {
+              console.log(`[Contract] Event ${index}:`, {
+                section: event.section,
+                method: event.method,
+                data: event.data
+              });
+              
+              // Look for the EscrowCreated event
+              if (event.section === 'contracts' && event.method === 'ContractEmitted') {
+                console.log('[Contract] Found ContractEmitted event');
+                
+                // The event data should contain the contract address and the event data
+                if (event.data && event.data.length > 1) {
+                  const [contractAddress] = event.data;
+                  console.log('[Contract] Contract address from event:', contractAddress.toString());
+                  
+                  // Check if this event is from our escrow contract
+                  if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
+                    console.log('[Contract] Event is from our escrow contract');
+                    
+                    // The remaining event data should contain the EscrowCreated event fields
+                    // We need to decode this properly. For now, let's try to find the escrow ID
+                    // by looking through all the data fields
+                    for (let i = 1; i < event.data.length; i++) {
+                      const dataItem = event.data[i];
+                      console.log(`[Contract] Event data item ${i}:`, dataItem);
+                      
+                      if (dataItem && typeof dataItem.toString === 'function') {
+                        const dataStr = dataItem.toString();
+                        console.log(`[Contract] Event data item ${i} as string:`, dataStr);
+                        
+                        // Look for the escrow ID pattern (escrow_{number})
+                        if (dataStr.startsWith('escrow_')) {
+                          escrowId = dataStr;
+                          console.log('[Contract] Found escrow ID in event data:', escrowId);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          }
+          
+          // If we still don't have an escrow ID, try a different approach
+          if (!escrowId) {
+            console.log('[Contract] Could not extract escrow ID from events, trying alternative approach...');
+            
+            // Try to look for any string that starts with 'escrow_' in the entire result
+            const resultStr = JSON.stringify(result);
+            const escrowMatch = resultStr.match(/escrow_\d+/);
+            
+            if (escrowMatch) {
+              escrowId = escrowMatch[0];
+              console.log('[Contract] Found escrow ID using regex fallback:', escrowId);
+            }
+          }
+          
+          // If we still couldn't extract the escrow ID, throw an error
+          if (!escrowId) {
+            console.error('[Contract] Failed to extract escrow ID. Full result:', result);
+            throw new Error('Failed to extract escrow ID from contract events');
+          }
 
           console.log('[Contract] Escrow creation result:', {
             success: true,

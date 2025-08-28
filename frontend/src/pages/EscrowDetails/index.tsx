@@ -59,7 +59,7 @@ interface Milestone {
   amount: string;
   deadline: number;
   status: MilestoneStatus;
-  completionDate?: number;
+  completedAt?: number;
 }
 
 interface Escrow {
@@ -251,7 +251,7 @@ const EscrowDetails = () => {
             ? {
                 ...m,
                 status: "Completed" as MilestoneStatus,
-                completionDate: Date.now(),
+                completedAt: Date.now(),
               }
             : m
         );
@@ -288,7 +288,7 @@ const EscrowDetails = () => {
       // Create milestone data with note and files
       const milestoneData = {
         ...selectedMilestone,
-        completionDate: Date.now(),       
+        completedAt: Date.now(),       
       };
 
       const result = await updateEscrowMilestoneStatus(
@@ -328,7 +328,7 @@ const EscrowDetails = () => {
             ? {
                 ...m,
                 status: "Completed" as MilestoneStatus,
-                completionDate: Date.now(),
+                completedAt: Date.now(),
               }
             : m
         );
@@ -716,7 +716,7 @@ const EscrowDetails = () => {
                           <Text fontSize="sm">
                             {milestone.status === "Completed"
                               ? `Completed: ${formatDate(
-                                  milestone.completionDate!
+                                  milestone.completedAt!
                                 )}`
                               : `Deadline: ${formatDate(milestone.deadline)}`}
                           </Text>
@@ -890,7 +890,7 @@ const EscrowDetails = () => {
                             <Text fontWeight="medium">
                               Milestone Completed:
                             </Text>
-                            <Text>{formatDate(m.completionDate!)}</Text>
+                            <Text>{formatDate(m.completedAt!)}</Text>
                           </HStack>
                         </ListItem>
                       ))}
