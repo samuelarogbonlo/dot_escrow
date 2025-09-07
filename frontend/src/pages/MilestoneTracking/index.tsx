@@ -65,7 +65,7 @@ interface Milestone {
   amount: string;
   deadline: Date | number;
   status: MilestoneStatus;
-  completionDate: Date | number;
+  completedAt: Date | number;
   evidenceFiles?: EvidenceFile;
   notes?: string;
   isLate?: boolean;
@@ -529,7 +529,7 @@ const MilestoneTracking = () => {
                         <Text fontSize="sm">
                           {milestone.status === "Completed"
                             ? `Completed: ${formatDate(
-                                milestone.completionDate
+                                milestone.completedAt
                               )}`
                             : `Deadline: ${formatDate(milestone.deadline)}`}
                         </Text>
@@ -537,8 +537,8 @@ const MilestoneTracking = () => {
 
                       {milestone.status === "Completed" ? (
                         <Text fontSize="sm" color="green.500">
-                          {milestone.completionDate &&
-                            getRelativeTime(milestone.completionDate, true)}
+                          {milestone.completedAt &&
+                            getRelativeTime(milestone.completedAt, true)}
                         </Text>
                       ) : milestone.deadline ? (
                         <Text

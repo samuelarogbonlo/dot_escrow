@@ -47,7 +47,7 @@ interface Milestone {
   id: string;
   description: string;
   amount: string;
-  deadline: Date;
+  deadline: number;
   completionNote: string;
   status: MilestoneStatus;
   evidenceFiles: any[];
@@ -559,12 +559,13 @@ const MilestoneDetail = () => {
   };
 
   // Format date
-  const formatDate = (date: Date) => {
+  const formatDate = (date: number) => {
+    const d = new Date(date);
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
-    }).format(date);
+    }).format(d);
   };
 
   const handleGoBack = () => {

@@ -94,7 +94,7 @@ const SearchFilters = ({
     { value: 'title-asc', label: 'Title (A-Z)' },
     { value: 'title-desc', label: 'Title (Z-A)' },
   ]
-}) => {
+}: SearchFiltersProps) => {
   const { isOpen, onToggle } = useDisclosure({ defaultIsOpen: false });
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
   

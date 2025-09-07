@@ -1,9 +1,18 @@
-import { Box, VStack, Icon, Text, Flex, useColorModeValue, Divider } from '@chakra-ui/react'
+import { Box, VStack, HStack, Icon, Text, Flex, useColorModeValue, Divider } from '@chakra-ui/react'
 import { Link, useLocation } from 'react-router-dom'
-import { FiHome, FiFileText, FiDollarSign, FiAlertCircle, FiSettings, FiTarget  } from 'react-icons/fi'
+import { FiHome, FiFileText, FiTarget } from 'react-icons/fi'
 
-
-const NavItem = ({ icon, children, to }: { icon: React.ElementType; children: React.ReactNode; to: string }) => {
+const NavItem = ({ 
+  icon, 
+  children, 
+  to, 
+  isMobile = false 
+}: { 
+  icon: React.ElementType; 
+  children: React.ReactNode; 
+  to: string;
+  isMobile?: boolean;
+}) => {
   const location = useLocation()
   const isActive = location.pathname === to || 
     (to !== '/' && location.pathname.startsWith(to))
@@ -11,6 +20,32 @@ const NavItem = ({ icon, children, to }: { icon: React.ElementType; children: Re
   const activeBg = useColorModeValue('blue.50', 'blue.900')
   const activeColor = useColorModeValue('blue.600', 'blue.200')
   const inactiveColor = useColorModeValue('gray.600', 'gray.400')
+  
+  if (isMobile) {
+    return (
+      <Link to={to} style={{ flex: 1 }}>
+        <Flex
+          align="center"
+          justify="center"
+          py="3"
+          cursor="pointer"
+          role="group"
+          color={isActive ? activeColor : inactiveColor}
+          bg={isActive ? activeBg : "transparent"}
+          borderRadius="md"
+          direction="column"
+          _hover={{
+            bg: useColorModeValue('gray.100', 'gray.700'),
+          }}
+        >
+          <Icon
+            fontSize="20"
+            as={icon}
+          />
+        </Flex>
+      </Link>
+    )
+  }
   
   return (
     <Link to={to}>
@@ -44,47 +79,65 @@ const Sidebar = () => {
   const borderColor = useColorModeValue('gray.200', 'gray.700')
   
   return (
-    <Box
-      w={{ base: 'full', md: '60' }}
-      h="100vh"
-      minH="full"
-      bg={bgColor}
-      display={{base: 'none', lg: 'block'}}
-      borderRight="1px"
-      borderColor={borderColor}
-      position="sticky"
-      top="0"
-      left="0"
-    >
-      <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
-        <Text fontSize="2xl" fontWeight="bold">.escrow</Text>
-      </Flex>
-      
-      <VStack spacing="1" align="stretch" px="3">
-        <NavItem icon={FiHome} to="/">
-          Dashboard
-        </NavItem>
-        <NavItem icon={FiFileText} to="/escrow/create">
-          Create Escrow
-        </NavItem>
-        <NavItem icon={FiTarget} to="/milestone">
-          Milestones
-        </NavItem>
-        <NavItem icon={FiDollarSign} to="/transactions">
-          Transactions
-        </NavItem>
-        <NavItem icon={FiAlertCircle} to="/disputes">
-          Disputes
-        </NavItem>
+    <>
+      {/* Desktop Sidebar */}
+      <Box
+        w={{ base: 'full', md: '60' }}
+        h="100vh"
+        minH="full"
+        bg={bgColor}
+        display={{ base: 'none', lg: 'block' }}
+        borderRight="1px"
+        borderColor={borderColor}
+        position="sticky"
+        top="0"
+        left="0"
+      >
+        <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
+          <Text fontSize="2xl" fontWeight="bold">.escrow</Text>
+        </Flex>
         
-        <Divider my="6" borderColor={borderColor} />
-        
-        <NavItem icon={FiSettings} to="/settings">
-          Settings
-        </NavItem>
-      </VStack>
-    </Box>
+        <VStack spacing="1" align="stretch" px="3">
+          <NavItem icon={FiHome} to="/">
+            Dashboard
+          </NavItem>
+          <NavItem icon={FiFileText} to="/escrow/create">
+            Create Escrow
+          </NavItem>
+          <NavItem icon={FiTarget} to="/milestone">
+            Milestones
+          </NavItem>
+          
+          <Divider my="6" borderColor={borderColor} />
+        </VStack>
+      </Box>
+
+      {/* Mobile/Tablet Bottom Navigation */}
+      <Box
+        position="fixed"
+        bottom="0"
+        left="0"
+        right="0"
+        bg={bgColor}
+        borderTop="1px"
+        borderColor={borderColor}
+        display={{ base: 'block', lg: 'none' }}
+        zIndex={10}
+      >
+        <HStack spacing="0" align="stretch">
+          <NavItem icon={FiHome} to="/" isMobile>
+            Dashboard
+          </NavItem>
+          <NavItem icon={FiFileText} to="/escrow/create" isMobile>
+            Create Escrow
+          </NavItem>
+          <NavItem icon={FiTarget} to="/milestone" isMobile>
+            Milestones
+          </NavItem>
+        </HStack>
+      </Box>
+    </>
   )
 }
 
-export default Sidebar 
+export default Sidebar

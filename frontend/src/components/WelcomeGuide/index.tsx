@@ -33,7 +33,23 @@ import {
   useDisclosure,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
+// Fallback hook to avoid missing module errors in build
+const useLocalStorage = (key: string, initialValue: any): [any, (v: any) => void] => {
+  const [value, setValue] = useState(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  }, [key, value]);
+  return [value, setValue];
+};
 import {
   FiCheck,
   FiUser,
@@ -447,9 +463,9 @@ const WelcomeGuide = ({ isOpen: propIsOpen, onClose: propOnClose }: WelcomeGuide
                       bg={index < activeStep ? 'green.500' : index === activeStep ? currentStepBg : stepBg}
                     >
                       {index < activeStep ? (
-                        <StepIcon as={FiCheck} />
+                        <FiCheck />
                       ) : (
-                        <StepIcon as={step.icon} />
+                        <step.icon />
                       )}
                     </StepIndicator>
                     <Box flexShrink="0">

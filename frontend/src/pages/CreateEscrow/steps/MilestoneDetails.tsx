@@ -34,6 +34,7 @@ interface MilestoneDetailsProps {
 interface MilestoneFormState {
   description: string;
   amount: string;
+  status: string;
   deadline: Date | null;
 }
 
@@ -46,6 +47,7 @@ const MilestoneDetails: React.FC<MilestoneDetailsProps> = ({
   const [milestoneForm, setMilestoneForm] = useState<MilestoneFormState>({
     description: '',
     amount: '',
+    status: 'Pending',
     deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now
   });
 
@@ -92,6 +94,7 @@ const MilestoneDetails: React.FC<MilestoneDetailsProps> = ({
     setMilestoneForm({
       description: '',
       amount: '',
+      status: 'Pending',
       deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
   };

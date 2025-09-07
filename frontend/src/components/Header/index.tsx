@@ -1,6 +1,7 @@
 import {
   Box,
   Flex,
+  Text,
   Input,
   InputGroup,
   InputLeftElement,
@@ -21,7 +22,7 @@ import {
   SunIcon,
   ChevronDownIcon,
   CloseIcon,
-  HamburgerIcon,
+  // HamburgerIcon,
 } from "@chakra-ui/icons";
 import { FiLogOut, FiUser } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
@@ -29,11 +30,8 @@ import Notifications from "../Notifications";
 import { useWallet } from "../../hooks/useWalletContext";
 import { useState } from "react";
 
-interface HeaderProps {
-  showMenu: () => void;
-}
 
-const Header: React.FC<HeaderProps> = ({ showMenu }) => {
+const Header = () => {
   const { colorMode, toggleColorMode } = useColorMode();
   const { selectedAccount, isExtensionReady, disconnectApi } = useWallet();
   const navigate = useNavigate();
@@ -65,13 +63,16 @@ const Header: React.FC<HeaderProps> = ({ showMenu }) => {
         <HStack spacing={3} align="center">
           {/* Menu button on mobile/tablet */}
           {isMobileMenu && !showMobileSearch && (
-            <IconButton
-              aria-label="Menu"
-              icon={<HamburgerIcon />}
-              onClick={showMenu}
-              variant="ghost"
-              size="sm"
-            />
+            <Flex
+              // h="20"
+              alignItems="center"
+              // mx="8"
+              justifyContent="space-between"
+            >
+              <Text fontSize="2xl" fontWeight="bold">
+                .escrow
+              </Text>
+            </Flex>
           )}
 
           {/* Search field or search icon (mobile toggle) */}

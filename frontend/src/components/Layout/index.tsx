@@ -23,7 +23,7 @@ const Layout = () => {
           bg={bgColor}
           boxShadow="sm"
         >
-          <Header showMenu={() => setShowMenu((prev) => !prev)}/>
+          <Header />
         </Box>
 
         {/* Main Scrollable Content */}

@@ -186,7 +186,7 @@ const Settings = () => {
   const toast = useToast();
   
   // Wallet connection
-  const { selectedAccount, isExtensionReady, disconnect } = useWallet();
+  const { selectedAccount, isExtensionReady } = useWallet();
   
   // States
   const [isLoading, setIsLoading] = useState(true);
@@ -405,19 +405,14 @@ const Settings = () => {
   
   // Handle logout
   const handleLogout = () => {
-    if (disconnect) {
-      disconnect();
-      
-      toast({
-        title: 'Logged out',
-        description: 'You have been successfully logged out.',
-        status: 'info',
-        duration: 5000,
-        isClosable: true,
-      });
-      
-      logoutModal.onClose();
-    }
+    toast({
+      title: 'Logout',
+      description: 'Please disconnect your wallet from the wallet UI.',
+      status: 'info',
+      duration: 5000,
+      isClosable: true,
+    });
+    logoutModal.onClose();
   };
   
   // Display loading state
