@@ -147,7 +147,6 @@ const EscrowDetails = () => {
     fetchEscrow();
   }, [id, isApiReady, isExtensionReady, selectedAccount, getEscrow]);
 
-
   // Determine user role (client, worker, or none)
   useEffect(() => {
     if (escrow && selectedAccount) {
@@ -198,14 +197,15 @@ const EscrowDetails = () => {
         selectedMilestone.id
       );
       if (result.success) {
-        const escrowId = escrow?.id || '';
+        const escrowId = escrow?.id || "";
         const notificationType = "Payment Released" as const; // Use a valid notification type
         const message = `Payment of ${selectedMilestone.amount} USDT has been released to your wallet.`;
         const type = "success" as const;
         // Get recipient address from escrow data (the worker who completed the milestone)
-        const recipientAddress = escrow?.counterpartyType === 'worker' 
-          ? escrow.counterpartyAddress 
-          : escrow?.creatorAddress || '';
+        const recipientAddress =
+          escrow?.counterpartyType === "worker"
+            ? escrow.counterpartyAddress
+            : escrow?.creatorAddress || "";
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -285,12 +285,15 @@ const EscrowDetails = () => {
     }
 
     try {
+      // Extract only the URLs from the files array
+      const fileUrls = files.map((file) => file.url);
+
       // Create milestone data with note and files
       const milestoneData = {
         ...selectedMilestone,
         completionNote: note,
-        evidenceFiles: files,
-        completedAt: Date.now(),       
+        evidenceFiles: fileUrls,
+        completedAt: Date.now(),
       };
 
       const result = await updateEscrowMilestoneStatus(
@@ -305,9 +308,10 @@ const EscrowDetails = () => {
         const message = `A Milestone has been completed and ready for review.`;
         const type = "info" as const;
         // Get recipient address from escrow data
-        const recipientAddress = escrow?.creatorAddress === selectedAccount?.address 
-          ? escrow?.counterpartyAddress || ''
-          : escrow?.creatorAddress || '';
+        const recipientAddress =
+          escrow?.creatorAddress === selectedAccount?.address
+            ? escrow?.counterpartyAddress || ""
+            : escrow?.creatorAddress || "";
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -325,15 +329,15 @@ const EscrowDetails = () => {
         }
 
         if (escrow) {
-                  const updatedMilestones = escrow.milestones.map((m) =>
-          m.id === selectedMilestone.id
-            ? {
-                ...m,
-                status: "Completed" as MilestoneStatus,
-                completedAt: Date.now(),
-              }
-            : m
-        );
+          const updatedMilestones = escrow.milestones.map((m) =>
+            m.id === selectedMilestone.id
+              ? {
+                  ...m,
+                  status: "Completed" as MilestoneStatus,
+                  completedAt: Date.now(),
+                }
+              : m
+          );
 
           toast({
             title: "Milestone completed",
@@ -362,7 +366,6 @@ const EscrowDetails = () => {
       });
     }
   };
-
 
   const handleStartMilestone = async (milestone: any) => {
     if (!milestone) return;
@@ -413,47 +416,47 @@ const EscrowDetails = () => {
   };
 
   // Format date
- const formatDate = (timestampString: string | number) => {
-  // Handle both string and number inputs
-  let timestamp: number;
-  
-  if (typeof timestampString === 'string') {
-    // Remove commas and convert to number
-    timestamp = parseInt(timestampString.replace(/,/g, ''), 10);
-  } else {
-    timestamp = timestampString;
-  }
-  
-  // Validate timestamp - if it's 0, undefined, or invalid, return a default message
-  if (!timestamp || timestamp <= 0 || isNaN(timestamp)) {
-    return "Date not set";
-  }
-  
-  // The smart contract returns timestamps in milliseconds, so use directly
-  const date = new Date(timestamp);
-  
-  // Validate the resulting date
-  if (isNaN(date.getTime()) || date.getTime() <= 0) {
-    return "Invalid date";
-  }
-  
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
- };
+  const formatDate = (timestampString: string | number) => {
+    // Handle both string and number inputs
+    let timestamp: number;
+
+    if (typeof timestampString === "string") {
+      // Remove commas and convert to number
+      timestamp = parseInt(timestampString.replace(/,/g, ""), 10);
+    } else {
+      timestamp = timestampString;
+    }
+
+    // Validate timestamp - if it's 0, undefined, or invalid, return a default message
+    if (!timestamp || timestamp <= 0 || isNaN(timestamp)) {
+      return "Date not set";
+    }
+
+    // The smart contract returns timestamps in milliseconds, so use directly
+    const date = new Date(timestamp);
+
+    // Validate the resulting date
+    if (isNaN(date.getTime()) || date.getTime() <= 0) {
+      return "Invalid date";
+    }
+
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  };
 
   // Utility function to check if a timestamp is valid
   const isValidTimestamp = (timestamp: string | number): boolean => {
     let ts: number;
-    
-    if (typeof timestamp === 'string') {
-      ts = parseInt(timestamp.replace(/,/g, ''), 10);
+
+    if (typeof timestamp === "string") {
+      ts = parseInt(timestamp.replace(/,/g, ""), 10);
     } else {
       ts = timestamp;
     }
-    
+
     return ts > 0 && !isNaN(ts);
   };
 
@@ -673,7 +676,7 @@ const EscrowDetails = () => {
               </Grid>
             </CardBody>
           </Card>
-          
+
           {/* Milestones Card */}
           <Card variant="outline" bg={cardBg}>
             <CardHeader pb={2}>

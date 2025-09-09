@@ -10,31 +10,31 @@ import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/Esc
  */
 const safeTimestampConversion = (timestamp: any, defaultValue: number = Date.now()): number => {
   console.log('[safeTimestampConversion] Input:', { timestamp, defaultValue, type: typeof timestamp });
-  
+
   // Only reject null, undefined, empty string, or explicitly "0", or invalid low values
   if (timestamp == null || timestamp === '' || timestamp === '0' || timestamp === 0 || timestamp === 1) {
     console.log('[safeTimestampConversion] Using default value for null/empty/invalid:', defaultValue);
     return defaultValue;
   }
-  
+
   // Convert to string first to handle both string and number inputs
   const timestampStr = timestamp.toString().trim();
-  
+
   // Handle comma-separated numbers (from polkadot.js formatting)
   const cleanTimestamp = timestampStr.replace(/,/g, '');
-  
+
   const parsed = parseInt(cleanTimestamp, 10);
   console.log('[safeTimestampConversion] Parsed:', parsed);
-  
+
   if (isNaN(parsed)) {
     console.log('[safeTimestampConversion] Invalid number, using default:', defaultValue);
     return defaultValue;
   }
-  
+
   // The smart contract uses block_timestamp() which returns milliseconds
   // So we should use the timestamp as-is in most cases
   let finalTimestamp = parsed;
-  
+
   // Only convert if it's clearly in seconds format (very small numbers)
   // For ink! contracts, block_timestamp() returns milliseconds since Unix epoch
   // If the number is less than a reasonable millisecond timestamp, it might be seconds
@@ -43,16 +43,16 @@ const safeTimestampConversion = (timestamp: any, defaultValue: number = Date.now
     finalTimestamp = parsed * 1000;
     console.log('[safeTimestampConversion] Converted from seconds to milliseconds:', finalTimestamp);
   }
-  
+
   // Validate the final timestamp is reasonable (after 1970 and before year 2100)
   const minTimestamp = 0; // Jan 1, 1970
   const maxTimestamp = 4102444800000; // Jan 1, 2100
-  
+
   if (finalTimestamp < minTimestamp || finalTimestamp > maxTimestamp) {
     console.log('[safeTimestampConversion] Timestamp out of reasonable range, using default:', defaultValue);
     return defaultValue;
   }
-  
+
   console.log('[safeTimestampConversion] Returning valid timestamp:', finalTimestamp);
   return finalTimestamp;
 };
@@ -88,7 +88,7 @@ const estimateGas = async (
 ): Promise<any> => {
   try {
     console.log(`[GasEstimation] Estimating gas for ${methodName}`);
-    
+
     // Get the contract query method
     const query = contract.query[methodName];
     if (!query) {
@@ -135,8 +135,8 @@ const estimateGas = async (
     const minProofSize = 256 * 1024; // 256KB minimum
 
     const finalGasLimit = api.registry.createType('WeightV2', {
-      refTime: refTimeBuffer.lt(api.registry.createType('u64', minRefTime)) 
-        ? minRefTime 
+      refTime: refTimeBuffer.lt(api.registry.createType('u64', minRefTime))
+        ? minRefTime
         : refTimeBuffer.toString(),
       proofSize: proofSizeBuffer.lt(api.registry.createType('u64', minProofSize))
         ? minProofSize
@@ -206,7 +206,9 @@ export const createEscrowContract = async (
       deadline: safeTimestampConversion(milestone.deadline, Date.now() + 86400000), // Default to 24 hours from now
       completed_at: null,
       dispute_reason: null,
-      dispute_filed_by: null
+      dispute_filed_by: null,
+      completion_note: null,
+      evidence_file: null,
     }));
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
@@ -274,15 +276,20 @@ export const createEscrowContract = async (
         console.log('[Contract] Transaction status:', result.status.type);
 
         if (result.dispatchError) {
-          console.error('[Contract] Transaction failed:', result.dispatchError.toString());
-          if (!resolved) {
+          console.error('[Contract] Full dispatch error:', result.dispatchError);
+
+          // Try to get more detailed error info
+          if (result.dispatchError.isModule) {
+            const decoded = api.registry.findMetaError(result.dispatchError.asModule);
+            console.error('[Contract] Decoded error:', decoded);
+
             resolved = true;
             resolve({
               success: false,
-              error: `Transaction failed: ${result.dispatchError.toString()}`
+              error: `Transaction failed: ${decoded.section}::${decoded.name} - ${decoded.docs.join(' ')}`
             });
+            return;
           }
-          return;
         }
 
         if (result.status.isFinalized) {
@@ -302,9 +309,9 @@ export const createEscrowContract = async (
 
           // Extract escrow ID from the EscrowCreated event
           let escrowId: string | null = null;
-          
+
           console.log('[Contract] All events:', result.events);
-          
+
           if (result.events) {
             result.events.forEach(({ event }, index) => {
               console.log(`[Contract] Event ${index}:`, {
@@ -312,31 +319,31 @@ export const createEscrowContract = async (
                 method: event.method,
                 data: event.data
               });
-              
+
               // Look for the EscrowCreated event
               if (event.section === 'contracts' && event.method === 'ContractEmitted') {
                 console.log('[Contract] Found ContractEmitted event');
-                
+
                 // The event data should contain the contract address and the event data
                 if (event.data && event.data.length > 1) {
                   const [contractAddress] = event.data;
                   console.log('[Contract] Contract address from event:', contractAddress.toString());
-                  
+
                   // Check if this event is from our escrow contract
                   if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
                     console.log('[Contract] Event is from our escrow contract');
-                    
+
                     // The remaining event data should contain the EscrowCreated event fields
                     // We need to decode this properly. For now, let's try to find the escrow ID
                     // by looking through all the data fields
                     for (let i = 1; i < event.data.length; i++) {
                       const dataItem = event.data[i];
                       console.log(`[Contract] Event data item ${i}:`, dataItem);
-                      
+
                       if (dataItem && typeof dataItem.toString === 'function') {
                         const dataStr = dataItem.toString();
                         console.log(`[Contract] Event data item ${i} as string:`, dataStr);
-                        
+
                         // Look for the escrow ID pattern (escrow_{number})
                         if (dataStr.startsWith('escrow_')) {
                           escrowId = dataStr;
@@ -350,21 +357,21 @@ export const createEscrowContract = async (
               }
             });
           }
-          
+
           // If we still don't have an escrow ID, try a different approach
           if (!escrowId) {
             console.log('[Contract] Could not extract escrow ID from events, trying alternative approach...');
-            
+
             // Try to look for any string that starts with 'escrow_' in the entire result
             const resultStr = JSON.stringify(result);
             const escrowMatch = resultStr.match(/escrow_\d+/);
-            
+
             if (escrowMatch) {
               escrowId = escrowMatch[0];
               console.log('[Contract] Found escrow ID using regex fallback:', escrowId);
             }
           }
-          
+
           // If we still couldn't extract the escrow ID, throw an error
           if (!escrowId) {
             console.error('[Contract] Failed to extract escrow ID. Full result:', result);
@@ -578,7 +585,7 @@ export const listEscrowsContract = async (
         // Check if it's a successful result
         if ('Ok' in output) {
           console.log('[Contract] Found Ok in output, value:', output.Ok);
-          
+
           // Handle nested Result structure: Result<Result<Vec<EscrowData>, EscrowError>, InkError>
           if (output.Ok && typeof output.Ok === 'object' && 'Ok' in output.Ok) {
             console.log('[Contract] Found nested Ok, extracting inner array:', output.Ok.Ok);
@@ -1126,12 +1133,12 @@ export const notifyCounterpartyContract = async (
   notificationKind?: string
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Notifying counterparty:', { 
-      escrowId, 
-      notificationType, 
-      recipientAddress, 
-      message, 
-      notificationKind 
+    console.log('[Contract] Notifying counterparty:', {
+      escrowId,
+      notificationType,
+      recipientAddress,
+      message,
+      notificationKind
     });
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');

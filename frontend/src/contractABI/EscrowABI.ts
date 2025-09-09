@@ -8,7 +8,7 @@ export const ESCROW_CONTRACT_ABI = contractMetadata;
 export const { spec, types, storage } = contractMetadata;
 
 // Contract address - deployed escrow contract
-export const ESCROW_CONTRACT_ADDRESS: string = '5DSEPR6DWLgp3mGzcU9Q5VDCJuoYvedTE3a7dab8uiLfFCyj';
+export const ESCROW_CONTRACT_ADDRESS: string = '5HAaXDyPrGxwofvUay4fchvEW4XGPJL5CRNv2WKqgn7PvUyb';
 
 // Function to set contract address after deployment (for future use)
 export const setEscrowContractAddress = (address: string) => {
