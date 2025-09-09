@@ -210,9 +210,9 @@ export const createEscrowContract = async (
       completed_at: null,
       dispute_reason: null,
       dispute_filed_by: null,
-      // New on-chain fields to prevent decoding errors
+      // New on-chain fields to prevent decoding errors  
       completion_note: milestone.completionNote ?? null,
-      evidence_uris: milestone.evidenceUris ?? []
+      evidence_file: milestone.evidenceUris ? milestone.evidenceUris : null
     }));
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
