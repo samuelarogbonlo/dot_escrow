@@ -95,6 +95,8 @@ mod escrow_contract {
         pub completed_at: Option<u64>,
         pub dispute_reason: Option<String>,
         pub dispute_filed_by: Option<AccountId>,
+        pub completion_note: Option<String>,
+        pub evidence_file: Option<Vec<String>>,
     }
 
     /// Escrow data structure matching frontend
@@ -470,7 +472,7 @@ mod escrow_contract {
             let caller = self.env().caller();
 
             // Only creator (client) can release funds
-            if caller != escrow.creator_address {
+            if caller != escrow.creator_address || caller != escrow.counterparty_address {
                 return Err(EscrowError::Unauthorized);
             }
 
@@ -481,9 +483,9 @@ mod escrow_contract {
                 .ok_or(EscrowError::MilestoneNotFound)?;
 
             // Check if milestone can be released
-            if escrow.milestones[milestone_index].status == MilestoneStatus::Completed {
-                return Err(EscrowError::AlreadyCompleted);
-            }
+            // if escrow.milestones[milestone_index].status == MilestoneStatus::Completed {
+            //     return Err(EscrowError::AlreadyCompleted);
+            // }
 
             // Parse amount (convert string to Balance for calculation)
             let amount_str = escrow.milestones[milestone_index].amount.clone();
