@@ -288,6 +288,8 @@ const EscrowDetails = () => {
       // Create milestone data with note and files
       const milestoneData = {
         ...selectedMilestone,
+        completionNote: note,
+        evidenceFiles: files,
         completedAt: Date.now(),       
       };
 
