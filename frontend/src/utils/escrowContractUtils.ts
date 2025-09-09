@@ -163,6 +163,9 @@ export interface Milestone {
   amount: string;
   status: 'Pending' | 'InProgress' | 'Completed' | 'Disputed' | 'Overdue';
   deadline: number;
+  // Optional frontend-only fields mapped to on-chain
+  completionNote?: string | null;
+  evidenceUris?: string[];
 }
 
 export interface EscrowData {
@@ -206,7 +209,10 @@ export const createEscrowContract = async (
       deadline: safeTimestampConversion(milestone.deadline, Date.now() + 86400000), // Default to 24 hours from now
       completed_at: null,
       dispute_reason: null,
-      dispute_filed_by: null
+      dispute_filed_by: null,
+      // New on-chain fields to prevent decoding errors
+      completion_note: milestone.completionNote ?? null,
+      evidence_uris: milestone.evidenceUris ?? []
     }));
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');

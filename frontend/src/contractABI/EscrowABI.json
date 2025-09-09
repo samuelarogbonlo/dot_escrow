@@ -1433,14 +1433,24 @@
                 "type": 10,
                 "typeName": "Option<String>"
               },
-              {
-                "name": "dispute_filed_by",
-                "type": 11,
-                "typeName": "Option<AccountId>"
-              }
-            ]
+          {
+            "name": "dispute_filed_by",
+            "type": 11,
+            "typeName": "Option<AccountId>"
+          },
+          {
+            "name": "completion_note",
+            "type": 10,
+            "typeName": "Option<String>"
+          },
+          {
+            "name": "evidence_uris",
+            "type": 12,
+            "typeName": "Vec<String>"
           }
-        },
+        ]
+      }
+    },
         "path": [
           "escrow_contract",
           "escrow_contract",
