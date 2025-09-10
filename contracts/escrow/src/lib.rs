@@ -472,7 +472,7 @@ mod escrow_contract {
             let caller = self.env().caller();
 
             // Only creator (client) can release funds
-            if caller != escrow.creator_address || caller != escrow.counterparty_address {
+            if caller != escrow.creator_address && caller != escrow.counterparty_address {
                 return Err(EscrowError::Unauthorized);
             }
 
@@ -483,7 +483,7 @@ mod escrow_contract {
                 .ok_or(EscrowError::MilestoneNotFound)?;
 
             // Check if milestone can be released
-            // if escrow.milestones[milestone_index].status == MilestoneStatus::Completed {
+            // if escrow.milestones[milestone_index].status = MilestoneStatus::Completed {
             //     return Err(EscrowError::AlreadyCompleted);
             // }
 
