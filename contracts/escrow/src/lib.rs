@@ -175,6 +175,8 @@ mod escrow_contract {
         default_duration: u64,
         /// Total volume processed
         total_volume: u128,
+        /// Token decimals for converting human-readable amounts to base units
+        token_decimals: u8,
     }
 
     /// Events
@@ -260,6 +262,7 @@ mod escrow_contract {
                 usdt_token,
                 default_duration: 90 * 24 * 60 * 60 * 1000, // 90 days in ms
                 total_volume: 0,
+                token_decimals: 6, // default to 6 (common for USDC/USDT on many chains)
             }
         }
 
@@ -487,9 +490,11 @@ mod escrow_contract {
             //     return Err(EscrowError::AlreadyCompleted);
             // }
 
-            // Parse amount (convert string to Balance for calculation)
+            // Parse amount (convert human-readable string to base units for calculation)
             let amount_str = escrow.milestones[milestone_index].amount.clone();
-            let amount: Balance = amount_str.parse().map_err(|_| EscrowError::InvalidAmount)?;
+            let amount: Balance = self
+                .parse_amount_to_base_units(&amount_str)
+                .map_err(|_| EscrowError::InvalidAmount)?;
 
             // Calculate fee
             let fee = amount * self.fee_bps as u128 / 10000;
@@ -497,6 +502,12 @@ mod escrow_contract {
 
             // Create PSP22 reference for USDT token
             let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
+
+            // Ensure the contract holds enough balance of the configured token
+            let contract_balance = token.balance_of(self.env().account_id());
+            if contract_balance < amount {
+                return Err(EscrowError::InsufficientBalance);
+            }
 
             // Transfer USDT from escrow contract to provider
             let transfer_result = token.transfer(
@@ -679,6 +690,56 @@ mod escrow_contract {
             }
         }
 
+        /// Convert a human-readable token amount string to base units using token_decimals
+        /// Accepts strings like "10", "10.5", "0.000001" and converts using self.token_decimals
+        fn parse_amount_to_base_units(&self, amount_str: &str) -> Result<Balance, ()> {
+            // Trim whitespace
+            let s = amount_str.trim();
+            if s.is_empty() {
+                return Err(());
+            }
+
+            // Split on decimal point if present
+            let parts: Vec<&str> = s.split('.').collect();
+            if parts.len() > 2 {
+                return Err(());
+            }
+
+            let integer_part = parts[0];
+            let fractional_part = if parts.len() == 2 { parts[1] } else { "" };
+
+            // Ensure only digits
+            if !integer_part.chars().all(|c| c.is_ascii_digit()) {
+                return Err(());
+            }
+            if !fractional_part.chars().all(|c| c.is_ascii_digit()) {
+                return Err(());
+            }
+
+            // Pad or truncate fractional to token_decimals
+            let decimals = self.token_decimals as usize;
+            let mut fractional_adjusted = fractional_part.to_string();
+            if fractional_adjusted.len() < decimals {
+                fractional_adjusted.push_str(&"0".repeat(decimals - fractional_adjusted.len()));
+            } else if fractional_adjusted.len() > decimals {
+                // Truncate extra precision
+                fractional_adjusted.truncate(decimals);
+            }
+
+            // Build full number string
+            let full_number = if decimals == 0 {
+                integer_part.to_string()
+            } else {
+                format!("{}{}", integer_part, fractional_adjusted)
+            };
+
+            // Remove leading zeros to avoid parse issues, but leave at least one zero
+            let full_trimmed = full_number.trim_start_matches('0');
+            let normalized = if full_trimmed.is_empty() { "0" } else { full_trimmed };
+
+            normalized.parse::<Balance>().map_err(|_| ())
+        }
+
         /// Owner-only functions
         #[ink(message)]
         pub fn pause_contract(&mut self) -> Result<(), EscrowError> {
@@ -725,6 +786,29 @@ mod escrow_contract {
         #[ink(message)]
         pub fn get_usdt_token(&self) -> AccountId {
             self.usdt_token
+        }
+
+        /// Update token decimals used for conversions (owner-only)
+        #[ink(message)]
+        pub fn set_token_decimals(&mut self, new_token_decimals: u8) -> Result<(), EscrowError> {
+            let caller = self.env().caller();
+            if caller != self.owner {
+                return Err(EscrowError::Unauthorized);
+            }
+            self.token_decimals = new_token_decimals;
+            Ok(())
+        }
+
+        /// Atomically set token address and decimals (owner-only)
+        #[ink(message)]
+        pub fn set_token_and_decimals(&mut self, new_token_address: AccountId, new_token_decimals: u8) -> Result<(), EscrowError> {
+            let caller = self.env().caller();
+            if caller != self.owner {
+                return Err(EscrowError::Unauthorized);
+            }
+            self.usdt_token = new_token_address;
+            self.token_decimals = new_token_decimals;
+            Ok(())
         }
 
         /// Getter functions

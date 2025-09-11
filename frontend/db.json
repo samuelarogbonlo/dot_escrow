@@ -22,6 +22,40 @@
       "createdAt": 1755079065875
     }
   ],
-  "notify": [],
+  "notify": [
+    {
+      "id": "2211",
+      "escrowId": "escrow_1",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 20.2 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "timestamp": 1757597035398,
+      "read": false
+    },
+    {
+      "id": "8118",
+      "escrowId": "milestone-1757597014063-0",
+      "notificationType": "Milestone Ready",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "A Milestone has been completed and ready for review.",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1757597664071,
+      "read": false
+    },
+    {
+      "id": "c102",
+      "escrowId": "escrow_2",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "A new escrow has been created and funded with 10.1 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1757599895923,
+      "read": false
+    }
+  ],
   "comment": []
 }
