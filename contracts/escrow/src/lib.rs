@@ -14,22 +14,28 @@ mod escrow_contract {
     // PSP22 interface for USDT integration
     #[ink::trait_definition]
     pub trait PSP22 {
-        #[ink(message)]
+        // Matches PSP22 ABI selector 0x162df8c2
+        #[ink(message, selector = 0x162df8c2)]
         fn total_supply(&self) -> Balance;
 
-        #[ink(message)]
+        // Matches PSP22 ABI selector 0x6568382f
+        #[ink(message, selector = 0x6568382f)]
         fn balance_of(&self, owner: AccountId) -> Balance;
 
-        #[ink(message)]
+        // Matches PSP22 ABI selector 0x4d47d921
+        #[ink(message, selector = 0x4d47d921)]
         fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance;
 
-        #[ink(message)]
+        // Matches PSP22 ABI selector 0xdb20f9f5
+        #[ink(message, selector = 0xdb20f9f5)]
         fn transfer(&mut self, to: AccountId, value: Balance, data: Vec<u8>) -> Result<(), PSP22Error>;
 
+        // transfer_from is not present in provided ABI; keep for compatibility if token supports it (unused here)
         #[ink(message)]
         fn transfer_from(&mut self, from: AccountId, to: AccountId, value: Balance, data: Vec<u8>) -> Result<(), PSP22Error>;
 
-        #[ink(message)]
+        // Matches PSP22 ABI selector 0xb20f1bbd
+        #[ink(message, selector = 0xb20f1bbd)]
         fn approve(&mut self, spender: AccountId, value: Balance) -> Result<(), PSP22Error>;
     }
 

@@ -55,6 +55,28 @@
       "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
       "timestamp": 1757599895923,
       "read": false
+    },
+    {
+      "id": "53c2",
+      "escrowId": "escrow_1",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A new escrow has been created and funded with 303 USDC. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "timestamp": 1757672250171,
+      "read": false
+    },
+    {
+      "id": "edd8",
+      "escrowId": "milestone-1757672215679-0",
+      "notificationType": "Milestone Ready",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "A Milestone has been completed and ready for review.",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1757672383155,
+      "read": false
     }
   ],
   "comment": []

@@ -1063,12 +1063,29 @@ export const releaseMilestoneContract = async (
         console.log('[Contract] Transaction status:', result.status.type);
 
         if (result.dispatchError) {
-          console.error('[Contract] Transaction failed:', result.dispatchError.toString());
+          let decodedError = result.dispatchError.toString();
+          try {
+            // Decode module error to section.name + docs
+            // @ts-ignore - runtime types
+            if ((result.dispatchError as any).isModule) {
+              // @ts-ignore - runtime types
+              const mod = (result.dispatchError as any).asModule;
+              const meta = api.registry.findMetaError(mod);
+              const section = meta.section || 'unknown_section';
+              const name = meta.name || 'unknown_error';
+              const docs = (meta.docs && meta.docs.length ? meta.docs[0].toString() : '') || '';
+              decodedError = `${section}.${name}${docs ? `: ${docs}` : ''}`;
+            }
+          } catch (e) {
+            // Fallback to string form if decoding fails
+          }
+
+          console.error('[Contract] Transaction failed (decoded):', decodedError);
           if (!resolved) {
             resolved = true;
             resolve({
               success: false,
-              error: `Transaction failed: ${result.dispatchError.toString()}`
+              error: `Transaction failed: ${decodedError}`
             });
           }
           return;
