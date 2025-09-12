@@ -1,6 +1,6 @@
 {
   "source": {
-    "hash": "0xc8832af60c32be7bbc00f67ad06301af87f5b13a46f34296e7a7f5772d49543b",
+    "hash": "0xbcd5d2bac3de7ea551afe00120cdc0df2df30474b9626d2a00085e21b1c426f9",
     "language": "ink! 4.3.0",
     "compiler": "rustc 1.87.0",
     "build_info": {
@@ -1037,6 +1037,71 @@
         "selector": "0xf92f1ffe"
       },
       {
+        "args": [
+          {
+            "label": "new_token_decimals",
+            "type": {
+              "displayName": [
+                "u8"
+              ],
+              "type": 2
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Update token decimals used for conversions (owner-only)"
+        ],
+        "label": "set_token_decimals",
+        "mutates": true,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 43
+        },
+        "selector": "0x277e5876"
+      },
+      {
+        "args": [
+          {
+            "label": "new_token_address",
+            "type": {
+              "displayName": [
+                "AccountId"
+              ],
+              "type": 0
+            }
+          },
+          {
+            "label": "new_token_decimals",
+            "type": {
+              "displayName": [
+                "u8"
+              ],
+              "type": 2
+            }
+          }
+        ],
+        "default": false,
+        "docs": [
+          " Atomically set token address and decimals (owner-only)"
+        ],
+        "label": "set_token_and_decimals",
+        "mutates": true,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 43
+        },
+        "selector": "0x113656fd"
+      },
+      {
         "args": [],
         "default": false,
         "docs": [
@@ -1310,6 +1375,15 @@
                 }
               },
               "name": "total_volume"
+            },
+            {
+              "layout": {
+                "leaf": {
+                  "key": "0x00000000",
+                  "ty": 2
+                }
+              },
+              "name": "token_decimals"
             }
           ],
           "name": "EscrowContract"
