@@ -76,7 +76,7 @@ const Header = () => {
           )}
 
           {/* Search field or search icon (mobile toggle) */}
-          {showMobileSearch ? (
+          {/* {showMobileSearch ? (
             <InputGroup maxW="300px">
               <InputLeftElement pointerEvents="none">
                 <SearchIcon color="gray.400" />
@@ -94,13 +94,13 @@ const Header = () => {
               </InputLeftElement>
               <Input placeholder="Search escrows..." borderRadius="full" />
             </InputGroup>
-          )}
+          )} */}
         </HStack>
 
         {/* Right side icons */}
         <HStack spacing={3}>
           {/* Search icon toggle for mobile */}
-          {isMobile && (
+          {/* {isMobile && (
             <IconButton
               aria-label="Search"
               icon={showMobileSearch ? <CloseIcon /> : <SearchIcon />}
@@ -108,7 +108,7 @@ const Header = () => {
               variant="ghost"
               size="sm"
             />
-          )}
+          )} */}
 
           {/* Theme toggle (always visible) */}
           <IconButton

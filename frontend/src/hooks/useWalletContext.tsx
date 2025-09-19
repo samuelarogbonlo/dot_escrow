@@ -76,6 +76,17 @@ interface WalletContextType {
     filedByRole: string,
     status: string,
   ) => Promise<any>;
+  completeMilestoneTask: (
+    escrowId: string,
+    milestoneId: string,
+    note: string,
+    fileUrls: any[],   
+  ) => Promise<any>;
+  completeMilestone: (
+    escrowId: string,
+    milestoneId: string,   
+  ) => Promise<any>;
+ 
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -163,6 +174,8 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       listEscrows: escrowContract.listEscrows,
       releaseMilestone: escrowContract.releaseMilestone,
       disputeMilestone: escrowContract.disputeMilestone,
+      completeMilestoneTask: escrowContract.completeMilestoneTask,
+      completeMilestone: escrowContract.completeMilestone,
       notifyCounterparty: escrowContract.notifyCounterparty,
       updateEscrowStatus: escrowContract.updateEscrowStatus,
       updateEscrowMilestoneStatus: escrowContract.updateEscrowMilestoneStatus,

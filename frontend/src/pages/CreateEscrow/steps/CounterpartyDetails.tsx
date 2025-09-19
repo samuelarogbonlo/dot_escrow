@@ -132,7 +132,7 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
               </Text>
             </Box>
             
-            <Box 
+            {/* <Box 
               p={4} 
               borderWidth="1px" 
               borderRadius="md" 
@@ -146,7 +146,7 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
               <Text fontSize="sm" color={textColor} ml={6}>
                 You'll be the worker receiving payment
               </Text>
-            </Box>
+            </Box> */}
           </Stack>
         </RadioGroup>
       </FormControl>

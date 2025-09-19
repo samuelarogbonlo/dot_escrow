@@ -41,6 +41,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
     getAllowance,
     checkSufficientBalance,
     checkSufficientAllowance,
+    checkContractTokenConfig,
   } = usePSP22StablecoinContract(stablecoinKey);
 
   const bgColor = useColorModeValue("white", "gray.800");
@@ -56,6 +57,8 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
   const sufficientAllowance = requiredAmount
     ? checkSufficientAllowance(requiredAmount)
     : true;
+
+    checkContractTokenConfig()
 
   if (compact) {
     return (

@@ -1,81 +1,37 @@
 {
-  "escrows": [
-    {
-      "id": "91c4",
-      "creatorAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
-      "counterpartyAddress": "14fTUJGF6iek9ckHPM3uHUDrKF5ptn6sPEBgqVbRy6zYy7zy",
-      "counterpartyType": "worker",
-      "totalAmount": "1010",
-      "status": "Active",
-      "title": "Ty",
-      "description": "njnk",
-      "milestones": [
-        {
-          "id": "milestone-1755079055199-0",
-          "description": "Test Blockchain Escrow",
-          "amount": "1000",
-          "status": "InProgress",
-          "deadline": 1755683830842
-        }
-      ],
-      "transactionHash": "0x856df6180307e17a20fd161580e6726a6868e945c516d638ac26bf8faf27b098",
-      "createdAt": 1755079065875
-    }
-  ],
+  "escrows": [],
   "notify": [
     {
-      "id": "2211",
+      "id": "6fb3",
       "escrowId": "escrow_1",
       "notificationType": "Escrow Funded",
       "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
-      "message": "A new escrow has been created and funded with 20.2 USDC. Worker can now start work.",
+      "message": "A new escrow has been created and funded with 101 USDC. Worker can now start work.",
       "type": "info",
       "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "timestamp": 1757597035398,
+      "timestamp": 1758319331969,
       "read": false
     },
     {
-      "id": "8118",
-      "escrowId": "milestone-1757597014063-0",
+      "id": "2ef4",
+      "escrowId": "milestone-1758319302697-0",
       "notificationType": "Milestone Ready",
       "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
       "message": "A Milestone has been completed and ready for review.",
       "type": "info",
       "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
-      "timestamp": 1757597664071,
+      "timestamp": 1758319969065,
       "read": false
     },
     {
-      "id": "c102",
-      "escrowId": "escrow_2",
-      "notificationType": "Escrow Funded",
-      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "message": "A new escrow has been created and funded with 10.1 USDC. Worker can now start work.",
-      "type": "info",
-      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
-      "timestamp": 1757599895923,
-      "read": false
-    },
-    {
-      "id": "53c2",
+      "id": "8273",
       "escrowId": "escrow_1",
-      "notificationType": "Escrow Funded",
+      "notificationType": "Payment Released",
       "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
-      "message": "A new escrow has been created and funded with 303 USDC. Worker can now start work.",
-      "type": "info",
+      "message": "Payment of 40 USDT has been released to your wallet.",
+      "type": "success",
       "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "timestamp": 1757672250171,
-      "read": false
-    },
-    {
-      "id": "edd8",
-      "escrowId": "milestone-1757672215679-0",
-      "notificationType": "Milestone Ready",
-      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
-      "message": "A Milestone has been completed and ready for review.",
-      "type": "info",
-      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
-      "timestamp": 1757672383155,
+      "timestamp": 1758321114565,
       "read": false
     }
   ],

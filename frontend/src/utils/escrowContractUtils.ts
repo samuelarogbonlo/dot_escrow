@@ -104,7 +104,7 @@ const estimateGas = async (
       account.address,
       {
         gasLimit: api.registry.createType('WeightV2', {
-          refTime: 100000000000, // Use high limit for estimation
+           refTime: 100000000000, // Use high limit for estimation
           proofSize: 5 * 1024 * 1024 // 5MB for estimation
         }),
         storageDepositLimit: null,
@@ -121,8 +121,8 @@ const estimateGas = async (
     if (result.isErr) {
       console.warn(`[GasEstimation] Dry run failed, using safe defaults`);
       return api.registry.createType('WeightV2', {
-        refTime: 10000000000,
-        proofSize: 1024 * 1024
+        refTime: 30000000000, // Increase default gas for complex operations
+        proofSize: 2 * 1024 * 1024 // Increase proof size too
       });
     }
 
@@ -131,8 +131,8 @@ const estimateGas = async (
     const proofSizeBuffer = gasRequired.proofSize.toBn().muln(125).divn(100);
 
     // Ensure minimum gas limits
-    const minRefTime = 1000000000; // 1 second minimum
-    const minProofSize = 256 * 1024; // 256KB minimum
+    const minRefTime = 2000000000; // 2 second minimum
+    const minProofSize = 512 * 1024; // 512KB minimum
 
     const finalGasLimit = api.registry.createType('WeightV2', {
       refTime: refTimeBuffer.lt(api.registry.createType('u64', minRefTime))
@@ -150,8 +150,8 @@ const estimateGas = async (
     console.error(`[GasEstimation] Error estimating gas:`, error);
     // Return safe default on error
     return api.registry.createType('WeightV2', {
-      refTime: 10000000000,
-      proofSize: 1024 * 1024
+      refTime: 30000000000, // Higher default
+      proofSize: 2 * 1024 * 1024
     });
   }
 };
@@ -235,17 +235,6 @@ export const createEscrowContract = async (
       };
     }
 
-    console.log('[Contract] Creating escrow with params:', {
-      userAccountId: userAccountId.toString(),
-      counterpartyAccountId: counterpartyAccountId.toString(),
-      counterpartyType,
-      status,
-      title,
-      description,
-      totalAmount,
-      contractMilestones,
-      transactionHash
-    });
 
     // Dynamically estimate gas for this call
     const gasLimit = await estimateGas(
@@ -493,7 +482,12 @@ export const getEscrowContract = async (
               deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing // Default to 30 days from now if missing
               completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
               disputeReason: m.disputeReason || m.dispute_reason,
-              disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
+              disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by,
+              completionNote: m.completionNote || m.completion_note,
+              evidenceData: m.evidenceFile?.map((e: any) => ({
+                  name: e.name,
+                  url: e.url
+                }))
             })) || [],
             transactionHash: data.transactionHash || data.transaction_hash
           };
@@ -614,7 +608,11 @@ export const listEscrowsContract = async (
                 deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
                 completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
                 disputeReason: m.disputeReason || m.dispute_reason,
-                disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
+                disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by,
+                evidenceData: escrowData.milestones.evidenceFile?.map((e: any) => ({
+                  name: e.name,
+                  url: e.url
+                }))
               })) || [],
               transactionHash: escrowData.transactionHash || escrowData.transaction_hash
             }));
@@ -907,6 +905,102 @@ export const updateMilestoneStatusContract = async (
     };
   }
 };
+export const completeMilestoneContract = async (
+  api: any,
+  account: InjectedAccountWithMeta,
+  escrowId: string,
+  milestoneId: string,
+): Promise<EscrowContractCall> => {
+  try {
+    
+
+    const { web3FromAddress } = await import('@polkadot/extension-dapp');
+    const injector = await web3FromAddress(account.address);
+    api.setSigner(injector.signer);
+
+    const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
+
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'completeMilestone',
+      account,
+      [escrowId, milestoneId]
+    );
+
+    // Create and send the transaction
+    const result = await new Promise<any>((resolve, reject) => {
+      contract.tx.completeMilestone(
+        {
+          gasLimit: gasLimit,
+          storageDepositLimit: null, // Let the runtime calculate
+        },
+        escrowId,
+        milestoneId,
+      )
+        .signAndSend(account.address, (result) => {
+          console.log('[Contract] Transaction status:', result.status.type);
+
+          if (result.status.isInBlock) {
+            console.log('[Contract] Transaction included in block:', result.status.asInBlock.toHex());
+          } else if (result.status.isFinalized) {
+            console.log('[Contract] Transaction finalized in block:', result.status.asFinalized.toHex());
+
+            // Check for contract events
+            const contractEvents = result.events?.filter(({ event }) =>
+              event.section === 'contracts' && event.method === 'ContractEmitted'
+            );
+
+            if (contractEvents && contractEvents.length > 0) {
+              console.log('[Contract] Contract events found:', contractEvents.length);
+
+              // Look for MilestoneStatusChanged event
+              contractEvents.forEach(({ event }, index) => {
+                const [contractAddress] = event.data;
+
+                if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
+                  console.log(`[Contract] Event ${index} from our contract:`, event);
+
+                  // Try to extract event details
+                  try {
+                    // Check if this is a MilestoneStatusChanged event                  
+                    // Note: You might need to check topics differently based on how events are structured
+                    console.log('[Contract] Milestone status change event detected');
+                  } catch (eventError) {
+                    console.log('[Contract] Could not parse event:', eventError);
+                  }
+                }
+              });
+            }
+
+            resolve({
+              success: true,
+              
+            });
+          } else if (result.status.isInvalid) {
+            reject(new Error('Transaction is invalid'));
+          } else if (result.dispatchError) {
+            if (result.dispatchError.isModule) {
+              const decoded = api.registry.findMetaError(result.dispatchError.asModule);
+              reject(new Error(`Transaction failed: ${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`));
+            } else {
+              reject(new Error(`Transaction failed: ${result.dispatchError.toString()}`));
+            }
+          }
+        });
+    });
+
+    return result;
+
+  } catch (error) {
+    console.error('[Contract] Error updating milestone status:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update milestone status'
+    };
+  }
+};
 
 
 /**
@@ -1020,14 +1114,16 @@ export const disputeMilestoneContract = async (
 };
 
 
-export const releaseMilestoneContract = async (
+export const completeMilestoneTaskContract = async (
   api: any,
   account: InjectedAccountWithMeta,
   escrowId: string,
-  milestoneId: string
+  milestoneId: string,
+  completionNote: string,
+  evidenceData?: any[]
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Releasing milestone:', { escrowId, milestoneId });
+    console.log('[Contract] Disputing milestone:', { escrowId, milestoneId, completionNote, evidenceData });
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -1039,10 +1135,102 @@ export const releaseMilestoneContract = async (
     const gasLimit = await estimateGas(
       api,
       contract,
+      'completeMilestoneTask',
+      account,
+      [escrowId, milestoneId, completionNote, evidenceData]
+    );
+
+    // According to ABI: dispute_milestone(escrow_id: String, milestone_id: String, reason: String)
+    const tx = contract.tx.completeMilestoneTask(
+      {
+        gasLimit,
+        storageDepositLimit: null,
+      },
+      escrowId,     // escrow_id: String
+      milestoneId,  // milestone_id: String
+      completionNote,        // completionNote: String
+      evidenceData,    // evidenceData: array of {name: string, url: string}
+    );
+
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      tx.signAndSend(account.address, (result) => {
+        if (resolved) return;
+
+        console.log('[Contract] Transaction status:', result.status.type);
+
+        if (result.dispatchError) {
+          console.error('[Contract] Transaction failed:', result.dispatchError.toString());
+          if (!resolved) {
+            resolved = true;
+            resolve({
+              success: false,
+              error: `Transaction failed: ${result.dispatchError.toString()}`
+            });
+          }
+          return;
+        }
+
+        if (result.status.isFinalized) {
+          console.log('[Contract] Transaction finalized');
+          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
+          
+
+          resolved = true;
+          resolve({
+            success: true,
+          });
+        }
+      }).catch((error) => {
+        console.error('[Contract] Transaction error:', error);
+        if (!resolved) {
+          resolved = true;
+          resolve({
+            success: false,
+            error: error instanceof Error ? error.message : 'Transaction failed'
+          });
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error('[Contract] Error disputing milestone:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to dispute milestone'
+    };
+  }
+};
+
+export const releaseMilestoneContract = async (
+  api: any,
+  account: InjectedAccountWithMeta,
+  escrowId: string,
+  milestoneId: string
+): Promise<EscrowContractCall> => {
+  try {
+    console.log('[Contract] Releasing milestone:', { escrowId, milestoneId });
+
+   
+    
+
+    const { web3FromAddress } = await import('@polkadot/extension-dapp');
+    const injector = await web3FromAddress(account.address);
+    api.setSigner(injector.signer);
+
+    const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
+
+
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
       'releaseMilestone',
       account,
       [escrowId, milestoneId]
     );
+
 
     // According to ABI: release_milestone(escrow_id: String, milestone_id: String)
     const tx = contract.tx.releaseMilestone(
@@ -1137,6 +1325,114 @@ export const releaseMilestoneContract = async (
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to release milestone'
+    };
+  }
+};
+
+/**
+ * Notify the contract that tokens have been deposited for an escrow
+ */
+export const notifyDepositContract = async (
+  api: any,
+  account: InjectedAccountWithMeta,
+  escrowId: string,
+  amount: string
+): Promise<EscrowContractCall> => {
+  try {
+    console.log('[Contract] Notifying deposit:', { escrowId, amount });
+
+    const { web3FromAddress } = await import('@polkadot/extension-dapp');
+    const injector = await web3FromAddress(account.address);
+    api.setSigner(injector.signer);
+
+    const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
+
+    // Dynamically estimate gas for this call
+    const gasLimit = await estimateGas(
+      api,
+      contract,
+      'notifyDeposit',
+      account,
+      [escrowId, amount]
+    );
+
+    // According to the contract: notify_deposit(escrow_id: String, amount: String)
+    const tx = contract.tx.notifyDeposit(
+      {
+        gasLimit,
+        storageDepositLimit: null,
+      },
+      escrowId,  // escrow_id: String
+      amount     // amount: String
+    );
+
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      tx.signAndSend(account.address, (result) => {
+        if (resolved) return;
+
+        console.log('[Contract] Transaction status:', result.status.type);
+
+        if (result.dispatchError) {
+          let decodedError = result.dispatchError.toString();
+          try {
+            if ((result.dispatchError as any).isModule) {
+              const mod = (result.dispatchError as any).asModule;
+              const meta = api.registry.findMetaError(mod);
+              const section = meta.section || 'unknown_section';
+              const name = meta.name || 'unknown_error';
+              const docs = (meta.docs && meta.docs.length ? meta.docs[0].toString() : '') || '';
+              decodedError = `${section}.${name}${docs ? `: ${docs}` : ''}`;
+            }
+          } catch (e) {
+            // Fallback to string form if decoding fails
+          }
+
+          console.error('[Contract] Notify deposit failed:', decodedError);
+          if (!resolved) {
+            resolved = true;
+            resolve({
+              success: false,
+              error: `Notify deposit failed: ${decodedError}`
+            });
+          }
+          return;
+        }
+
+        if (result.status.isFinalized) {
+          console.log('[Contract] Deposit notification finalized');
+          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
+
+          resolved = true;
+          resolve({
+            success: true,
+            transactionHash: result.txHash.toHex(),
+            data: {
+              txHash: result.txHash.toHex(),
+              blockHash: result.status.asFinalized.toHex(),
+              escrowId,
+              amount
+            }
+          });
+        }
+      }).catch((error) => {
+        console.error('[Contract] Notify deposit error:', error);
+        if (!resolved) {
+          resolved = true;
+          resolve({
+            success: false,
+            error: error instanceof Error ? error.message : 'Notify deposit failed'
+          });
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error('[Contract] Error notifying deposit:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to notify deposit'
     };
   }
 };
@@ -1264,3 +1560,6 @@ export const notifyCounterpartyContract = async (
     };
   }
 };
+
+
+

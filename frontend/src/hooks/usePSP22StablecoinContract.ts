@@ -4,6 +4,7 @@ import { useWallet } from './useWalletContext';
 import { BN } from '@polkadot/util';
 import { ContractPromise } from '@polkadot/api-contract';
 import { PSP22_ABI } from '@/contractABI/PSP22ABI';
+import { ESCROW_CONTRACT_ADDRESS, ESCROW_CONTRACT_ABI } from '@/contractABI/EscrowABI';
 
 
 export interface StablecoinBalance {
@@ -54,8 +55,6 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
     // Get current stablecoin config
     const stablecoinConfig = ALEPH_ZERO_STABLECOINS[stablecoinKey];
 
-    // Your escrow contract address - update this with your actual contract
-    const ESCROW_CONTRACT_ADDRESS = "5GvRMZSLS6UzHwExFuw5Fw9Ybic1gRdWH9LFy79ssDbDiWvU";
 
     // Use useRef to store stable references
     const TOKEN_UNIT = useRef(new BN(10).pow(new BN(stablecoinConfig.decimals)));
@@ -103,6 +102,28 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         const totalAmount = whole + paddedDecimal;
         return new BN(totalAmount);
     }, [stablecoinConfig.decimals]);
+
+
+    // Add this to your frontend and call it
+const checkContractTokenConfig = async () => {
+  const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
+  
+  const result = await contract.query.getUsdtToken(
+    selectedAccount.address,
+    { gasLimit: -1, storageDepositLimit: null }
+  );
+  
+  console.log("Contract's token address:", result.output?.toString());
+  console.log("Your USDC token address:", stablecoinConfig.contractAddress);
+  
+  // Also check contract's token balance
+  const balanceResult = await contract.query.getTokenBalance(
+    selectedAccount.address,
+    { gasLimit: -1, storageDepositLimit: null }
+  );
+  
+  console.log("Contract's token balance:", balanceResult.output?.toString());
+};
 
     // Check if we're connected to Aleph Zero 
     const checkAlephZeroConnection = useCallback((): boolean => {
@@ -338,6 +359,8 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         console.log("approve has reached this stage");
 
         try {
+            
+
             const amountBN = parseToken(amount);
 
             const query = await contract.query["psp22::approve"](
@@ -427,6 +450,7 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
     setError(null);
 
     try {
+
         const amountBN = parseToken(amount);
 
         const { gasRequired, storageDeposit } = await contract.query["psp22::transfer"](
@@ -562,6 +586,7 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         contract,
 
         // Methods
+        checkContractTokenConfig,
         getBalance,
         getAllowance,
         getContractInfo,
@@ -577,7 +602,6 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         // Constants
         TOKEN_DECIMALS: stablecoinConfig.decimals,
         TOKEN_CONTRACT_ADDRESS: stablecoinConfig.contractAddress,
-        ESCROW_CONTRACT_ADDRESS,
 
         // Available stablecoins
         availableStablecoins: ALEPH_ZERO_STABLECOINS

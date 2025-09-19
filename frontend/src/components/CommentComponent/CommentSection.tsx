@@ -13,14 +13,13 @@ import {
   Textarea,
   Avatar,
   Badge,
-  IconButton,
   Divider,
   Spinner,
 } from "@chakra-ui/react";
 import {
   FiMessageSquare,
   FiSend,
-  FiPaperclip,
+  
 } from "react-icons/fi";
 import { useComments } from "@/hooks/useComments";
 
@@ -106,19 +105,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 minH="100px"
                 isDisabled={isSubmitting}
               />
-              <HStack justify="space-between" w="full">
-                <HStack>
-                  <IconButton
-                    icon={<FiPaperclip />}
-                    size="sm"
-                    variant="ghost"
-                    aria-label="Attach file"
-                    isDisabled={isSubmitting}
-                  />
-                  <Text fontSize="sm" color="gray.500">
-                    Attach files
-                  </Text>
-                </HStack>
+              <HStack w="full">
                 <Button
                   leftIcon={<FiSend />}
                   colorScheme="blue"

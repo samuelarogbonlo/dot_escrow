@@ -38,6 +38,8 @@ import { FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useWallet } from "../../hooks/useWalletContext";
 import { usePSP22StablecoinContract } from "@/hooks/usePSP22StablecoinContract";
+import { ESCROW_CONTRACT_ADDRESS } from "@/contractABI/EscrowABI";
+import { notifyDepositContract } from "@/utils/escrowContractUtils";
 
 // Form steps components
 import BasicDetails from "./steps/BasicDetails";
@@ -134,7 +136,6 @@ const CreateEscrow = () => {
     checkSufficientBalance,
     checkSufficientAllowance,
     transferToken,
-    ESCROW_CONTRACT_ADDRESS,
     error: usdcError,
   } = usePSP22StablecoinContract();
 
@@ -399,147 +400,162 @@ const CreateEscrow = () => {
   };
 
   // Escrow creation
-  const handleCreateEscrow = async () => {
-    if (!selectedAccount) return;
+ const handleCreateEscrow = async () => {
+  if (!selectedAccount) return;
 
-    setIsCreatingEscrow(true);
-    setApprovalState("creating");
+  setIsCreatingEscrow(true);
+  setApprovalState("creating");
 
-    try {
-      const creatorAddress = selectedAccount.address;
-      const counterpartyAddress = formData.counterpartyAddress;
-      const counterpartyType = formData.counterpartyType;
+  try {
+    const creatorAddress = selectedAccount.address;
+    const counterpartyAddress = formData.counterpartyAddress;
+    const counterpartyType = formData.counterpartyType;
 
-      const milestones = formData.milestones.map((m, index) => {
-        // Ensure we have a valid deadline
-        let deadlineTimestamp: number;
-        
-        if (m.deadline && m.deadline instanceof Date && !isNaN(m.deadline.getTime())) {
-          deadlineTimestamp = Math.floor(m.deadline.getTime() / 1000); // Convert Date to seconds
-        } else {
-          // If no valid deadline, use current time + 30 days
-          deadlineTimestamp = Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000);
-        }
-        
-        return {
-          id: `milestone-${Date.now()}-${index}`,
-          description: m.description,
-          amount: m.amount,
-          status: "Pending",
-          deadline: deadlineTimestamp,
-        };
-      });
+    const milestones = formData.milestones.map((m, index) => {
+      let deadlineTimestamp: number;
+      
+      if (m.deadline && m.deadline instanceof Date && !isNaN(m.deadline.getTime())) {
+        deadlineTimestamp = Math.floor(m.deadline.getTime() / 1000);
+      } else {
+        deadlineTimestamp = Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000);
+      }
+      
+      return {
+        id: `milestone-${Date.now()}-${index}`,
+        description: m.description,
+        amount: m.amount,
+        status: "Pending",
+        deadline: deadlineTimestamp,
+      };
+    });
 
-      let result;
-      let successMessage = "";
-      let notificationMessage = "";
-      let executeTransaction;
-      let transactionHash;
+    let result;
+    let successMessage = "";
+    let notificationMessage = "";
+    let executeTransaction;
+    let transactionHash;
+    let depositNotification;
 
-      if (counterpartyType === "worker") {
-        // CLIENT is creating escrow for WORKER
-        // This requires immediate payment/deposit to escrow
-        if (approvalState !== "approved") {
-          throw new Error("USDC approval required for client escrow creation");
-        }
+    if (counterpartyType === "worker") {
+      // CLIENT is creating escrow for WORKER
+      if (approvalState !== "approved") {
+        throw new Error("USDC approval required for client escrow creation");
+      }
 
-        // Execute USDC transfer transaction
-        executeTransaction = await executeUSDCTransfer(
-          adjustedAmount,
-          creatorAddress
+      // Step 1: Execute USDC transfer transaction
+      executeTransaction = await executeUSDCTransfer(
+        adjustedAmount,
+        creatorAddress
+      );
+
+      if (executeTransaction.success) {
+        transactionHash = await checkTransactionStatus(
+          executeTransaction.txHash
         );
 
-        if (executeTransaction.success) {
-          transactionHash = await checkTransactionStatus(
+        if (transactionHash.success === true) {
+          // Step 2: Create escrow in contract
+          result = await createEscrow(
+            creatorAddress,
+            counterpartyAddress,
+            counterpartyType,
+            "Active",
+            formData.title,
+            formData.description,
+            adjustedAmount,
+            milestones,
             executeTransaction.txHash
           );
 
-          if (transactionHash.success === true) {
-            result = await createEscrow(
-              creatorAddress, // client address (creator)
-              counterpartyAddress, // worker address
-              counterpartyType,
-              "Active", // Active since funds are deposited
-              formData.title,
-              formData.description,
+          // Step 3: NEW - Notify contract about the deposit
+          if (result.success === true) {
+            console.log("🔔 Notifying contract about deposit...");
+            
+            depositNotification = await notifyDepositContract(
+              api,
+              selectedAccount,
+              result.escrowId,
               adjustedAmount,
-              milestones,
-              executeTransaction.txHash
             );
 
-            successMessage = `Escrow created and funded with ${adjustedAmount} USDC. Worker can now start work.`;
-            notificationMessage = `A new escrow has been created and funded with ${adjustedAmount} USDC. Worker can now start work.`;
+            if (depositNotification.success) {
+              console.log("✅ Deposit notification successful:", depositNotification);
+              successMessage = `Escrow created and funded with ${adjustedAmount} USDC. Contract has been notified of deposit. Worker can now start work.`;
+            } else {
+              console.error("❌ Deposit notification failed:", depositNotification.error);
+              // Don't fail the entire process, but warn the user
+              successMessage = `Escrow created and funded with ${adjustedAmount} USDC. Warning: Contract deposit notification failed - release may not work until manually resolved.`;
+            }
           }
+
+          notificationMessage = `A new escrow has been created and funded with ${adjustedAmount} USDC. Worker can now start work.`;
         }
-      } else {
-        // WORKER is creating escrow for CLIENT
-        // This creates escrow but waits for client approval/funding
-        result = await createEscrow(
-          creatorAddress, // worker address (creator)
-          counterpartyAddress, // client address (will fund later)
-          counterpartyType,
-          "Inactive", // Pending client approval
-          formData.title,
-          formData.description,
-          adjustedAmount,
-          milestones,
-          "" //Pending transaction Hash
+      }
+    } else {
+      // WORKER is creating escrow for CLIENT - no deposit needed yet
+      result = await createEscrow(
+        creatorAddress,
+        counterpartyAddress,
+        counterpartyType,
+        "Inactive",
+        formData.title,
+        formData.description,
+        adjustedAmount,
+        milestones,
+        ""
+      );
+
+      successMessage = `Escrow proposal sent to client. Waiting for client approval and funding.`;
+      notificationMessage = `A worker has created an escrow proposal for you. Please review and approve to fund the escrow.`;
+    }
+
+    if (depositNotification?.success) {
+      // Send notification
+      try {
+        const notificationType = counterpartyType === "worker"
+          ? ("Escrow Funded" as const)
+          : ("Escrow Proposal" as const);
+
+        await notifyCounterparty(
+          result.escrowId,
+          notificationType,
+          counterpartyAddress,
+          notificationMessage,
+          "info"
         );
-
-        successMessage = `Escrow proposal sent to client. Waiting for client approval and funding.`;
-        notificationMessage = `A worker has created an escrow proposal for you. Please review and approve to fund the escrow.`;
+      } catch (notifyError) {
+        console.warn("Failed to send notification:", notifyError);
       }
 
-      if (result.success) {
-        // Send notification
-        try {
-          const notificationType =
-            counterpartyType === "worker"
-              ? ("Escrow Funded" as const)
-              : ("Escrow Proposal" as const);
-
-          await notifyCounterparty(
-            result.escrowId,
-            notificationType,
-            counterpartyAddress,
-            notificationMessage,
-            "info"
-          );
-        } catch (notifyError) {
-          console.warn("Failed to send notification:", notifyError);
-        }
-
-        toast({
-          title: "Escrow Created Successfully",
-          description: successMessage,
-          status: "success",
-          duration: 5000,
-          isClosable: true,
-        });
-
-        closeModal();
-        // Navigate to dashboard since we don't have a specific escrow ID yet
-        navigate(`/`);
-      } else {
-        throw new Error("Failed to create escrow");
-      }
-    } catch (error) {
-      console.error("Error creating escrow:", error);
       toast({
-        title: "Error Creating Escrow",
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
-        status: "error",
+        title: "Escrow Created Successfully",
+        description: successMessage,
+        status: "success",
         duration: 5000,
         isClosable: true,
       });
-      setApprovalState(
-        formData.counterpartyType === "worker" ? "approved" : "idle"
-      ); // Reset appropriately
-    } finally {
-      setIsCreatingEscrow(false);
+
+      closeModal();
+      navigate(`/`);
+    } else {
+      throw new Error("Failed to create escrow");
     }
-  };
+  } catch (error) {
+    console.error("Error creating escrow:", error);
+    toast({
+      title: "Error Creating Escrow",
+      description: error instanceof Error ? error.message : "An unknown error occurred",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+    setApprovalState(
+      formData.counterpartyType === "worker" ? "approved" : "idle"
+    );
+  } finally {
+    setIsCreatingEscrow(false);
+  }
+};
 
   const handleConnectWallet = async () => {
     try {

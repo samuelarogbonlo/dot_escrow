@@ -102,6 +102,7 @@ const EscrowDetails = () => {
     notifyCounterparty,
     isApiReady,
     isExtensionReady,
+    completeMilestoneTask,
   } = useWallet();
 
   // Color mode values
@@ -274,32 +275,29 @@ const EscrowDetails = () => {
     }
   };
 
-  const handleCompleteMilestone = async (
+  const handleCompleteMilestoneTask = async (
     note: string,
     files: Array<{ name: string; url: string; type: string; size: number }>
   ) => {
-    console.log("handleCompleteMilestone triggered");
+    console.log("handleCompleteMilestoneTask triggered");
 
     if (!selectedMilestone) {
       return;
     }
 
     try {
-      // Extract only the URLs from the files array
-      const fileUrls = files.map((file) => file.url);
+      
+      // Extract both name and URL from the files array
+      const fileData = files.map((file) => ({
+        name: file.name,
+        url: file.url
+      }));
 
-      // Create milestone data with note and files
-      const milestoneData = {
-        ...selectedMilestone,
-        completionNote: note,
-        evidenceFiles: fileUrls,
-        completedAt: Date.now(),
-      };
-
-      const result = await updateEscrowMilestoneStatus(
+      const result = await completeMilestoneTask(
         id!,
-        milestoneData, // Pass the enhanced milestone data
-        "Completed"
+        selectedMilestone.id,
+        note, 
+        fileData
       );
 
       if (result.success) {
@@ -333,15 +331,15 @@ const EscrowDetails = () => {
             m.id === selectedMilestone.id
               ? {
                   ...m,
-                  status: "Completed" as MilestoneStatus,
+                  status: "Done" as MilestoneStatus,
                   completedAt: Date.now(),
                 }
               : m
           );
 
           toast({
-            title: "Milestone completed",
-            description: "This milestone has been completed successfully",
+            title: "Milestone task completed",
+            description: "This milestone task has been completed successfully",
             status: "success",
             duration: 5000,
           });
@@ -447,18 +445,6 @@ const EscrowDetails = () => {
     }).format(date);
   };
 
-  // Utility function to check if a timestamp is valid
-  const isValidTimestamp = (timestamp: string | number): boolean => {
-    let ts: number;
-
-    if (typeof timestamp === "string") {
-      ts = parseInt(timestamp.replace(/,/g, ""), 10);
-    } else {
-      ts = timestamp;
-    }
-
-    return ts > 0 && !isNaN(ts);
-  };
 
   // Format address
   const formatAddress = (address: string) => {
@@ -489,10 +475,22 @@ const EscrowDetails = () => {
             <FiClock style={{ marginRight: "4px" }} /> In Progress
           </Badge>
         );
+      case "Done":
+        return (
+          <Badge colorScheme="green" display="flex" alignItems="center">
+            <FiCheckCircle style={{ marginRight: "4px" }} /> Done
+          </Badge>
+        );
       case "Completed":
         return (
           <Badge colorScheme="green" display="flex" alignItems="center">
             <FiCheckCircle style={{ marginRight: "4px" }} /> Completed
+          </Badge>
+        );
+      case "Funded":
+        return (
+          <Badge colorScheme="green" display="flex" alignItems="center">
+            <FiCheckCircle style={{ marginRight: "4px" }} /> Funded
           </Badge>
         );
       case "Disputed":
@@ -521,13 +519,13 @@ const EscrowDetails = () => {
   // Determine if release is allowed
   const canReleaseMilestone = (milestone: Milestone) => {
     if (userRole !== "client") return false;
-    if (milestone.status !== "Completed") return false;
+    if (milestone.status !== "Done") return false;
     if (escrow?.status !== "Active") return false;
     return true;
   };
 
   // Determine if complete is allowed
-  const canCompleteMilestone = (milestone: Milestone) => {
+  const canCompleteMilestoneTask = (milestone: Milestone) => {
     if (userRole !== "worker") return false;
     if (milestone.status !== "InProgress") return false;
     if (escrow?.status !== "Active") return false;
@@ -541,6 +539,8 @@ const EscrowDetails = () => {
     if (escrow?.status !== "Active") return false;
     return true;
   };
+
+
 
   // Loading state
   if (isLoading) {
@@ -751,7 +751,7 @@ const EscrowDetails = () => {
                             </Button>
                           )}
                           {/* Complete Button - for worker alone to verify milestone */}
-                          {canCompleteMilestone(milestone) && (
+                          {canCompleteMilestoneTask(milestone) && (
                             <Button
                               size="xs"
                               colorScheme="green"
@@ -762,7 +762,7 @@ const EscrowDetails = () => {
                                 completeModal.onOpen();
                               }}
                             >
-                              Complete
+                              Done
                             </Button>
                           )}
 
@@ -996,7 +996,7 @@ const EscrowDetails = () => {
         isOpen={completeModal.isOpen}
         onClose={completeModal.onClose}
         milestone={selectedMilestone}
-        onConfirm={handleCompleteMilestone} // This now correctly receives note and files
+        onConfirm={handleCompleteMilestoneTask} // This now correctly receives note and files
         isLoading={isLoading}
       />
     </Box>

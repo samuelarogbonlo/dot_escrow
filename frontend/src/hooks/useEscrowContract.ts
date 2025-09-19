@@ -11,6 +11,8 @@ import {
   updateMilestoneStatusContract,
   releaseMilestoneContract,
   disputeMilestoneContract,
+  completeMilestoneTaskContract,
+  completeMilestoneContract,
   type EscrowContractCall
 } from '../utils/escrowContractUtils';
 
@@ -260,7 +262,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
 
     try {
-     
+
 
       console.log('[useEscrowContract] Creating escrow via smart contract...');
 
@@ -268,7 +270,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       // Always use the selected account address as creator to ensure consistency
       const actualCreatorAddress = account.address;
       console.log('[useEscrowContract] Using creator address:', actualCreatorAddress, 'vs passed:', creatorAddress);
-      
+
       const result: EscrowContractCall = await createEscrowContract(
         api,
         account,
@@ -283,14 +285,14 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         transactionHash,
       );
 
-      
+
 
       if (result.success) {
         console.log('[useEscrowContract] Escrow created successfully via smart contract', result);
         return {
           recipientAddress: counterpartyAddress,
           success: true,
-          escrowId: result.escrowId, 
+          escrowId: result.escrowId,
           transactionHash: result.transactionHash
         };
       } else {
@@ -336,10 +338,38 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       return { success: false, error: errorMessage };
     }
   }, [api, account]);
+  const completeMilestone = useCallback(async (escrowId: string, milestoneId: string) => {
+    if (!api || !account) {
+      return { success: false, error: 'API not available' };
+    }
+
+    try {
+      console.log('[useEscrowContract] Getting escrow from smart contract:', escrowId);
+
+      // Call the smart contract to get escrow details
+      const result: EscrowContractCall = await completeMilestoneContract(api, account, escrowId, milestoneId);
+
+      if (result.success) {
+
+        return {
+          success: true,
+
+        };
+      } else {
+        console.error('[useEscrowContract] Smart contract call failed:', result.error);
+        return { success: false, error: result.error || 'Failed to complete from smart contract' };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Failed to complete details';
+      return { success: false, error: errorMessage };
+    }
+  }, [api, account]);
 
 
   // Update escrow status using smart contract
-  const updateEscrowStatus = useCallback(async (escrowId: string, newStatus: string, transactionHash?: string, note?: string) => {
+  const updateEscrowStatus = useCallback(async (escrowId: string, newStatus: string, transactionHash?: string) => {
     if (!api || !account) {
       return { success: false, error: 'API or account not available' };
     }
@@ -466,6 +496,8 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
   }, [api, account]);
 
+
+
   // Release funds for a milestone using smart contract
   const releaseMilestone = useCallback(async (escrowId: string, milestoneId: string) => {
     if (!api || !account) {
@@ -553,8 +585,52 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
   }, [api, account, getAccountSigner]);
 
+
+  const completeMilestoneTask = useCallback(async (escrowId: string, milestoneId: string, note: string, fileUrls: string[]) => {
+    if (!api || !account) {
+      return { success: false, error: 'API or account not available' };
+    }
+
+    try {
+      // Get the signer for the current account
+      const signerResult = await getAccountSigner(account.address);
+      if (!signerResult.success) {
+        return { success: false, error: signerResult.error };
+      }
+
+      console.log('[useEscrowContract] Disputing milestone via smart contract:', { escrowId, milestoneId, note, fileUrls });
+
+      // Call the smart contract to dispute milestone
+      const result: EscrowContractCall = await completeMilestoneTaskContract(
+        api,
+        account,
+        escrowId,
+        milestoneId,
+        note,
+        fileUrls
+      );
+
+      if (result.success) {
+        console.log('[useEscrowContract] Milestone task completed successfully via smart contract');
+        return {
+          success: true,
+          escrowId: escrowId,
+          message: 'Milestone Task Successfully',
+        };
+      } else {
+        console.error('[useEscrowContract] Smart contract call failed:', result.error);
+        return { success: false, error: result.error || 'Failed to dispute milestone via smart contract' };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Failed to dispute milestone';
+      return { success: false, error: errorMessage };
+    }
+  }, [api, account, getAccountSigner]);
+
   // Notify counterparty about escrow using smart contract
-   const notifyCounterparty = useCallback(async (
+  const notifyCounterparty = useCallback(async (
     escrowId: string,
     notificationType: string,
     recipientAddress: string,
@@ -628,6 +704,8 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     listEscrows,
     releaseMilestone,
     disputeMilestone,
+    completeMilestoneTask,
+    completeMilestone,
     notifyCounterparty,
     updateEscrowStatus,
     updateEscrowMilestoneStatus,

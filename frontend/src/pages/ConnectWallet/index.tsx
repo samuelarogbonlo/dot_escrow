@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Box, Button, Flex, Heading, Text, Icon, VStack, HStack, Divider, useColorModeValue, Alert, AlertIcon, Select, AlertDescription, RadioGroup, Radio, Stack } from '@chakra-ui/react'
-import { FiAlertCircle, FiCheck, FiRefreshCw, FiDownload } from 'react-icons/fi'
+import { FiCheck, FiRefreshCw, FiDownload } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { useWallet } from '../../hooks/useWalletContext'
 
@@ -299,7 +299,7 @@ const ConnectWallet = () => {
                 )}
               </Flex>
 
-              {connectionStep === 'node' && !isApiReady && (
+              {/* {connectionStep === 'node' && !isApiReady && (
                 <Box mt={2}>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>Select Network:</Text>
                   <RadioGroup onChange={handleEndpointChange} value={selectedEndpoint}>
@@ -325,7 +325,7 @@ const ConnectWallet = () => {
                     </Stack>
                   </RadioGroup>
                 </Box>
-              )}
+              )} */}
             </Flex>
             
             {apiError && connectionStep === 'node' && (
@@ -375,7 +375,7 @@ const ConnectWallet = () => {
           </VStack>
           
           {/* Add debug info in development */}
-          {process.env.NODE_ENV === 'development' && (
+          {/* {process.env.NODE_ENV === 'development' && (
             <Box mt={4} p={3} bg="gray.50" borderRadius="md" w="full" fontSize="xs">
               <Text fontWeight="bold">Debug Info:</Text>
               <Text>Extension Ready: {String(isExtensionReady)}</Text>
@@ -387,7 +387,7 @@ const ConnectWallet = () => {
               <Text>Current Endpoint: {currentEndpoint}</Text>
               <Text>Selected Endpoint: {selectedEndpoint}</Text>
             </Box>
-          )}
+          )} */}
         </VStack>
       </Box>
     </Flex>

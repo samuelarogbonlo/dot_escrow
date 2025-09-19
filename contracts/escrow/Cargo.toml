@@ -12,6 +12,9 @@ scale-info = { version = "2.6", default-features = false, features = ["derive"],
 [lib]
 path = "src/lib.rs"
 
+[lints.rust]
+unexpected_cfgs = "allow"
+
 [features]
 default = ["std"]
 std = [
@@ -20,3 +23,6 @@ std = [
     "scale-info/std",
 ]
 ink-as-dependency = []
+
+[dev-dependencies]
+ink_e2e = "4.3.0"

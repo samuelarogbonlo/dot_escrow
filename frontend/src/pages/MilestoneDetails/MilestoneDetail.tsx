@@ -40,7 +40,7 @@ import { useDisclosure } from "@chakra-ui/react";
 
 // Define types
 type EscrowStatus = "Active" | "Completed" | "Disputed" | "Cancelled";
-type MilestoneStatus = "Pending" | "InProgress" | "Completed" | "Dispute";
+type MilestoneStatus = "Pending" | "InProgress" | "Done" | "Dispute" | "Funded";
 type UserRole = "client" | "worker" | "none";
 
 interface Milestone {
@@ -50,7 +50,7 @@ interface Milestone {
   deadline: number;
   completionNote: string;
   status: MilestoneStatus;
-  evidenceFiles: any[];
+  evidenceData: any[];
 }
 
 interface Escrow {
@@ -80,10 +80,11 @@ const MilestoneDetail = () => {
   const {
     selectedAccount,
     getEscrow,
-    updateEscrowMilestoneStatus,
     releaseMilestone,
     disputeMilestone,
     notifyCounterparty,
+    completeMilestoneTask,
+    completeMilestone,
     isApiReady,
     isExtensionReady,
   } = useWallet();
@@ -265,7 +266,9 @@ const MilestoneDetail = () => {
 
   const getStatusColor = (status: MilestoneStatus): string => {
     switch (status) {
-      case "Completed":
+      case "Done":
+        return "green";
+      case "Funded":
         return "green";
       case "InProgress":
         return "blue";
@@ -285,14 +288,15 @@ const MilestoneDetail = () => {
     try {
       const result = await releaseMilestone(escrow?.id || "", milestoneData.id);
       if (result.success) {
-        const escrowId = escrow?.id || '';
+        const escrowId = escrow?.id || "";
         const notificationType = "Payment Released" as const;
         const message = `Payment of ${milestoneData.amount} USDC has been released to your wallet.`;
         const type = "success" as const;
         // Get recipient address from escrow data (the worker who completed the milestone)
-        const recipientAddress = escrow?.counterpartyType === 'worker' 
-          ? escrow.counterpartyAddress 
-          : escrow?.creatorAddress || '';
+        const recipientAddress =
+          escrow?.counterpartyType === "worker"
+            ? escrow.counterpartyAddress
+            : escrow?.creatorAddress || "";
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -353,7 +357,7 @@ const MilestoneDetail = () => {
     }
   };
 
-  const handleCompleteMilestone = async (
+  const handleCompleteMilestoneTask = async (
     note: string,
     files: Array<{ name: string; url: string; type: string; size: number }>
   ) => {
@@ -363,17 +367,18 @@ const MilestoneDetail = () => {
     }
 
     try {
-      const milestone = {
-        ...milestoneData,
-        completionNote: note,
-        completionDate: Date.now(),
-        evidenceFiles: files,
-      };
+      // Extract only the URLs from the files array
+      // Extract both name and URL from the files array
+      const fileData = files.map((file) => ({
+        name: file.name,
+        url: file.url,
+      }));
 
-      const result = await updateEscrowMilestoneStatus(
-        milestoneId!,
-        milestone,
-        "Completed"
+      const result = await completeMilestoneTask(
+        escrow?.id || "",
+        milestoneData.id,
+        note,
+        fileData
       );
 
       if (result.success) {
@@ -382,9 +387,10 @@ const MilestoneDetail = () => {
         const message = `A Milestone has been completed and ready for review.`;
         const type = "info" as const;
         // Get recipient address from escrow data
-              const recipientAddress = escrow?.creatorAddress === selectedAccount?.address
-        ? escrow?.counterpartyAddress || ''
-        : escrow?.creatorAddress || '';
+        const recipientAddress =
+          escrow?.creatorAddress === selectedAccount?.address
+            ? escrow?.counterpartyAddress || ""
+            : escrow?.creatorAddress || "";
 
         try {
           const notifyResult = await notifyCounterparty(
@@ -413,7 +419,7 @@ const MilestoneDetail = () => {
             m.id === milestoneData.id
               ? {
                   ...m,
-                  status: "Completed" as MilestoneStatus,
+                  status: "Done" as MilestoneStatus,
                 }
               : m
           );
@@ -430,6 +436,59 @@ const MilestoneDetail = () => {
       }
     } catch (error) {
       console.error("Error completing milestone:", error);
+      toast({
+        title: "Completion failed",
+        description: "An error occurred while completing the milestone",
+        status: "error",
+        duration: 5000,
+      });
+    }
+  };
+
+
+  const handleCompleteMilestone = async () => {
+    if (!milestoneData) {
+      console.log("No milestone selected");
+      return;
+    }
+
+    try {
+      const result = await completeMilestone(
+        escrow?.id || "",
+        milestoneData.id
+      );
+
+      if (result.success) {
+        toast({
+          title: "Milestone completed",
+          description:
+            "This milestone has been completed successfully",
+          status: "success",
+          duration: 5000,
+        });
+
+        if (escrow) {
+          const updatedMilestones = escrow.milestones.map((m) =>
+            m.id === milestoneData.id
+              ? {
+                  ...m,
+                  status: "Completed" as MilestoneStatus,
+                }
+              : m
+          );
+
+          setEscrow({
+            ...escrow,
+            milestones: updatedMilestones,
+          });
+
+          completeModal.onClose();
+        }
+      } else {
+        throw new Error(result.error || "Failed to complete milestone");
+      }
+    } catch (error) {
+      
       toast({
         title: "Completion failed",
         description: "An error occurred while completing the milestone",
@@ -463,7 +522,6 @@ const MilestoneDetail = () => {
         );
       }
 
-
       const result = await disputeMilestone(
         escrow.id,
         milestoneData.id,
@@ -474,7 +532,7 @@ const MilestoneDetail = () => {
       );
 
       if (result.success) {
-        console.log("send notification now")
+        console.log("send notification now");
         // Determine recipient for notification (the other party)
         const recipientAddress =
           selectedAccount.address === escrow.creatorAddress
@@ -539,21 +597,25 @@ const MilestoneDetail = () => {
   // Permission checks
   const canReleaseMilestone = (milestone: Milestone) => {
     if (userRole !== "client") return false;
-    if (milestone.status !== "Completed") return false;
+    if (milestone.status !== "Done") return false;
     if (escrow?.status !== "Active") return false;
     return true;
   };
 
-  const canCompleteMilestone = (milestone: Milestone) => {
+  const canCompleteMilestoneTask = (milestone: Milestone) => {
     if (userRole !== "worker") return false;
     if (milestone.status !== "InProgress") return false;
     if (escrow?.status !== "Active") return false;
     return true;
   };
+  const canCompleteMilestone = (milestone: Milestone) => {
+    if (milestone.status !== "Funded") return false;
+    if (escrow?.status !== "Active") return false;
+    return true;
+  };
 
   const canDisputeMilestone = (milestone: Milestone) => {
-    if (userRole === "none") return false;
-    if (milestone?.status !== "Completed") return false;
+    if (milestone?.status !== "Done") return false;
     if (escrow?.status !== "Active") return false;
     return true;
   };
@@ -730,16 +792,16 @@ const MilestoneDetail = () => {
                 <Heading size="md">Deliverables</Heading>
                 <Tag size="sm" colorScheme="blue">
                   <TagLabel>
-                    {milestoneData?.evidenceFiles?.length || 0} files
+                    {milestoneData?.evidenceData?.length || 0} files
                   </TagLabel>
                 </Tag>
               </HStack>
             </CardHeader>
             <CardBody>
               <VStack spacing={3} align="stretch">
-                {milestoneData?.evidenceFiles &&
-                milestoneData?.evidenceFiles.length > 0 ? (
-                  milestoneData.evidenceFiles.map((file, index) => (
+                {milestoneData?.evidenceData &&
+                milestoneData?.evidenceData.length > 0 ? (
+                  milestoneData.evidenceData.map((file, index) => (
                     <HStack
                       key={index}
                       justify="space-between"
@@ -843,7 +905,7 @@ const MilestoneDetail = () => {
                 )}
 
                 {/* Complete Button - for worker to mark milestone as completed */}
-                {canCompleteMilestone(milestoneData) && (
+                {canCompleteMilestoneTask(milestoneData) && (
                   <Button
                     colorScheme="blue"
                     leftIcon={<FiCheckCircle />}
@@ -853,7 +915,21 @@ const MilestoneDetail = () => {
                     }}
                     w="full"
                   >
-                    Mark Complete
+                    Mark Done
+                  </Button>
+                )}
+
+                {canCompleteMilestone(milestoneData) && (
+                  <Button
+                    colorScheme="blue"
+                    leftIcon={<FiCheckCircle />}
+                    onClick={() => {
+                      setMilestoneData(milestoneData);
+                      handleCompleteMilestone()
+                    }}
+                    w="full"
+                  >
+                    Complete
                   </Button>
                 )}
 
@@ -897,7 +973,7 @@ const MilestoneDetail = () => {
         isOpen={completeModal.isOpen}
         onClose={completeModal.onClose}
         milestone={milestoneData}
-        onConfirm={handleCompleteMilestone}
+        onConfirm={handleCompleteMilestoneTask}
         isLoading={isLoading}
       />
     </Container>

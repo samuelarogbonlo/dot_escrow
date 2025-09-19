@@ -48,7 +48,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { useWallet } from "../../hooks/useWalletContext";
 
 // Define types
-type MilestoneStatus = "Pending" | "InProgress" | "Completed" | "Disputed";
+type MilestoneStatus = "Pending" | "InProgress" | "Completed" | "Disputed" | "Done" | "Funded";
 
 interface EvidenceFile {
   name: string;
@@ -274,6 +274,18 @@ const MilestoneTracking = () => {
         return (
           <Badge colorScheme="green" display="flex" alignItems="center">
             <FiCheckCircle style={{ marginRight: "4px" }} /> Completed
+          </Badge>
+        );
+      case "Done":
+        return (
+          <Badge colorScheme="green" display="flex" alignItems="center">
+            <FiCheckCircle style={{ marginRight: "4px" }} /> Done
+          </Badge>
+        );
+      case "Funded":
+        return (
+          <Badge colorScheme="green" display="flex" alignItems="center">
+            <FiCheckCircle style={{ marginRight: "4px" }} /> Funded
           </Badge>
         );
       case "Disputed":
