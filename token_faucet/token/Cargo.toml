@@ -1,0 +1,25 @@
+[package]
+name = "token"
+version = "0.1.0"
+authors = ["Alfred Annie <fredileader@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+ink = { version = "4.3.0", default-features = false }
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
+
+[lib]
+path = "lib.rs" # Fixed: Remove the leading slash
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+]
+ink-as-dependency = []
+
+[dev-dependencies]
+ink_e2e = "4.3.0"

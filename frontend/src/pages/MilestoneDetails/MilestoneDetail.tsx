@@ -40,7 +40,7 @@ import { useDisclosure } from "@chakra-ui/react";
 
 // Define types
 type EscrowStatus = "Active" | "Completed" | "Disputed" | "Cancelled";
-type MilestoneStatus = "Pending" | "InProgress" | "Done" | "Dispute" | "Funded";
+type MilestoneStatus = "Pending" | "InProgress" | "Done" | "Dispute" | "Funded" | "Completed";
 type UserRole = "client" | "worker" | "none";
 
 interface Milestone {
@@ -267,6 +267,8 @@ const MilestoneDetail = () => {
   const getStatusColor = (status: MilestoneStatus): string => {
     switch (status) {
       case "Done":
+        return "green";
+      case "Completed":
         return "green";
       case "Funded":
         return "green";
