@@ -609,7 +609,7 @@ export const listEscrowsContract = async (
                 completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
                 disputeReason: m.disputeReason || m.dispute_reason,
                 disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by,
-                evidenceData: escrowData.milestones.evidenceFile?.map((e: any) => ({
+                evidenceData: m.evidenceFile?.map((e: any) => ({
                   name: e.name,
                   url: e.url
                 }))

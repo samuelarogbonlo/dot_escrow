@@ -35,5 +35,19 @@
       "read": false
     }
   ],
-  "comment": []
+  "comment": [
+    {
+      "id": "b735",
+      "escrowId": "escrow_1",
+      "milestoneId": "milestone-1758319302697-0",
+      "messages": [
+        {
+          "message": "i want more ",
+          "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+          "role": "client",
+          "timeStamp": 1758546221091
+        }
+      ]
+    }
+  ]
 }
