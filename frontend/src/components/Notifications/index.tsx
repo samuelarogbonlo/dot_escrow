@@ -66,7 +66,14 @@ const Notifications = () => {
           (m: any) => m.recipientAddress === selectedAccount.address
         );
 
-        setNotifications(notificationList);
+        // Sort notifications in descending order by timestamp (latest first)
+        const sortedNotifications = notificationList.sort((a: Notification, b: Notification) => {
+          const dateA = new Date(a.timestamp);
+          const dateB = new Date(b.timestamp);
+          return dateB.getTime() - dateA.getTime();
+        });
+
+        setNotifications(sortedNotifications);
       } catch (error) {
         const errorMessage =
           error instanceof Error

@@ -82,7 +82,7 @@ const MilestoneTracking = () => {
     "all"
   );
   const [sortField, setSortField] = useState<keyof Milestone>("deadline");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc"); // Changed default to desc for most recent first
 
   // Wallet connection
   const { selectedAccount, isApiReady, isExtensionReady, listEscrows } =
@@ -92,6 +92,18 @@ const MilestoneTracking = () => {
   const cardBg = useColorModeValue("white", "gray.700");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const statBg = useColorModeValue("blue.50", "blue.900");
+
+  // Helper function to sort milestones by date
+  const sortMilestonesByDate = (milestonesToSort: Milestone[], direction: "asc" | "desc" = "desc") => {
+    return milestonesToSort.sort((a, b) => {
+      const aTime = typeof a.deadline === "number" ? a.deadline : 
+                   a.deadline ? new Date(a.deadline).getTime() : 0;
+      const bTime = typeof b.deadline === "number" ? b.deadline : 
+                   b.deadline ? new Date(b.deadline).getTime() : 0;
+      
+      return direction === "desc" ? bTime - aTime : aTime - bTime;
+    });
+  };
 
   // Load milestones
   useEffect(() => {
@@ -137,7 +149,10 @@ const MilestoneTracking = () => {
             }));
           });
 
-          setMilestones(allMilestones);
+          // Sort milestones by deadline in descending order (most recent first)
+          const sortedMilestones = sortMilestonesByDate(allMilestones, "desc");
+
+          setMilestones(sortedMilestones);
           setIsLoading(false);
         }
       } catch (err) {
@@ -172,8 +187,10 @@ const MilestoneTracking = () => {
     // Apply sorting
     result.sort((a, b) => {
       if (sortField === "deadline") {
-        const aTime = typeof a.deadline === "number" ? a.deadline : 0;
-        const bTime = typeof b.deadline === "number" ? b.deadline : 0;
+        const aTime = typeof a.deadline === "number" ? a.deadline : 
+                     a.deadline ? new Date(a.deadline).getTime() : 0;
+        const bTime = typeof b.deadline === "number" ? b.deadline : 
+                     b.deadline ? new Date(b.deadline).getTime() : 0;
         return sortDirection === "asc" ? aTime - bTime : bTime - aTime;
       } else if (sortField === "amount") {
         return sortDirection === "asc"
@@ -198,7 +215,7 @@ const MilestoneTracking = () => {
     
     const deadline = typeof milestone.deadline === "number" 
       ? milestone.deadline 
-      : milestone.deadline.getTime();
+      : new Date(milestone.deadline).getTime();
     
     return deadline < Date.now();
   };
@@ -219,9 +236,9 @@ const MilestoneTracking = () => {
       // Toggle direction if same field
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      // New field, set to default direction
+      // New field, set to default direction (desc for dates, asc for others)
       setSortField(field);
-      setSortDirection("asc");
+      setSortDirection(field === "deadline" ? "desc" : "asc");
     }
   };
 
@@ -229,7 +246,7 @@ const MilestoneTracking = () => {
   const formatDate = (timestamp: Date | number) => {
     if (!timestamp) return "N/A";
 
-    const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
+    const date = typeof timestamp === 'number' ? new Date(timestamp) : new Date(timestamp);
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "short",
@@ -239,7 +256,7 @@ const MilestoneTracking = () => {
 
   const getRelativeTime = (timestamp: Date | number, isPast = false) => {
     const now = new Date();
-    const date = typeof timestamp === 'number' ? new Date(timestamp) : timestamp;
+    const date = typeof timestamp === 'number' ? new Date(timestamp) : new Date(timestamp);
     const diffTime = Math.abs(date.getTime() - now.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -560,7 +577,7 @@ const MilestoneTracking = () => {
                               ? "red.500"
                               : (typeof milestone.deadline === "number"
                                   ? milestone.deadline
-                                  : milestone.deadline.getTime()) -
+                                  : new Date(milestone.deadline).getTime()) -
                                   Date.now() <
                                 3 * 24 * 60 * 60 * 1000
                               ? "orange.500"

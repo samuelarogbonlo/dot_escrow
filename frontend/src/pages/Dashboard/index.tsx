@@ -76,16 +76,17 @@ const Dashboard = () => {
           const isUserCreator = e.creatorAddress === selectedAccount.address;
           const isUserCounterparty = e.counterpartyAddress === selectedAccount.address;
           const isActive = e.status === "Active";
+          const isComplete = e.status === "Completed"
 
           console.log('[Dashboard] Filter check:', {
             isUserCreator,
             isUserCounterparty,
             isActive,
-            shouldShow: isUserCreator || (isUserCounterparty && isActive)
+            shouldShow: isUserCreator || (isUserCounterparty && isActive) || (isUserCounterparty && isComplete)
           });
 
           // Show if user created it, OR if user is counterparty and it's active
-          return isUserCreator || (isUserCounterparty && isActive);
+          return isUserCreator || (isUserCounterparty && isActive) || (isUserCounterparty && isComplete);
         });
 
         console.log('[Dashboard] Filtered escrows:', filteredEscrows);

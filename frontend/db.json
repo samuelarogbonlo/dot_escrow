@@ -33,6 +33,61 @@
       "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
       "timestamp": 1758321114565,
       "read": false
+    },
+    {
+      "id": "f742",
+      "escrowId": "milestone-1758319302697-1",
+      "notificationType": "Milestone Ready",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "A Milestone has been completed and ready for review.",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1758551477367,
+      "read": false
+    },
+    {
+      "id": "d580",
+      "escrowId": "escrow_1",
+      "notificationType": "Payment Released",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "Payment of 60 USDC has been released to your wallet.",
+      "type": "success",
+      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "timestamp": 1758551576881,
+      "read": false
+    },
+    {
+      "id": "f699",
+      "escrowId": "escrow_2",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1758621953759,
+      "read": false
+    },
+    {
+      "id": "0556",
+      "escrowId": "milestone-1758621923224-0",
+      "notificationType": "Milestone Ready",
+      "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "message": "A Milestone has been completed and ready for review.",
+      "type": "info",
+      "recipientAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "timestamp": 1758622320873,
+      "read": false
+    },
+    {
+      "id": "eb59",
+      "escrowId": "escrow_2",
+      "notificationType": "Payment Released",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "Payment of 70 USDT has been released to your wallet.",
+      "type": "success",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1758624416016,
+      "read": false
     }
   ],
   "comment": [
@@ -46,6 +101,50 @@
           "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
           "role": "client",
           "timeStamp": 1758546221091
+        }
+      ]
+    },
+    {
+      "id": "4bcc",
+      "escrowId": "escrow_1",
+      "milestoneId": "milestone-1758319302697-1",
+      "messages": [
+        {
+          "message": "so i want this to be done by tomorrow. or i cancel the guy",
+          "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+          "role": "client",
+          "timeStamp": 1758551296446
+        },
+        {
+          "message": "Oga, you chill na. How is it possible I finish by tomorrow?",
+          "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+          "role": "worker",
+          "timeStamp": 1758551387687
+        }
+      ]
+    },
+    {
+      "id": "98f9",
+      "escrowId": "escrow_2",
+      "milestoneId": "milestone-1758621923224-0",
+      "messages": [
+        {
+          "message": "Could you please update me on the milestone with the attached file when you are done?",
+          "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+          "role": "client",
+          "timeStamp": 1758622133445
+        },
+        {
+          "message": "No file attached for this milestone?\n",
+          "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+          "role": "client",
+          "timeStamp": 1758623099574
+        },
+        {
+          "message": "Yes, there is no file attached for this milestone yet.",
+          "senderAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+          "role": "worker",
+          "timeStamp": 1758623214861
         }
       ]
     }
