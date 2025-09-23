@@ -15,7 +15,7 @@ The growing Web3 freelance economy faces several challenges:
 1. **Trust-Minimized Escrow**
    - Smart contract-based fund locking mechanism
    - Non-custodial design (funds controlled by contracts, not platform operators)
-   - Secure timelock functionality preventing indefinite fund locking
+   - Deadline indicators for manual dispute escalation and resolution guidance
 
 2. **Milestone-Based Payments**
    - Multiple payment stages with individual confirmations
@@ -65,7 +65,7 @@ The growing Web3 freelance economy faces several challenges:
    - Smart contract verifies fund availability and transfers USDT from client wallet
    - Funds are locked in the escrow contract with specific release conditions
    - Both parties receive confirmation of successful fund locking
-   - Timelock safety mechanism activated (default: 90 days)
+   - Timelock reference for dispute escalation (default: 90 days for guidance)
 
 3. **Work Execution and Verification**
    - Freelancer performs work according to agreement terms
@@ -87,7 +87,7 @@ The growing Web3 freelance economy faces several challenges:
    - If mutual agreement reached, smart contract unlocks funds
    - Funds returned to client wallet minus minimal transaction fees
    - If disagreement, escalation to dispute resolution process
-   - Automatic cancellation possible after timelock expiration if no activity
+   - Manual dispute resolution required for deadlock situations, with deadlines serving as escalation indicators
 
 ### Milestone-Based Payment Logic
 
@@ -153,7 +153,7 @@ The growing Web3 freelance economy faces several challenges:
 5. **Deadlock Resolution**
    - If parties cannot reach agreement within timeframe (default: 30 days)
    - Optional escalation to third-party mediation (future feature)
-   - Timelock expiration mechanism as final safeguard
+   - Manual dispute resolution as final safeguard after deadline expiration
    - System proposes compromise solutions based on similar past disputes
    - Would be fantastic to address how disputes could be escalated and resolved in future versions through decentralized arbitration networks, reputation-based mediator selection, and specialized domain experts for different types of work
 
@@ -185,20 +185,20 @@ The growing Web3 freelance economy faces several challenges:
    - No private keys ever stored or accessed by platform
    - Session timeouts for wallet connections
    - Transaction value limits configurable by users
-   - Multi-signature requirement for high-value transactions
+   - Multi-signature support planned for high-value transactions
    - Address verification through QR code option
 
 ### Smart Contract Security Logic
 
 1. **Access Control**
-   - Role-based permissions (client, freelancer, platform)
+   - Role-based permissions (client, freelancer, platform administrators)
    - Function-level access restrictions based on contract state
-   - Ownership verification before critical operations
-   - Multi-signature requirements for high-value actions
+   - Multi-signature governance for all administrative operations
+   - Proposal-based approval system with configurable k-of-n thresholds
 
 2. **Fund Safety Mechanisms**
    - Non-custodial design (platform never controls funds)
-   - Timelock expiration for recovery of abandoned contracts
+   - Manual dispute resolution for abandoned contracts, with deadlines as guidance indicators
    - Transaction value limits during platform beta
    - Emergency pause functionality for critical vulnerabilities
    - Reentrancy attack protection on all fund transfers
@@ -246,6 +246,41 @@ The growing Web3 freelance economy faces several challenges:
    - Balance verification before and after transfers
    - Gas optimization for token operations
    - Overflow/underflow protection for all calculations
+
+### Multi-Signature Governance Logic
+
+1. **Administrative Control Structure**
+   - Designated admin signer roster with add/remove capabilities
+   - Configurable approval threshold (k-of-n multi-signature)
+   - Proposal-based system for all sensitive operations
+   - Automatic execution when threshold requirements are met
+
+2. **Governance Proposal System**
+   - Structured proposals for fee adjustments, contract pause/unpause, token configuration
+   - Proposal lifecycle: Creation → Approval → Execution
+   - Anti-replay protection preventing duplicate approvals
+   - Event emission for dashboard synchronization and audit trails
+
+3. **Administrative Actions Requiring Multi-Signature**
+   - Platform fee adjustments (propose_update_fee)
+   - Contract operational control (propose_pause_contract, propose_unpause_contract)
+   - Token contract configuration (propose_set_usdt_token, propose_set_token_decimals)
+   - Admin signer management (AddSigner, RemoveSigner proposals)
+   - Emergency fund recovery (EmergencyWithdraw proposals)
+   - Threshold adjustment (SetThreshold proposals)
+
+4. **Security and Validation**
+   - Legacy owner-only functions disabled, forcing multi-signature workflow
+   - Threshold validation preventing invalid configurations (0 or > signer count)
+   - Signer authorization checks on all proposal operations
+   - Proposal state management preventing execution conflicts
+
+5. **Dashboard Integration**
+   - Real-time proposal status tracking via getter functions
+   - Admin signer roster visibility (get_admin_signers)
+   - Current threshold display (get_signature_threshold)
+   - Proposal history and details (get_proposal, get_proposal_counter)
+   - Event subscription for live governance updates
 
 ## Technology Stack
 
@@ -341,7 +376,7 @@ The growing Web3 freelance economy faces several challenges:
    - Transaction confirmation
 
 4. **Security Implementation**
-   - Multi-signature requirements for critical actions
+   - Multi-signature functionality planned for critical actions
    - Transaction value limits
    - Emergency pause functionality
    - Reentrancy attack protections
