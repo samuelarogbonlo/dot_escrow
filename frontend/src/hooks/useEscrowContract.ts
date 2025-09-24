@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { ApiPromise } from '@polkadot/api';
 import axios from 'axios';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
-import type { Signer } from '@polkadot/api/types';
 import {
   createEscrowContract,
   getEscrowContract,
@@ -15,21 +14,6 @@ import {
   completeMilestoneContract,
   type EscrowContractCall
 } from '../utils/escrowContractUtils';
-
-// Create a mock signer for testing
-const createMockSigner = (): Signer => {
-  return {
-    signPayload: async () => ({
-      signature: '0x1234567890',
-      id: 1,
-    }),
-    signRaw: async () => ({
-      signature: '0x1234567890',
-      id: 1,
-    }),
-    update: () => Promise.resolve(),
-  };
-};
 
 export interface EscrowData {
   id: string;
@@ -64,12 +48,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
   // Helper to get signer with test mode support
   const getAccountSigner = useCallback(async (address: string) => {
     try {
-      // Check if this is a test account
-      if (account?.meta.source === 'test') {
-        console.log('[EscrowContract] Using mock signer for test account');
-        return { success: true, signer: createMockSigner() };
-      }
-
+      
       // Otherwise use actual signer
       return await getSigner(address);
     } catch (error) {
