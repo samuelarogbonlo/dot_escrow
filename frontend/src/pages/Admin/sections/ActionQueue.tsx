@@ -44,6 +44,8 @@ import {
   FiSettings,
   FiAlertTriangle,
 } from "react-icons/fi";
+import { useWallet } from '../../../hooks/useWalletContext';
+import { useAdminGovernance } from '../../../hooks/useAdminGovernance';
 
 interface ActionQueueProps {
   proposals?: any[];
@@ -79,48 +81,22 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
   const toast = useToast();
   const cardBg = useColorModeValue("white", "gray.700");
   const borderColor = useColorModeValue("gray.200", "gray.600");
+  const { api, selectedAccount } = useWallet();
+  const governance = useAdminGovernance({ api, account: selectedAccount as any });
 
-  // Mock proposals if none provided
-  const mockProposals: Proposal[] =
-    proposals && proposals.length > 0
-      ? proposals
-      : [
-          {
-            id: "1",
-            type: "pause_contract",
-            title: "Pause Contract Operations",
-            description:
-              "Temporary halt of all escrow operations for maintenance",
-            proposer: "0x1234...5678",
-            created_at: new Date(
-              Date.now() - 2 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            expires_at: new Date(
-              Date.now() + 5 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            approvals: ["0x1234...5678", "0x9abc...def0"],
-            required_approvals: 3,
-            status: "pending",
-            data: { reason: "Security audit and contract upgrades" },
-          },
-          {
-            id: "2",
-            type: "update_fee",
-            title: "Update Platform Fee",
-            description: "Change platform fee from 2.5% to 2.0%",
-            proposer: "0x9abc...def0",
-            created_at: new Date(
-              Date.now() - 1 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            expires_at: new Date(
-              Date.now() + 6 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            approvals: ["0x9abc...def0"],
-            required_approvals: 3,
-            status: "pending",
-            data: { new_fee_bps: 200, old_fee_bps: 250 },
-          },
-        ];
+  const mappedProposals: Proposal[] = (proposals || []).map((p: any) => ({
+    id: String(p.id),
+    type: p.type,
+    title: p.title || p.type,
+    description: p.description || '',
+    proposer: p.proposer,
+    created_at: p.created_at,
+    expires_at: p.expires_at || '',
+    approvals: p.approvals || [],
+    required_approvals: p.required_approvals || 1,
+    status: p.status,
+    data: p.data,
+  }));
 
   const getProposalIcon = (type: string | undefined) => {
     if (!type) return FiSettings;
@@ -163,7 +139,7 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
 
   const handleApproveProposal = async (_proposalId: string) => {
     try {
-      // Contract interaction to approve proposal
+      await governance.approveProposal(Number(_proposalId));
       toast({
         title: "Approval Submitted",
         description: "Your approval has been recorded.",
@@ -183,7 +159,7 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
 
   const handleExecuteProposal = async (_proposalId: string) => {
     try {
-      // Contract interaction to execute proposal
+      await governance.executeProposal(Number(_proposalId));
       toast({
         title: "Proposal Executed",
         description: "The proposal has been successfully executed.",
@@ -203,7 +179,28 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
 
   const handleCreateProposal = async () => {
     try {
-      // Contract interaction to create new proposal
+      switch (newProposalType) {
+        case 'update_fee':
+          await governance.proposeSetFee(Number(newProposalData.fee_bps));
+          break;
+        case 'pause_contract':
+          await governance.proposePause();
+          break;
+        case 'resume_contract':
+          await governance.proposeUnpause();
+          break;
+        case 'emergency_withdraw':
+          await governance.proposeEmergencyWithdraw(String(newProposalData.recipient), Number(newProposalData.amount));
+          break;
+        case 'add_signer':
+          await governance.proposeAddSigner(String(newProposalData.signer));
+          break;
+        case 'remove_signer':
+          await governance.proposeRemoveSigner(String(newProposalData.signer));
+          break;
+        default:
+          throw new Error('Select a valid proposal type');
+      }
       toast({
         title: "Proposal Created",
         description: "New proposal has been submitted for approval.",
@@ -347,7 +344,7 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
       </HStack>
 
       {/* Proposals List */}
-      {mockProposals?.length === 0 ? (
+      {mappedProposals?.length === 0 ? (
         <Card bg={cardBg}>
           <CardBody textAlign="center" py={10}>
             <Icon as={FiCheckCircle} boxSize={12} color="green.500" mb={4} />
@@ -359,7 +356,7 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
         </Card>
       ) : (
         <VStack spacing={4} align="stretch">
-          {mockProposals?.map((proposal) => {
+          {mappedProposals?.map((proposal) => {
             const progress =
               (proposal.approvals.length / proposal.required_approvals) * 100;
             const canExecute = progress >= 100 && proposal.status === "pending";

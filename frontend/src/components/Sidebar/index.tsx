@@ -11,12 +11,8 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { FiHome, FiFileText, FiTarget, FiSettings } from "react-icons/fi";
 import { useState, useEffect } from "react";
-import { ContractPromise } from "@polkadot/api-contract";
-import {
-  ESCROW_CONTRACT_ABI,
-  ESCROW_CONTRACT_ADDRESS,
-} from "@/contractABI/EscrowABI";
-import { useWallet } from "@/hooks/useWalletContext"; // Adjust path as needed
+import { useWallet } from "../../hooks/useWalletContext";
+import { useAdminGovernance } from "../../hooks/useAdminGovernance";
 
 const NavItem = ({
   icon,
@@ -91,13 +87,7 @@ const Sidebar = () => {
   const [adminCheckLoading, setAdminCheckLoading] = useState(true);
 
   const { selectedAccount, isExtensionReady, api } = useWallet();
-
-  // Check if the connected wallet is an admin
-  const contract = new ContractPromise(
-    api,
-    ESCROW_CONTRACT_ABI,
-    ESCROW_CONTRACT_ADDRESS
-  );
+  const governance = useAdminGovernance({ api, account: selectedAccount as any });
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!isExtensionReady || !selectedAccount?.address || !api) {
@@ -108,20 +98,8 @@ const Sidebar = () => {
 
       try {
         setAdminCheckLoading(true);
-
-        // Call your contract to get admin/signer list
-        const response = await contract.query({
-          get_admins: {}, // Adjust this to match your actual contract method
-        });
-
-        // Check if current wallet is in the admin list
-        const adminList = response.admins || response.signers || [];
-        const userIsAdmin = adminList.some(
-          (admin) =>
-            admin.toLowerCase() === selectedAccount.address.toLowerCase()
-        );
-
-        setIsAdmin(userIsAdmin);
+        const isSigner = await governance.isAdminSigner(selectedAccount.address);
+        setIsAdmin(Boolean(isSigner));
       } catch (error) {
         console.error("Error checking admin status:", error);
         setIsAdmin(false);
@@ -131,7 +109,7 @@ const Sidebar = () => {
     };
 
     checkAdminStatus();
-  }, [isExtensionReady, selectedAccount, contract]);
+  }, [isExtensionReady, selectedAccount, api]);
 
   return (
     <>

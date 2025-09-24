@@ -52,6 +52,8 @@ import {
   FiKey,
   FiAlertTriangle
 } from 'react-icons/fi';
+import { useWallet } from '../../../hooks/useWalletContext';
+import { useAdminGovernance } from '../../../hooks/useAdminGovernance';
 
 interface KeyManagementProps {
   signerInfo?: any;
@@ -81,68 +83,23 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'gray.700');
   const statBg = useColorModeValue('blue.50', 'blue.900');
+  const { api, selectedAccount } = useWallet();
+  const governance = useAdminGovernance({ api, account: selectedAccount as any });
 
-  // Mock signer data if none provided
-  const mockSignerInfo: SignerInfo = signerInfo || {
-    signers: [
-      {
-        address: '0x1234567890123456789012345678901234567890',
-        alias: 'Admin 1',
-        added_date: '2024-01-15',
-        added_by: '0x0000000000000000000000000000000000000000',
-        is_active: true,
-        last_activity: '2024-12-20'
-      },
-      {
-        address: '0x9876543210987654321098765432109876543210',
-        alias: 'Admin 2', 
-        added_date: '2024-02-01',
-        added_by: '0x1234567890123456789012345678901234567890',
-        is_active: true,
-        last_activity: '2024-12-19'
-      },
-      {
-        address: '0x5555555555555555555555555555555555555555',
-        alias: 'Admin 3',
-        added_date: '2024-03-10',
-        added_by: '0x1234567890123456789012345678901234567890',
-        is_active: true,
-        last_activity: '2024-12-18'
-      }
-    ],
-    threshold: 2,
-    total_signers: 3
-  };
+  const info: SignerInfo = signerInfo || { signers: [], threshold: 1, total_signers: 0 };
 
   const handleSubmitSignerAction = async () => {
     try {
-      // Contract interaction based on selectedAction
-      let proposalType = '';
-      let proposalData = {};
-
       if (selectedAction === 'add_signer') {
-        proposalType = 'add_signer';
-        proposalData = {
-          new_signer: formData.address,
-          alias: formData.alias || '',
-          reason: formData.reason || ''
-        };
+        await governance.proposeAddSigner(String(formData.address));
       } else if (selectedAction === 'remove_signer') {
-        proposalType = 'remove_signer';
-        proposalData = {
-          signer_to_remove: formData.address,
-          reason: formData.reason || ''
-        };
+        await governance.proposeRemoveSigner(String(formData.address));
       } else if (selectedAction === 'change_threshold') {
-        proposalType = 'change_threshold';
-        proposalData = {
-          new_threshold: parseInt(formData.threshold),
-          old_threshold: mockSignerInfo.threshold,
-          reason: formData.reason || ''
-        };
+        await governance.proposeSetThreshold(Number(formData.threshold));
+      } else {
+        throw new Error('Select a valid action');
       }
 
-      // Submit proposal to contract
       toast({
         title: 'Proposal Submitted',
         description: 'Key management proposal has been created and is pending approval.',
@@ -251,14 +208,14 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               <FormLabel>New Threshold</FormLabel>
               <NumberInput
                 min={1}
-                max={mockSignerInfo.total_signers}
+                max={info.total_signers}
                 value={formData.threshold || ''}
                 onChange={(val) => setFormData({...formData, threshold: val})}
               >
                 <NumberInputField placeholder="Number of required signatures" />
               </NumberInput>
               <Text fontSize="sm" color="gray.500" mt={1}>
-                Current threshold: {mockSignerInfo.threshold} of {mockSignerInfo.total_signers}
+                Current threshold: {info.threshold} of {info.total_signers}
               </Text>
             </FormControl>
             <FormControl isRequired>
@@ -311,8 +268,8 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               <Icon as={FiUsers} mr={2} />
               Active Signers
             </StatLabel>
-            <StatNumber>{mockSignerInfo.signers.filter(s => s.is_active).length}</StatNumber>
-            <StatHelpText>of {mockSignerInfo.total_signers} total</StatHelpText>
+            <StatNumber>{info.signers.filter(s => s.is_active).length}</StatNumber>
+            <StatHelpText>of {info.total_signers} total</StatHelpText>
           </Stat>
         </GridItem>
 
@@ -322,7 +279,7 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               <Icon as={FiShield} mr={2} />
               Signature Threshold
             </StatLabel>
-            <StatNumber>{mockSignerInfo.threshold}</StatNumber>
+            <StatNumber>{info.threshold}</StatNumber>
             <StatHelpText>signatures required</StatHelpText>
           </Stat>
         </GridItem>
@@ -334,7 +291,7 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               Security Level
             </StatLabel>
             <StatNumber>
-              {Math.round((mockSignerInfo.threshold / mockSignerInfo.total_signers) * 100)}%
+              {info.total_signers > 0 ? Math.round((info.threshold / info.total_signers) * 100) : 0}%
             </StatNumber>
             <StatHelpText>consensus required</StatHelpText>
           </Stat>
@@ -358,7 +315,7 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               </Tr>
             </Thead>
             <Tbody>
-              {mockSignerInfo.signers.map((signer, index) => (
+              {info.signers.map((signer, index) => (
                 <Tr key={index}>
                   <Td>
                     <HStack>

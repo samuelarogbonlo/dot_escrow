@@ -20,6 +20,7 @@ import {
   useColorModeValue
 } from '@chakra-ui/react';
 import { useWallet } from '../../hooks/useWalletContext';
+import { useAdminGovernance } from '../../hooks/useAdminGovernance';
 import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../../contractABI/EscrowABI';
 import { useNavigate } from 'react-router-dom';
 
@@ -41,6 +42,7 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const { selectedAccount, isExtensionReady, api } = useWallet();
+  const governance = useAdminGovernance({ api, account: selectedAccount as any });
   const navigate = useNavigate();
   const toast = useToast();
   const bgColor = useColorModeValue('white', 'gray.900');
@@ -60,16 +62,7 @@ const AdminDashboard = () => {
 
       try {
         setIsLoading(true);
-        
-        // Call contract to get admin list
-        // const response = await contract.query({
-        //   get_admins: {}
-        // });
-
-        const adminList = ["5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M", "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M"];
-        const userIsAdmin = adminList.some(
-          admin => admin.toLowerCase() === selectedAccount?.address?.toLowerCase()
-        );
+        const userIsAdmin = await governance.isAdminSigner(selectedAccount.address);
 
         if (userIsAdmin) {
           setIsAdmin(true);
@@ -108,26 +101,53 @@ const AdminDashboard = () => {
   // Fetch comprehensive admin data
   const fetchAdminData = async (): Promise<void> => {
     try {
-      // Mock data for now since contract doesn't have these methods yet
-      const mockData: AdminData = {
-        contractState: {
-          fee_bps: 250,
-          contract_balance: '15750.50',
-          is_paused: false,
-          total_escrows: 1247,
-          active_escrows: 89,
-          total_volume: '2847392.75'
-        },
-        pendingProposals: [],
-        signerInfo: {
-          signers: [],
-          threshold: 1,
-          total_signers: 1
-        },
-        auditHistory: []
-      };
+      // Read from contract
+      const [signers, threshold, proposals] = await Promise.all([
+        governance.getAdminSigners(),
+        governance.getSignatureThreshold(),
+        governance.listProposals(),
+      ]);
 
-      setAdminData(mockData);
+      // Try fetching summary via get_contract_info if available
+      let contractState: any = {};
+      try {
+        if (contract?.query?.getContractInfo) {
+          const q: any = await (contract as any).query.getContractInfo(selectedAccount?.address, { value: 0, gasLimit: -1 });
+          const data = q?.output?.toJSON?.() ?? q?.output;
+          if (Array.isArray(data) && data.length >= 4) {
+            contractState = { owner: data[0], fee_bps: data[1], is_paused: data[2], total_volume: data[3] };
+          }
+        } else if ((contract as any)?.query?.get_contract_info) {
+          const q: any = await (contract as any).query.get_contract_info(selectedAccount?.address, { value: 0, gasLimit: -1 });
+          const data = q?.output?.toJSON?.() ?? q?.output;
+          if (Array.isArray(data) && data.length >= 4) {
+            contractState = { owner: data[0], fee_bps: data[1], is_paused: data[2], total_volume: data[3] };
+          }
+        }
+      } catch {}
+
+      setAdminData({
+        contractState,
+        pendingProposals: proposals.map((p: any) => ({
+          id: p.id,
+          type: typeof p.action === 'object' ? Object.keys(p.action)[0] : String(p.action),
+          title: typeof p.action === 'object' ? Object.keys(p.action)[0] : String(p.action),
+          description: '',
+          proposer: p.created_by,
+          created_at: new Date(Number(p.created_at)).toISOString(),
+          expires_at: '',
+          approvals: (p.approvals || []).map((a: any) => String(a)),
+          required_approvals: Number(threshold),
+          status: p.executed ? 'executed' : 'pending',
+          data: p.action,
+        })),
+        signerInfo: {
+          signers,
+          threshold: Number(threshold),
+          total_signers: signers.length,
+        },
+        auditHistory: [],
+      });
     } catch (error: any) {
       console.error('Error fetching admin data:', error);
       toast({

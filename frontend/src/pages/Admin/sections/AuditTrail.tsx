@@ -77,69 +77,7 @@ const AuditTrail: React.FC<AuditTrailProps> = ({ events, onRefresh }) => {
   const hoverBg = useColorModeValue('gray.50', 'gray.600');
   const expandedBg = useColorModeValue('gray.50', 'gray.700');
 
-  // Mock audit events if none provided
-  const mockEvents: AuditEvent[] = events && events.length > 0 ? events : [
-    {
-      id: '1',
-      type: 'proposal_created',
-      action: 'Pause Contract',
-      initiator: '0x1234567890123456789012345678901234567890',
-      initiator_alias: 'Admin 1',
-      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'executed',
-      tx_hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-      details: {
-        proposal_id: 'prop_001',
-        approvers: ['0x1234...5678', '0x9abc...def0', '0x5555...5555'],
-        execution_time: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    },
-    {
-      id: '2',
-      type: 'fee_updated',
-      action: 'Update Platform Fee',
-      initiator: '0x9876543210987654321098765432109876543210',
-      initiator_alias: 'Admin 2',
-      timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'executed',
-      tx_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-      details: {
-        old_fee_bps: 300,
-        new_fee_bps: 250,
-        approvers: ['0x1234...5678', '0x9abc...def0']
-      }
-    },
-    {
-      id: '3',
-      type: 'signer_added',
-      action: 'Add New Signer',
-      initiator: '0x1234567890123456789012345678901234567890',
-      initiator_alias: 'Admin 1',
-      timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'executed',
-      tx_hash: '0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321',
-      details: {
-        new_signer: '0x5555555555555555555555555555555555555555',
-        approvers: ['0x1234...5678', '0x9abc...def0']
-      }
-    },
-    {
-      id: '4',
-      type: 'proposal_created',
-      action: 'Emergency Withdraw',
-      initiator: '0x9876543210987654321098765432109876543210',
-      initiator_alias: 'Admin 2',
-      timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      status: 'pending',
-      tx_hash: null,
-      details: {
-        proposal_id: 'prop_002',
-        amount: '1000',
-        recipient: '0x7777777777777777777777777777777777777777',
-        approvers: ['0x9abc...def0']
-      }
-    }
-  ];
+  const mockEvents: AuditEvent[] = events || [];
 
   const getEventIcon = (type: string) => {
     switch (type) {
