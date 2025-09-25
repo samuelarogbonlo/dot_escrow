@@ -98,8 +98,10 @@ const Sidebar = () => {
 
       try {
         setAdminCheckLoading(true);
+        console.log("admin checking")
         const isSigner = await governance.isAdminSigner(selectedAccount.address);
-        setIsAdmin(Boolean(isSigner));
+        console.log(Boolean(isSigner))
+        setIsAdmin(isSigner);
       } catch (error) {
         console.error("Error checking admin status:", error);
         setIsAdmin(false);
@@ -109,7 +111,7 @@ const Sidebar = () => {
     };
 
     checkAdminStatus();
-  }, [isExtensionReady, selectedAccount, api]);
+  }, [isExtensionReady, selectedAccount, api, isAdmin]);
 
   return (
     <>
@@ -144,7 +146,7 @@ const Sidebar = () => {
           </NavItem>
 
           {/* Only show admin nav if user is authorized and not still loading */}
-          {!adminCheckLoading && isAdmin && (
+          {isAdmin && (
             <NavItem icon={FiSettings} to="/admin">
               Admin
             </NavItem>

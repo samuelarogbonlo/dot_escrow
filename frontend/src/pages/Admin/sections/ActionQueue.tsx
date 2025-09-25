@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -44,11 +44,10 @@ import {
   FiSettings,
   FiAlertTriangle,
 } from "react-icons/fi";
-import { useWallet } from '../../../hooks/useWalletContext';
-import { useAdminGovernance } from '../../../hooks/useAdminGovernance';
+import { useWallet } from "../../../hooks/useWalletContext";
+import { useAdminGovernance } from "../../../hooks/useAdminGovernance";
 
 interface ActionQueueProps {
-  proposals?: any[];
   onRefresh: () => void;
 }
 
@@ -66,10 +65,15 @@ interface Proposal {
   data: any;
 }
 
-const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
-  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+const ActionQueue: React.FC<ActionQueueProps> = ({ onRefresh }) => {
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(
+    null
+  );
   const [newProposalType, setNewProposalType] = useState<string>("");
-  const [newProposalData, setNewProposalData] = useState<Record<string, any>>({});
+  const [newProposalData, setNewProposalData] = useState<Record<string, any>>(
+    {}
+  );
+  const [proposals, setProposals] = useState<Proposal[]>([]);
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
@@ -82,21 +86,111 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
   const cardBg = useColorModeValue("white", "gray.700");
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const { api, selectedAccount } = useWallet();
-  const governance = useAdminGovernance({ api, account: selectedAccount as any });
+  const governance = useAdminGovernance({
+    api,
+    account: selectedAccount as any,
+  });
 
-  const mappedProposals: Proposal[] = (proposals || []).map((p: any) => ({
-    id: String(p.id),
-    type: p.type,
-    title: p.title || p.type,
-    description: p.description || '',
-    proposer: p.proposer,
-    created_at: p.created_at,
-    expires_at: p.expires_at || '',
-    approvals: p.approvals || [],
-    required_approvals: p.required_approvals || 1,
-    status: p.status,
-    data: p.data,
-  }));
+  // Helper functions to generate proposal titles and descriptions
+  const getProposalTitle = (actionType: string): string => {
+    switch (actionType) {
+      case "SetFee":
+        return "Update Platform Fee";
+      case "AddSigner":
+        return "Add Admin Signer";
+      case "RemoveSigner":
+        return "Remove Admin Signer";
+      case "SetThreshold":
+        return "Update Signature Threshold";
+      case "PauseContract":
+        return "Pause Contract";
+      case "UnpauseContract":
+        return "Resume Contract";
+      case "EmergencyWithdraw":
+        return "Emergency Withdrawal";
+      default:
+        return actionType;
+    }
+  };
+
+  const getProposalDescription = (actionType: string, data: any): string => {
+    switch (actionType) {
+      case "SetFee":
+        return `Change platform fee to ${(data / 100).toFixed(2)}%`;
+      case "AddSigner":
+        return `Add new admin signer: ${data}`;
+      case "RemoveSigner":
+        return `Remove admin signer: ${data}`;
+      case "SetThreshold":
+        return `Set signature threshold to ${data}`;
+      case "PauseContract":
+        return "Pause all contract operations";
+      case "UnpauseContract":
+        return "Resume contract operations";
+      case "EmergencyWithdraw":
+        return `Emergency withdrawal of ${data[1]} to ${data[0]}`;
+      default:
+        return "Admin proposal";
+    }
+  };
+
+  // Fetch real proposals from smart contract
+  useEffect(() => {
+    const fetchProposals = async () => {
+      if (!api || !selectedAccount) return;
+
+      try {
+        // Get all proposals from the contract
+        const contractProposals = await governance.listProposals();
+        console.log(contractProposals);
+
+        // Get signature threshold once
+        const signatureThreshold = await governance.getSignatureThreshold();
+
+        // Transform contract proposals to our Proposal interface
+        const mappedProposals: Proposal[] = contractProposals.map((p: any) => {
+          // Parse the action type from the contract
+          const actionType = Object.keys(p.action)[0];
+          const actionData = p.action[actionType];
+
+          return {
+            id: String(p.id),
+            type: actionType.toLowerCase(),
+            title: getProposalTitle(actionType),
+            description: getProposalDescription(actionType, actionData),
+            proposer: p.createdBy, // Changed from p.created_by
+            created_at: new Date(p.createdAt).toISOString(), // Changed from p.created_at
+            expires_at: new Date(
+              p.createdAt + 7 * 24 * 60 * 60 * 1000 // Changed from p.created_at
+            ).toISOString(),
+            approvals: p.approvals || [],
+            required_approvals: signatureThreshold,
+            status: p.executed ? "executed" : "pending",
+            data: actionData,
+          };
+        });
+
+        setProposals(mappedProposals);
+      } catch (error) {
+        console.error("Error fetching proposals:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch proposals from contract",
+          status: "error",
+          duration: 5000,
+        });
+      }
+    };
+
+    fetchProposals();
+  }, [
+    api,
+    selectedAccount,
+    governance,
+    onRefresh,
+    getProposalTitle,
+    getProposalDescription,
+  ]);
 
   const getProposalIcon = (type: string | undefined) => {
     if (!type) return FiSettings;
@@ -180,26 +274,29 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
   const handleCreateProposal = async () => {
     try {
       switch (newProposalType) {
-        case 'update_fee':
+        case "update_fee":
           await governance.proposeSetFee(Number(newProposalData.fee_bps));
           break;
-        case 'pause_contract':
+        case "pause_contract":
           await governance.proposePause();
           break;
-        case 'resume_contract':
+        case "resume_contract":
           await governance.proposeUnpause();
           break;
-        case 'emergency_withdraw':
-          await governance.proposeEmergencyWithdraw(String(newProposalData.recipient), Number(newProposalData.amount));
+        case "emergency_withdraw":
+          await governance.proposeEmergencyWithdraw(
+            String(newProposalData.recipient),
+            Number(newProposalData.amount)
+          );
           break;
-        case 'add_signer':
+        case "add_signer":
           await governance.proposeAddSigner(String(newProposalData.signer));
           break;
-        case 'remove_signer':
+        case "remove_signer":
           await governance.proposeRemoveSigner(String(newProposalData.signer));
           break;
         default:
-          throw new Error('Select a valid proposal type');
+          throw new Error("Select a valid proposal type");
       }
       toast({
         title: "Proposal Created",
@@ -281,6 +378,23 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
             />
           </FormControl>
         );
+      case "add_signer":
+      case "remove_signer":
+        return (
+          <FormControl>
+            <FormLabel>Input Address</FormLabel>
+            <Input
+              value={newProposalData.signer || ""}
+              onChange={(e) =>
+                setNewProposalData({
+                  ...newProposalData,
+                  signer: e.target.value,
+                })
+              }
+              placeholder="0x..."
+            />
+          </FormControl>
+        );
       case "emergency_withdraw":
         return (
           <VStack spacing={4}>
@@ -344,7 +458,7 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
       </HStack>
 
       {/* Proposals List */}
-      {mappedProposals?.length === 0 ? (
+      {proposals?.length === 0 ? (
         <Card bg={cardBg}>
           <CardBody textAlign="center" py={10}>
             <Icon as={FiCheckCircle} boxSize={12} color="green.500" mb={4} />
@@ -356,7 +470,7 @@ const ActionQueue: React.FC<ActionQueueProps> = ({ proposals, onRefresh }) => {
         </Card>
       ) : (
         <VStack spacing={4} align="stretch">
-          {mappedProposals?.map((proposal) => {
+          {proposals?.map((proposal) => {
             const progress =
               (proposal.approvals.length / proposal.required_approvals) * 100;
             const canExecute = progress >= 100 && proposal.status === "pending";

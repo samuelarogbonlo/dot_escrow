@@ -87,7 +87,6 @@ const estimateGas = async (
   args: any[]
 ): Promise<any> => {
   try {
-    console.log(`[GasEstimation] Estimating gas for ${methodName}`);
 
     // Get the contract query method
     const query = contract.query[methodName];
@@ -143,7 +142,6 @@ const estimateGas = async (
         : proofSizeBuffer.toString()
     });
 
-    console.log(`[GasEstimation] Final gas limit with buffer:`, finalGasLimit.toHuman());
     return finalGasLimit;
 
   } catch (error) {
@@ -266,15 +264,14 @@ export const createEscrowContract = async (
       tx.signAndSend(account.address, (result) => {
         if (resolved) return;
 
-        console.log('[Contract] Transaction status:', result.status.type);
 
         if (result.dispatchError) {
-          console.error('[Contract] Full dispatch error:', result.dispatchError);
+         
 
           // Try to get more detailed error info
           if (result.dispatchError.isModule) {
             const decoded = api.registry.findMetaError(result.dispatchError.asModule);
-            console.error('[Contract] Decoded error:', decoded);
+            
 
             resolved = true;
             resolve({
@@ -286,12 +283,9 @@ export const createEscrowContract = async (
         }
 
         if (result.status.isFinalized) {
-          console.log('[Contract] Transaction finalized');
-          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
 
           // Check if transaction was successful by looking for dispatchError
           if (result.dispatchError) {
-            console.error('[Contract] Dispatch error in finalized transaction:', result.dispatchError);
             resolved = true;
             resolve({
               success: false,
@@ -303,7 +297,6 @@ export const createEscrowContract = async (
           // Extract escrow ID from the EscrowCreated event
           let escrowId: string | null = null;
 
-          console.log('[Contract] All events:', result.events);
 
           if (result.events) {
             result.events.forEach(({ event }, index) => {
@@ -324,23 +317,19 @@ export const createEscrowContract = async (
 
                   // Check if this event is from our escrow contract
                   if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
-                    console.log('[Contract] Event is from our escrow contract');
 
                     // The remaining event data should contain the EscrowCreated event fields
                     // We need to decode this properly. For now, let's try to find the escrow ID
                     // by looking through all the data fields
                     for (let i = 1; i < event.data.length; i++) {
                       const dataItem = event.data[i];
-                      console.log(`[Contract] Event data item ${i}:`, dataItem);
 
                       if (dataItem && typeof dataItem.toString === 'function') {
                         const dataStr = dataItem.toString();
-                        console.log(`[Contract] Event data item ${i} as string:`, dataStr);
 
                         // Look for the escrow ID pattern (escrow_{number})
                         if (dataStr.startsWith('escrow_')) {
                           escrowId = dataStr;
-                          console.log('[Contract] Found escrow ID in event data:', escrowId);
                           break;
                         }
                       }
@@ -353,7 +342,6 @@ export const createEscrowContract = async (
 
           // If we still don't have an escrow ID, try a different approach
           if (!escrowId) {
-            console.log('[Contract] Could not extract escrow ID from events, trying alternative approach...');
 
             // Try to look for any string that starts with 'escrow_' in the entire result
             const resultStr = JSON.stringify(result);
@@ -370,13 +358,6 @@ export const createEscrowContract = async (
             console.error('[Contract] Failed to extract escrow ID. Full result:', result);
             throw new Error('Failed to extract escrow ID from contract events');
           }
-
-          console.log('[Contract] Escrow creation result:', {
-            success: true,
-            transactionHash: result.txHash.toHex(),
-            escrowId: escrowId,
-          });
-
           resolved = true;
           resolve({
             success: true,
@@ -414,7 +395,7 @@ export const getEscrowContract = async (
   escrowId: string
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Getting escrow:', escrowId);
+   
 
     // Check if API is properly initialized
     if (!api || !api.isConnected) {
@@ -446,12 +427,11 @@ export const getEscrowContract = async (
       escrowId // escrow ID parameter
     );
 
-    console.log('[Contract] Raw query result:', result);
 
     // Check if the call was successful
     if (result.result.isOk) {
       const output = result.output?.toHuman();
-      console.log('[Contract] Decoded output:', output);
+      
 
       // The output should be a Result<EscrowData, EscrowError>
       if (output && typeof output === 'object') {
@@ -461,7 +441,6 @@ export const getEscrowContract = async (
 
           const data = escrowData.Ok
 
-          console.log(escrowData.Ok)
 
           // Transform the data to match our interface
           const transformedData: EscrowData = {
@@ -537,7 +516,7 @@ export const listEscrowsContract = async (
   account: InjectedAccountWithMeta
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Listing escrows for account:', account.address);
+    
 
     // Check if API is properly initialized
     if (!api || !api.isConnected) {
@@ -569,24 +548,20 @@ export const listEscrowsContract = async (
       // No parameters needed for list_escrows
     );
 
-    console.log('[Contract] Raw list query result:', result);
 
     // Check if the call was successful
     if (result.result.isOk) {
       const output = result.output?.toHuman();
-      console.log('[Contract] Decoded list output:', output);
-      console.log('[Contract] Output type:', typeof output);
-      console.log('[Contract] Output keys:', output ? Object.keys(output) : 'null');
+     
 
       // The output should be a Result<Vec<EscrowData>, EscrowError>
       if (output && typeof output === 'object') {
         // Check if it's a successful result
         if ('Ok' in output) {
-          console.log('[Contract] Found Ok in output, value:', output.Ok);
+          
 
           // Handle nested Result structure: Result<Result<Vec<EscrowData>, EscrowError>, InkError>
           if (output.Ok && typeof output.Ok === 'object' && 'Ok' in output.Ok) {
-            console.log('[Contract] Found nested Ok, extracting inner array:', output.Ok.Ok);
             const escrowsData = output.Ok.Ok as any[];
 
             // Transform the data array to match our interface
@@ -709,7 +684,6 @@ export const updateEscrowStatusContract = async (
   transactionHash?: string
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Updating escrow status:', { escrowId, newStatus, transactionHash });
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -743,8 +717,8 @@ export const updateEscrowStatusContract = async (
       tx.signAndSend(account.address, (result) => {
         if (resolved) return;
 
-        console.log('[Contract] Transaction status:', result.status.type);
 
+        
         if (result.dispatchError) {
           console.error('[Contract] Transaction failed:', result.dispatchError.toString());
           if (!resolved) {
@@ -758,8 +732,7 @@ export const updateEscrowStatusContract = async (
         }
 
         if (result.status.isFinalized) {
-          console.log('[Contract] Transaction finalized');
-          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
+         
 
           resolved = true;
           resolve({
@@ -803,12 +776,7 @@ export const updateMilestoneStatusContract = async (
   newStatus: string
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Updating milestone status:', {
-      escrowId,
-      milestoneId: milestone.id,
-      currentStatus: milestone.status,
-      newStatus
-    });
+    
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -837,39 +805,12 @@ export const updateMilestoneStatusContract = async (
         newStatus
       )
         .signAndSend(account.address, (result) => {
-          console.log('[Contract] Transaction status:', result.status.type);
+          
 
           if (result.status.isInBlock) {
             console.log('[Contract] Transaction included in block:', result.status.asInBlock.toHex());
           } else if (result.status.isFinalized) {
-            console.log('[Contract] Transaction finalized in block:', result.status.asFinalized.toHex());
 
-            // Check for contract events
-            const contractEvents = result.events?.filter(({ event }) =>
-              event.section === 'contracts' && event.method === 'ContractEmitted'
-            );
-
-            if (contractEvents && contractEvents.length > 0) {
-              console.log('[Contract] Contract events found:', contractEvents.length);
-
-              // Look for MilestoneStatusChanged event
-              contractEvents.forEach(({ event }, index) => {
-                const [contractAddress] = event.data;
-
-                if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
-                  console.log(`[Contract] Event ${index} from our contract:`, event);
-
-                  // Try to extract event details
-                  try {
-                    // Check if this is a MilestoneStatusChanged event                  
-                    // Note: You might need to check topics differently based on how events are structured
-                    console.log('[Contract] Milestone status change event detected');
-                  } catch (eventError) {
-                    console.log('[Contract] Could not parse event:', eventError);
-                  }
-                }
-              });
-            }
 
             resolve({
               success: true,
@@ -894,7 +835,7 @@ export const updateMilestoneStatusContract = async (
         });
     });
 
-    console.log('[Contract] ✅ Milestone status updated successfully');
+    
     return result;
 
   } catch (error) {
@@ -940,39 +881,11 @@ export const completeMilestoneContract = async (
         milestoneId,
       )
         .signAndSend(account.address, (result) => {
-          console.log('[Contract] Transaction status:', result.status.type);
+         
 
           if (result.status.isInBlock) {
             console.log('[Contract] Transaction included in block:', result.status.asInBlock.toHex());
           } else if (result.status.isFinalized) {
-            console.log('[Contract] Transaction finalized in block:', result.status.asFinalized.toHex());
-
-            // Check for contract events
-            const contractEvents = result.events?.filter(({ event }) =>
-              event.section === 'contracts' && event.method === 'ContractEmitted'
-            );
-
-            if (contractEvents && contractEvents.length > 0) {
-              console.log('[Contract] Contract events found:', contractEvents.length);
-
-              // Look for MilestoneStatusChanged event
-              contractEvents.forEach(({ event }, index) => {
-                const [contractAddress] = event.data;
-
-                if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
-                  console.log(`[Contract] Event ${index} from our contract:`, event);
-
-                  // Try to extract event details
-                  try {
-                    // Check if this is a MilestoneStatusChanged event                  
-                    // Note: You might need to check topics differently based on how events are structured
-                    console.log('[Contract] Milestone status change event detected');
-                  } catch (eventError) {
-                    console.log('[Contract] Could not parse event:', eventError);
-                  }
-                }
-              });
-            }
 
             resolve({
               success: true,
@@ -1014,7 +927,6 @@ export const disputeMilestoneContract = async (
   reason: string
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Disputing milestone:', { escrowId, milestoneId, reason });
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -1048,7 +960,6 @@ export const disputeMilestoneContract = async (
       tx.signAndSend(account.address, (result) => {
         if (resolved) return;
 
-        console.log('[Contract] Transaction status:', result.status.type);
 
         if (result.dispatchError) {
           console.error('[Contract] Transaction failed:', result.dispatchError.toString());
@@ -1063,23 +974,9 @@ export const disputeMilestoneContract = async (
         }
 
         if (result.status.isFinalized) {
-          console.log('[Contract] Transaction finalized');
-          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
 
           // Process contract events to get dispute_id from MilestoneDisputed event
           let disputeId = null;
-          if (result.events) {
-            result.events.forEach(({ event }) => {
-              if (event.section === 'contracts' && event.method === 'ContractEmitted') {
-                const [contractAddress] = event.data;
-                if (contractAddress.toString() === ESCROW_CONTRACT_ADDRESS) {
-                  // Try to extract dispute_id from the MilestoneDisputed event
-                  // This would need proper event decoding based on your event structure
-                  console.log('[Contract] MilestoneDisputed event detected');
-                }
-              }
-            });
-          }
 
           resolved = true;
           resolve({
@@ -1123,7 +1020,6 @@ export const completeMilestoneTaskContract = async (
   evidenceData?: any[]
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Disputing milestone:', { escrowId, milestoneId, completionNote, evidenceData });
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -1173,8 +1069,7 @@ export const completeMilestoneTaskContract = async (
         }
 
         if (result.status.isFinalized) {
-          console.log('[Contract] Transaction finalized');
-          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
+         
           
 
           resolved = true;
@@ -1210,7 +1105,6 @@ export const releaseMilestoneContract = async (
   milestoneId: string
 ): Promise<EscrowContractCall> => {
   try {
-    console.log('[Contract] Releasing milestone:', { escrowId, milestoneId });
 
    
     
@@ -1248,7 +1142,6 @@ export const releaseMilestoneContract = async (
       tx.signAndSend(account.address, (result) => {
         if (resolved) return;
 
-        console.log('[Contract] Transaction status:', result.status.type);
 
         if (result.dispatchError) {
           let decodedError = result.dispatchError.toString();
@@ -1280,8 +1173,7 @@ export const releaseMilestoneContract = async (
         }
 
         if (result.status.isFinalized) {
-          console.log('[Contract] Transaction finalized');
-          console.log('[Contract] Block hash:', result.status.asFinalized.toHex());
+       
 
           // Process contract events to get release details from MilestoneReleased event
           let releaseData = null;

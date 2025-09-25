@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -8,29 +8,17 @@ import {
   Text,
   VStack,
   HStack,
-  Button,
   Badge,
   Grid,
   GridItem,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
-  useDisclosure,
+  
+ 
   Icon,
   Alert,
   AlertIcon,
   useToast,
   useColorModeValue,
-  Input,
-  FormControl,
-  FormLabel,
-  Textarea,
-  NumberInput,
-  NumberInputField,
+
   Table,
   Thead,
   Tbody,
@@ -42,13 +30,11 @@ import {
   StatLabel,
   StatNumber,
   StatHelpText,
+  Spinner,
 } from '@chakra-ui/react';
 import {
   FiUsers,
   FiShield,
-  FiUserPlus,
-  FiUserMinus,
-  FiSettings,
   FiKey,
   FiAlertTriangle
 } from 'react-icons/fi';
@@ -56,190 +42,155 @@ import { useWallet } from '../../../hooks/useWalletContext';
 import { useAdminGovernance } from '../../../hooks/useAdminGovernance';
 
 interface KeyManagementProps {
-  signerInfo?: any;
-  onRefresh: () => void;
-}
-
-interface Signer {
-  address: string;
-  alias: string;
-  added_date: string;
-  added_by: string;
-  is_active: boolean;
-  last_activity: string;
+  onRefresh?: () => void;
 }
 
 interface SignerInfo {
-  signers: Signer[];
+  signers: string[];
   threshold: number;
   total_signers: number;
+  current_user_is_signer: boolean;
 }
 
-const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) => {
-  const [selectedAction, setSelectedAction] = useState<string>('');
-  const [formData, setFormData] = useState<Record<string, any>>({});
+const KeyManagement: React.FC<KeyManagementProps> = ({ onRefresh }) => {
   
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [signerInfo, setSignerInfo] = useState<SignerInfo>({
+    signers: [],
+    threshold: 1,
+    total_signers: 0,
+    current_user_is_signer: false
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
+  
   const toast = useToast();
   const cardBg = useColorModeValue('white', 'gray.700');
   const statBg = useColorModeValue('blue.50', 'blue.900');
   const { api, selectedAccount } = useWallet();
   const governance = useAdminGovernance({ api, account: selectedAccount as any });
 
-  const info: SignerInfo = signerInfo || { signers: [], threshold: 1, total_signers: 0 };
-
-  const handleSubmitSignerAction = async () => {
-    try {
-      if (selectedAction === 'add_signer') {
-        await governance.proposeAddSigner(String(formData.address));
-      } else if (selectedAction === 'remove_signer') {
-        await governance.proposeRemoveSigner(String(formData.address));
-      } else if (selectedAction === 'change_threshold') {
-        await governance.proposeSetThreshold(Number(formData.threshold));
-      } else {
-        throw new Error('Select a valid action');
-      }
-
-      toast({
-        title: 'Proposal Submitted',
-        description: 'Key management proposal has been created and is pending approval.',
-        status: 'success',
-        duration: 3000,
-      });
-
-      onClose();
-      setSelectedAction('');
-      setFormData({});
-      onRefresh();
-    } catch (error: any) {
-      toast({
-        title: 'Submission Failed',
-        description: error?.message || 'Unknown error occurred',
-        status: 'error',
-        duration: 5000,
-      });
+  // Fetch signer information from smart contract
+  const fetchSignerInfo = useCallback(async () => {
+    if (!api || !selectedAccount) {
+      return;
     }
-  };
+
+    try {
+    //   setIsLoading(true);
+
+      console.log('Fetching signer info...');
+
+      // Fetch all signer data concurrently
+      const [signers, threshold, isCurrentUserSigner] = await Promise.all([
+        governance.getAdminSigners(),
+        governance.getSignatureThreshold(),
+        governance.isAdminSigner(selectedAccount.address)
+      ]);
+
+      console.log('Signer data:', { signers, threshold, isCurrentUserSigner });
+
+      const newSignerInfo: SignerInfo = {
+        signers: Array.isArray(signers) ? signers : [],
+        threshold: threshold || 1,
+        total_signers: Array.isArray(signers) ? signers.length : 0,
+        current_user_is_signer: Boolean(isCurrentUserSigner)
+      };
+
+      // Only update if data changed to prevent unnecessary re-renders
+      setSignerInfo(prevInfo => {
+        const infoChanged = JSON.stringify(prevInfo) !== JSON.stringify(newSignerInfo);
+        return infoChanged ? newSignerInfo : prevInfo;
+      });
+
+    } catch (error) {
+      console.error('Error fetching signer info:', error);
+      
+      if (!hasInitialLoad) {
+        toast({
+          title: "Error",
+          description: "Failed to fetch signer information from contract",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    } finally {
+      setIsLoading(false);
+      if (!hasInitialLoad) {
+        setHasInitialLoad(true);
+      }
+    }
+  }, [api, selectedAccount, governance.getAdminSigners, governance.getSignatureThreshold, governance.isAdminSigner, isLoading, hasInitialLoad, toast]);
+
+  // Initial load and periodic refresh
+  useEffect(() => {
+    let mounted = true;
+    let timeoutId: NodeJS.Timeout;
+
+    const loadData = async () => {
+      if (mounted) {
+        await fetchSignerInfo();
+        // Refresh every 30 seconds
+        timeoutId = setTimeout(() => {
+          if (mounted) {
+            loadData();
+          }
+        }, 30000);
+      }
+    };
+
+    loadData();
+
+    return () => {
+      mounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [fetchSignerInfo]);
+
+  const refreshData = useCallback(async () => {
+    await fetchSignerInfo();
+    if (onRefresh) {
+      onRefresh();
+    }
+  }, [fetchSignerInfo, onRefresh]);
+
 
   const truncateAddress = (address: string): string => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    return `${address.slice(0, 8)}...${address.slice(-6)}`;
   };
 
-  const getSignerStatus = (signer: Signer) => {
-    const daysSinceActivity = Math.floor(
-      (new Date().getTime() - new Date(signer.last_activity).getTime()) / (1000 * 60 * 60 * 24)
-    );
+  const getSignerAlias = (address: string, index: number): string => {
+    // You could extend this to fetch actual aliases from contract metadata
+    return `Admin ${index + 1}`;
+  };
+
+  const getSecurityLevel = (): { level: string; color: string } => {
+    if (signerInfo.total_signers === 0) return { level: 'Unknown', color: 'gray' };
     
-    if (!signer.is_active) {
-      return <Badge colorScheme="red">Inactive</Badge>;
-    } else if (daysSinceActivity > 30) {
-      return <Badge colorScheme="orange">Inactive (30+ days)</Badge>;
-    } else if (daysSinceActivity > 7) {
-      return <Badge colorScheme="yellow">Low Activity</Badge>;
-    } else {
-      return <Badge colorScheme="green">Active</Badge>;
-    }
+    const percentage = (signerInfo.threshold / signerInfo.total_signers) * 100;
+    
+    if (percentage >= 67) return { level: 'High', color: 'green' };
+    if (percentage >= 51) return { level: 'Medium', color: 'yellow' };
+    return { level: 'Low', color: 'red' };
   };
 
-  const renderActionForm = () => {
-    switch (selectedAction) {
-      case 'add_signer':
-        return (
-          <VStack spacing={4}>
-            <FormControl isRequired>
-              <FormLabel>New Signer Address</FormLabel>
-              <Input
-                placeholder="0x..."
-                value={formData.address || ''}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel>Alias (Optional)</FormLabel>
-              <Input
-                placeholder="e.g., Admin 4, Security Team Lead"
-                value={formData.alias || ''}
-                onChange={(e) => setFormData({...formData, alias: e.target.value})}
-              />
-            </FormControl>
-            <FormControl isRequired>
-              <FormLabel>Justification</FormLabel>
-              <Textarea
-                placeholder="Explain why this signer should be added..."
-                value={formData.reason || ''}
-                onChange={(e) => setFormData({...formData, reason: e.target.value})}
-              />
-            </FormControl>
-          </VStack>
-        );
-      
-      case 'remove_signer':
-        return (
-          <VStack spacing={4}>
-            <FormControl isRequired>
-              <FormLabel>Signer to Remove</FormLabel>
-              <Input
-                placeholder="0x..."
-                value={formData.address || ''}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-              />
-            </FormControl>
-            <FormControl isRequired>
-              <FormLabel>Reason for Removal</FormLabel>
-              <Textarea
-                placeholder="Explain why this signer should be removed..."
-                value={formData.reason || ''}
-                onChange={(e) => setFormData({...formData, reason: e.target.value})}
-              />
-            </FormControl>
-            <Alert status="warning">
-              <AlertIcon />
-              <Text fontSize="sm">
-                Removing a signer is irreversible. Ensure the remaining signers can still meet the threshold requirement.
-              </Text>
-            </Alert>
-          </VStack>
-        );
-        
-      case 'change_threshold':
-        return (
-          <VStack spacing={4}>
-            <FormControl isRequired>
-              <FormLabel>New Threshold</FormLabel>
-              <NumberInput
-                min={1}
-                max={info.total_signers}
-                value={formData.threshold || ''}
-                onChange={(val) => setFormData({...formData, threshold: val})}
-              >
-                <NumberInputField placeholder="Number of required signatures" />
-              </NumberInput>
-              <Text fontSize="sm" color="gray.500" mt={1}>
-                Current threshold: {info.threshold} of {info.total_signers}
-              </Text>
-            </FormControl>
-            <FormControl isRequired>
-              <FormLabel>Justification</FormLabel>
-              <Textarea
-                placeholder="Explain why the threshold should be changed..."
-                value={formData.reason || ''}
-                onChange={(e) => setFormData({...formData, reason: e.target.value})}
-              />
-            </FormControl>
-            <Alert status="info">
-              <AlertIcon />
-              <Text fontSize="sm">
-                Threshold changes affect the security model of the multisig. 
-                Lower thresholds reduce security but improve operational efficiency.
-              </Text>
-            </Alert>
-          </VStack>
-        );
-        
-      default:
-        return null;
-    }
-  };
+
+  if (isLoading && !hasInitialLoad) {
+    return (
+      <VStack spacing={6} align="stretch">
+        <Card bg={cardBg}>
+          <CardBody textAlign="center" py={10}>
+            <Spinner size="xl" color="blue.500" mb={4} />
+            <Text>Loading signer information...</Text>
+          </CardBody>
+        </Card>
+      </VStack>
+    );
+  }
+
+  const securityLevel = getSecurityLevel();
 
   return (
     <VStack spacing={6} align="stretch">
@@ -251,14 +202,18 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
             Manage authorized signers and threshold requirements
           </Text>
         </Box>
-        <Button
-          leftIcon={<FiSettings />}
-          colorScheme="blue"
-          onClick={onOpen}
-        >
-          Manage Keys
-        </Button>
+      
       </HStack>
+
+      {/* Access Warning */}
+      {!signerInfo.current_user_is_signer && (
+        <Alert status="warning">
+          <AlertIcon />
+          <Text fontSize="sm">
+            You are not currently an authorized signer. Key management actions are restricted to existing signers only.
+          </Text>
+        </Alert>
+      )}
 
       {/* Multisig Statistics */}
       <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={6}>
@@ -266,10 +221,10 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
           <Stat bg={statBg} p={4} borderRadius="lg" boxShadow="sm">
             <StatLabel display="flex" alignItems="center">
               <Icon as={FiUsers} mr={2} />
-              Active Signers
+              Total Signers
             </StatLabel>
-            <StatNumber>{info.signers.filter(s => s.is_active).length}</StatNumber>
-            <StatHelpText>of {info.total_signers} total</StatHelpText>
+            <StatNumber>{signerInfo.total_signers}</StatNumber>
+            <StatHelpText>authorized accounts</StatHelpText>
           </Stat>
         </GridItem>
 
@@ -279,7 +234,7 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               <Icon as={FiShield} mr={2} />
               Signature Threshold
             </StatLabel>
-            <StatNumber>{info.threshold}</StatNumber>
+            <StatNumber>{signerInfo.threshold}</StatNumber>
             <StatHelpText>signatures required</StatHelpText>
           </Stat>
         </GridItem>
@@ -291,7 +246,12 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
               Security Level
             </StatLabel>
             <StatNumber>
-              {info.total_signers > 0 ? Math.round((info.threshold / info.total_signers) * 100) : 0}%
+              <HStack>
+                <Text>{signerInfo.total_signers > 0 ? Math.round((signerInfo.threshold / signerInfo.total_signers) * 100) : 0}%</Text>
+                <Badge colorScheme={securityLevel.color} size="sm">
+                  {securityLevel.level}
+                </Badge>
+              </HStack>
             </StatNumber>
             <StatHelpText>consensus required</StatHelpText>
           </Stat>
@@ -301,55 +261,56 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
       {/* Signers Table */}
       <Card bg={cardBg}>
         <CardHeader>
-          <Heading size="sm">Current Signers</Heading>
+          <Heading size="sm">Current Signers ({signerInfo.total_signers})</Heading>
         </CardHeader>
         <CardBody>
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th>Signer</Th>
-                <Th>Address</Th>
-                <Th>Added Date</Th>
-                <Th>Last Activity</Th>
-                <Th>Status</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {info.signers.map((signer, index) => (
-                <Tr key={index}>
-                  <Td>
-                    <HStack>
-                      <Avatar size="sm" name={signer.alias || `Signer ${index + 1}`} />
-                      <Box>
-                        <Text fontWeight="medium">
-                          {signer.alias || `Admin ${index + 1}`}
-                        </Text>
-                        <Text fontSize="xs" color="gray.500">
-                          Signer #{index + 1}
-                        </Text>
-                      </Box>
-                    </HStack>
-                  </Td>
-                  <Td>
-                    <Text fontFamily="mono" fontSize="sm">
-                      {truncateAddress(signer.address)}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">
-                      {new Date(signer.added_date).toLocaleDateString()}
-                    </Text>
-                  </Td>
-                  <Td>
-                    <Text fontSize="sm">
-                      {new Date(signer.last_activity).toLocaleDateString()}
-                    </Text>
-                  </Td>
-                  <Td>{getSignerStatus(signer)}</Td>
+          {signerInfo.signers.length === 0 ? (
+            <Text textAlign="center" color="gray.500" py={8}>
+              No signers found
+            </Text>
+          ) : (
+            <Table variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>Signer</Th>
+                  <Th>Address</Th>
+                  <Th>Status</Th>
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+              </Thead>
+              <Tbody>
+                {signerInfo.signers.map((address, index) => (
+                  <Tr key={address}>
+                    <Td>
+                      <HStack>
+                        <Avatar size="sm" name={getSignerAlias(address, index)} />
+                        <Box>
+                          <Text fontWeight="medium">
+                            {getSignerAlias(address, index)}
+                          </Text>
+                          <Text fontSize="xs" color="gray.500">
+                            Signer #{index + 1}
+                          </Text>
+                        </Box>
+                      </HStack>
+                    </Td>
+                    <Td>
+                      <Text fontFamily="mono" fontSize="sm">
+                        {truncateAddress(address)}
+                      </Text>
+                    </Td>
+                    <Td>
+                      <HStack>
+                        <Badge colorScheme="green">Active</Badge>
+                        {address === selectedAccount?.address && (
+                          <Badge colorScheme="blue" size="sm">You</Badge>
+                        )}
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          )}
         </CardBody>
       </Card>
 
@@ -362,113 +323,32 @@ const KeyManagement: React.FC<KeyManagementProps> = ({ signerInfo, onRefresh }) 
           </HStack>
           <VStack align="start" spacing={2}>
             <Text fontSize="sm">
-              • Maintain at least 3 active signers for operational resilience
+              • Maintain at least 3 signers for operational resilience
             </Text>
             <Text fontSize="sm">
               • Set threshold to at least 60% of total signers for security
             </Text>
             <Text fontSize="sm">
-              • Regularly rotate inactive signers (30+ days without activity)
+              • Regularly review and audit signer access
             </Text>
             <Text fontSize="sm">
-              • Always test threshold changes in a controlled environment first
+              • Test threshold changes carefully before implementation
             </Text>
+            {signerInfo.threshold === 1 && signerInfo.total_signers > 1 && (
+              <Text fontSize="sm" color="orange.600" fontWeight="medium">
+                ⚠️ Consider increasing threshold above 1 for better security
+              </Text>
+            )}
+            {signerInfo.total_signers > 0 && signerInfo.threshold >= signerInfo.total_signers && (
+              <Text fontSize="sm" color="red.600" fontWeight="medium">
+                ⚠️ Threshold equals total signers - consider adding more signers
+              </Text>
+            )}
           </VStack>
         </CardBody>
       </Card>
 
-      {/* Key Management Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size="lg">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Key Management Actions</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4} align="stretch">
-              <Text fontSize="sm" color="gray.600">
-                All key management actions require multisig approval and will create a new proposal.
-              </Text>
-              
-              {!selectedAction ? (
-                <VStack spacing={3}>
-                  <Button
-                    leftIcon={<FiUserPlus />}
-                    onClick={() => setSelectedAction('add_signer')}
-                    colorScheme="green"
-                    variant="outline"
-                    size="lg"
-                    w="full"
-                  >
-                    Add New Signer
-                  </Button>
-                  
-                  <Button
-                    leftIcon={<FiUserMinus />}
-                    onClick={() => setSelectedAction('remove_signer')}
-                    colorScheme="red"
-                    variant="outline"
-                    size="lg"
-                    w="full"
-                  >
-                    Remove Signer
-                  </Button>
-                  
-                  <Button
-                    leftIcon={<FiSettings />}
-                    onClick={() => setSelectedAction('change_threshold')}
-                    colorScheme="blue"
-                    variant="outline"
-                    size="lg"
-                    w="full"
-                  >
-                    Change Signature Threshold
-                  </Button>
-                </VStack>
-              ) : (
-                <Box>
-                  <HStack mb={4}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedAction('');
-                        setFormData({});
-                      }}
-                    >
-                      ← Back
-                    </Button>
-                    <Text fontWeight="bold">
-                      {selectedAction === 'add_signer' && 'Add New Signer'}
-                      {selectedAction === 'remove_signer' && 'Remove Signer'}
-                      {selectedAction === 'change_threshold' && 'Change Threshold'}
-                    </Text>
-                  </HStack>
-                  
-                  {renderActionForm()}
-                </Box>
-              )}
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onClose}>
-              Cancel
-            </Button>
-            {selectedAction && (
-              <Button 
-                colorScheme="blue" 
-                onClick={handleSubmitSignerAction}
-                isDisabled={
-                  !formData.reason || 
-                  (selectedAction !== 'change_threshold' && !formData.address) ||
-                  (selectedAction === 'change_threshold' && !formData.threshold)
-                }
-              >
-                Submit Proposal
-              </Button>
-            )}
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+    
     </VStack>
   );
 };

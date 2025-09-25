@@ -88,6 +88,17 @@
       "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
       "timestamp": 1758624416016,
       "read": false
+    },
+    {
+      "id": "24c0",
+      "escrowId": "escrow_1",
+      "notificationType": "Escrow Funded",
+      "senderAddress": "5GmTdVqX6BA8hWDDjDAv6umDYogTZiwFVCbVKn2vkGYhLM6M",
+      "message": "Escrow created and funded with 202 USDC. Contract has been notified of deposit. Worker can now start work.",
+      "type": "info",
+      "recipientAddress": "5FHLjhjgy7b23iFgzT6MfX2MTsSDj2kF8P6z9sbrenvHHXQh",
+      "timestamp": 1758768710969,
+      "read": false
     }
   ],
   "comment": [

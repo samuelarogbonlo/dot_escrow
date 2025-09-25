@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from "react";
 import { ContractPromise } from "@polkadot/api-contract";
 
 import {
@@ -17,18 +17,21 @@ import {
   Text,
   VStack,
   useToast,
-  useColorModeValue
-} from '@chakra-ui/react';
-import { useWallet } from '../../hooks/useWalletContext';
-import { useAdminGovernance } from '../../hooks/useAdminGovernance';
-import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../../contractABI/EscrowABI';
-import { useNavigate } from 'react-router-dom';
+  useColorModeValue,
+} from "@chakra-ui/react";
+import { useWallet } from "../../hooks/useWalletContext";
+import { useAdminGovernance } from "../../hooks/useAdminGovernance";
+import {
+  ESCROW_CONTRACT_ABI,
+  ESCROW_CONTRACT_ADDRESS,
+} from "../../contractABI/EscrowABI";
+import { useNavigate } from "react-router-dom";
 
 // Import dashboard components
-import Overview from './sections/Overview';
-import ActionQueue from './sections/ActionQueue';
-import KeyManagement from './sections/KeyManagement';
-import AuditTrail from './sections/AuditTrail';
+import Overview from "./sections/Overview";
+import ActionQueue from "./sections/ActionQueue";
+import KeyManagement from "./sections/KeyManagement";
+import AuditTrail from "./sections/AuditTrail";
 
 interface AdminData {
   contractState?: any;
@@ -42,15 +45,22 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const { selectedAccount, isExtensionReady, api } = useWallet();
-  const governance = useAdminGovernance({ api, account: selectedAccount as any });
+  const governance = useAdminGovernance({
+    api,
+    account: selectedAccount as any,
+  });
   const navigate = useNavigate();
   const toast = useToast();
-  const bgColor = useColorModeValue('white', 'gray.900');
+  const bgColor = useColorModeValue("white", "gray.900");
 
   const contract = useMemo(() => {
-      if (!api) return;
-      return new ContractPromise(api as any, ESCROW_CONTRACT_ABI as any, ESCROW_CONTRACT_ADDRESS);
-    }, [api]);
+    if (!api) return;
+    return new ContractPromise(
+      api as any,
+      ESCROW_CONTRACT_ABI as any,
+      ESCROW_CONTRACT_ADDRESS
+    );
+  }, [api]);
 
   // Check if connected wallet is an admin
   useEffect(() => {
@@ -62,7 +72,9 @@ const AdminDashboard = () => {
 
       try {
         setIsLoading(true);
-        const userIsAdmin = await governance.isAdminSigner(selectedAccount.address);
+        const userIsAdmin = await governance.isAdminSigner(
+          selectedAccount.address
+        );
 
         if (userIsAdmin) {
           setIsAdmin(true);
@@ -71,21 +83,23 @@ const AdminDashboard = () => {
         } else {
           setIsAdmin(false);
           toast({
-            title: 'Access Denied',
-            description: 'Your wallet is not authorized for admin access.',
-            status: 'error',
+            title: "Access Denied",
+            description: "Your wallet is not authorized for admin access.",
+            status: "error",
             duration: 5000,
             isClosable: true,
           });
           // Redirect to main dashboard
-          setTimeout(() => navigate('/'), 2000);
+          setTimeout(() => navigate("/"), 2000);
         }
       } catch (error: any) {
-        console.error('Error checking admin access:', error);
+        console.error("Error checking admin access:", error);
         toast({
-          title: 'Error',
-          description: error?.message || 'Failed to verify admin access. Please try again.',
-          status: 'error',
+          title: "Error",
+          description:
+            error?.message ||
+            "Failed to verify admin access. Please try again.",
+          status: "error",
           duration: 5000,
           isClosable: true,
         });
@@ -112,16 +126,32 @@ const AdminDashboard = () => {
       let contractState: any = {};
       try {
         if (contract?.query?.getContractInfo) {
-          const q: any = await (contract as any).query.getContractInfo(selectedAccount?.address, { value: 0, gasLimit: -1 });
+          const q: any = await (contract as any).query.getContractInfo(
+            selectedAccount?.address,
+            { value: 0, gasLimit: -1 }
+          );
           const data = q?.output?.toJSON?.() ?? q?.output;
           if (Array.isArray(data) && data.length >= 4) {
-            contractState = { owner: data[0], fee_bps: data[1], is_paused: data[2], total_volume: data[3] };
+            contractState = {
+              owner: data[0],
+              fee_bps: data[1],
+              is_paused: data[2],
+              total_volume: data[3],
+            };
           }
         } else if ((contract as any)?.query?.get_contract_info) {
-          const q: any = await (contract as any).query.get_contract_info(selectedAccount?.address, { value: 0, gasLimit: -1 });
+          const q: any = await (contract as any).query.get_contract_info(
+            selectedAccount?.address,
+            { value: 0, gasLimit: -1 }
+          );
           const data = q?.output?.toJSON?.() ?? q?.output;
           if (Array.isArray(data) && data.length >= 4) {
-            contractState = { owner: data[0], fee_bps: data[1], is_paused: data[2], total_volume: data[3] };
+            contractState = {
+              owner: data[0],
+              fee_bps: data[1],
+              is_paused: data[2],
+              total_volume: data[3],
+            };
           }
         }
       } catch {}
@@ -130,15 +160,21 @@ const AdminDashboard = () => {
         contractState,
         pendingProposals: proposals.map((p: any) => ({
           id: p.id,
-          type: typeof p.action === 'object' ? Object.keys(p.action)[0] : String(p.action),
-          title: typeof p.action === 'object' ? Object.keys(p.action)[0] : String(p.action),
-          description: '',
+          type:
+            typeof p.action === "object"
+              ? Object.keys(p.action)[0]
+              : String(p.action),
+          title:
+            typeof p.action === "object"
+              ? Object.keys(p.action)[0]
+              : String(p.action),
+          description: "",
           proposer: p.created_by,
           created_at: new Date(Number(p.created_at)).toISOString(),
-          expires_at: '',
+          expires_at: "",
           approvals: (p.approvals || []).map((a: any) => String(a)),
           required_approvals: Number(threshold),
-          status: p.executed ? 'executed' : 'pending',
+          status: p.executed ? "executed" : "pending",
           data: p.action,
         })),
         signerInfo: {
@@ -149,11 +185,11 @@ const AdminDashboard = () => {
         auditHistory: [],
       });
     } catch (error: any) {
-      console.error('Error fetching admin data:', error);
+      console.error("Error fetching admin data:", error);
       toast({
-        title: 'Data Fetch Error',
-        description: error?.message || 'Some admin data could not be loaded.',
-        status: 'warning',
+        title: "Data Fetch Error",
+        description: error?.message || "Some admin data could not be loaded.",
+        status: "warning",
         duration: 3000,
         isClosable: true,
       });
@@ -170,7 +206,9 @@ const AdminDashboard = () => {
     return (
       <Box textAlign="center" py={20}>
         <Spinner size="xl" color="blue.500" />
-        <Text mt={4} fontSize="lg">Verifying admin access...</Text>
+        <Text mt={4} fontSize="lg">
+          Verifying admin access...
+        </Text>
       </Box>
     );
   }
@@ -184,8 +222,9 @@ const AdminDashboard = () => {
           <Box>
             <AlertTitle>Access Denied!</AlertTitle>
             <AlertDescription>
-              Your wallet address is not authorized to access the admin dashboard. 
-              Only multisig signers can access this area. You will be redirected shortly.
+              Your wallet address is not authorized to access the admin
+              dashboard. Only multisig signers can access this area. You will be
+              redirected shortly.
             </AlertDescription>
           </Box>
         </Alert>
@@ -198,7 +237,9 @@ const AdminDashboard = () => {
       <VStack spacing={6} align="stretch">
         {/* Header */}
         <Box>
-          <Heading size="lg" mb={2}>Admin Dashboard</Heading>
+          <Heading size="lg" mb={2}>
+            Admin Dashboard
+          </Heading>
           <Text color="gray.600">
             Manage escrow contract settings, proposals, and multisig operations
           </Text>
@@ -210,8 +251,8 @@ const AdminDashboard = () => {
           <Box>
             <AlertTitle>Admin Access Active</AlertTitle>
             <AlertDescription>
-              You are accessing sensitive contract management functions. 
-              All actions require multisig approval and are permanently logged.
+              You are accessing sensitive contract management functions. All
+              actions require multisig approval and are permanently logged.
             </AlertDescription>
           </Box>
         </Alert>
@@ -221,21 +262,22 @@ const AdminDashboard = () => {
           <TabList>
             <Tab>Overview</Tab>
             <Tab>
-              Action Queue 
-              {adminData?.pendingProposals && adminData.pendingProposals.length > 0 && (
-                <Box
-                  as="span"
-                  ml={2}
-                  px={2}
-                  py={1}
-                  bg="red.500"
-                  color="white"
-                  borderRadius="full"
-                  fontSize="xs"
-                >
-                  {adminData.pendingProposals.length}
-                </Box>
-              )}
+              Action Queue
+              {adminData?.pendingProposals &&
+                adminData.pendingProposals.length > 0 && (
+                  <Box
+                    as="span"
+                    ml={2}
+                    px={2}
+                    py={1}
+                    bg="red.500"
+                    color="white"
+                    borderRadius="full"
+                    fontSize="xs"
+                  >
+                    {adminData.pendingProposals.length}
+                  </Box>
+                )}
             </Tab>
             <Tab>Key Management</Tab>
             <Tab>Audit Trail</Tab>
@@ -243,32 +285,22 @@ const AdminDashboard = () => {
 
           <TabPanels>
             <TabPanel p={0} pt={6}>
-              <Overview 
-                data={adminData?.contractState} 
+              <Overview
                 pendingCount={adminData?.pendingProposals?.length || 0}
                 onRefresh={refreshData}
               />
             </TabPanel>
 
             <TabPanel p={0} pt={6}>
-              <ActionQueue 
-                proposals={adminData?.pendingProposals || []}
-                onRefresh={refreshData}
-              />
+              <ActionQueue onRefresh={refreshData} />
             </TabPanel>
 
             <TabPanel p={0} pt={6}>
-              <KeyManagement 
-                signerInfo={adminData?.signerInfo}
-                onRefresh={refreshData}
-              />
+              <KeyManagement onRefresh={refreshData} />
             </TabPanel>
 
             <TabPanel p={0} pt={6}>
-              <AuditTrail 
-                events={adminData?.auditHistory || []}
-                onRefresh={refreshData}
-              />
+              <AuditTrail onRefresh={refreshData} />
             </TabPanel>
           </TabPanels>
         </Tabs>
