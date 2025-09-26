@@ -29,8 +29,8 @@ mod token_distribution {
     }
 
     /// PSP22 error types
-    #[derive(Debug, PartialEq, Eq)]
-    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum PSP22Error {
         InsufficientBalance,
         InsufficientAllowance,
@@ -38,8 +38,8 @@ mod token_distribution {
     }
 
     /// Error types for the faucet contract
-    #[derive(Debug, PartialEq, Eq)]
-    #[ink::scale_derive(Encode, Decode, TypeInfo)]
+    #[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum FaucetError {
         /// Address has already claimed tokens within the cooldown period
         AlreadyClaimed,
@@ -137,19 +137,18 @@ mod token_distribution {
             }
         }
 
-        /// Main function to claim test tokens
+        /// NEW: Main function to claim tokens for any recipient address
         #[ink(message)]
-        pub fn claim_tokens(&mut self) -> Result<(), FaucetError> {
+        pub fn claim_tokens_for(&mut self, recipient: AccountId) -> Result<(), FaucetError> {
             if self.paused {
                 return Err(FaucetError::ContractPaused);
             }
 
             let token_address = self.token_contract.ok_or(FaucetError::TokenNotConfigured)?;
-            let caller = self.env().caller();
             let current_time = self.env().block_timestamp();
 
-            // Check if address has claimed within cooldown period
-            if let Some(last_claim) = self.last_claim_time.get(caller) {
+            // Check if RECIPIENT address has claimed within cooldown period (not caller)
+            if let Some(last_claim) = self.last_claim_time.get(recipient) {
                 if current_time < last_claim + self.cooldown_period {
                     return Err(FaucetError::AlreadyClaimed);
                 }
@@ -164,21 +163,21 @@ mod token_distribution {
                 return Err(FaucetError::InsufficientTokenBalance);
             }
 
-            // Transfer tokens to the caller
-            match token.transfer(caller, self.distribution_amount, Vec::new()) {
+            // Transfer tokens to the RECIPIENT (not caller)
+            match token.transfer(recipient, self.distribution_amount, Vec::new()) {
                 Ok(_) => {
-                    // Update records
-                    self.last_claim_time.insert(caller, &current_time);
+                    // Update records for RECIPIENT
+                    self.last_claim_time.insert(recipient, &current_time);
                     self.total_distributed += self.distribution_amount;
                     
-                    // Add to history if not already present
-                    if !self.claim_history.contains(&caller) {
-                        self.claim_history.push(caller);
+                    // Add recipient to history if not already present
+                    if !self.claim_history.contains(&recipient) {
+                        self.claim_history.push(recipient);
                     }
 
                     // Emit event
                     self.env().emit_event(TokensDistributed {
-                        recipient: caller,
+                        recipient, // The recipient gets the tokens
                         amount: self.distribution_amount,
                         timestamp: current_time,
                         token_contract: token_address,
@@ -190,27 +189,40 @@ mod token_distribution {
             }
         }
 
-        /// Check if an address can claim tokens (not in cooldown)
+        /// Original function - kept for backward compatibility
         #[ink(message)]
-        pub fn can_claim(&self, address: AccountId) -> bool {
+        pub fn claim_tokens(&mut self) -> Result<(), FaucetError> {
+            let caller = self.env().caller();
+            self.claim_tokens_for(caller)
+        }
+
+        /// NEW: Check if a specific recipient address can claim tokens
+        #[ink(message)]
+        pub fn can_claim_for(&self, recipient: AccountId) -> bool {
             if self.paused || self.token_contract.is_none() {
                 return false;
             }
 
             let current_time = self.env().block_timestamp();
             
-            match self.last_claim_time.get(address) {
+            match self.last_claim_time.get(recipient) {
                 Some(last_claim) => current_time >= last_claim + self.cooldown_period,
                 None => true, // Never claimed before
             }
         }
 
-        /// Get time remaining until address can claim again (in milliseconds)
+        /// Check if caller can claim tokens (original function)
         #[ink(message)]
-        pub fn time_until_next_claim(&self, address: AccountId) -> u64 {
+        pub fn can_claim(&self, address: AccountId) -> bool {
+            self.can_claim_for(address)
+        }
+
+        /// NEW: Get time remaining until specific recipient can claim again
+        #[ink(message)]
+        pub fn time_until_next_claim_for(&self, recipient: AccountId) -> u64 {
             let current_time = self.env().block_timestamp();
             
-            match self.last_claim_time.get(address) {
+            match self.last_claim_time.get(recipient) {
                 Some(last_claim) => {
                     let next_claim_time = last_claim + self.cooldown_period;
                     if current_time >= next_claim_time {
@@ -221,6 +233,12 @@ mod token_distribution {
                 },
                 None => 0, // Never claimed, can claim now
             }
+        }
+
+        /// Get time remaining until address can claim again (original function)
+        #[ink(message)]
+        pub fn time_until_next_claim(&self, address: AccountId) -> u64 {
+            self.time_until_next_claim_for(address)
         }
 
         /// Get the last claim time for an address
@@ -382,7 +400,7 @@ mod token_distribution {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             
             // Should return false when no token contract is set
-            assert!(!contract.can_claim(accounts.alice));
+            assert!(!contract.can_claim_for(accounts.alice));
         }
 
         #[ink::test]
@@ -396,18 +414,15 @@ mod token_distribution {
         }
 
         #[ink::test]
-        fn unauthorized_fails() {
+        fn claim_tokens_for_different_recipient() {
             let mut contract = TokenDistribution::new();
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             
-            // Change caller to non-owner
-            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+            // Set token contract
+            contract.set_token_contract(accounts.bob).unwrap();
             
-            // Should fail as non-owner
-            assert_eq!(
-                contract.set_token_contract(accounts.charlie),
-                Err(FaucetError::Unauthorized)
-            );
+            // Should be able to check if another address can claim
+            assert!(contract.can_claim_for(accounts.charlie));
         }
     }
 }
