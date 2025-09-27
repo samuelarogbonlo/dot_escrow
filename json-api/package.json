@@ -1,0 +1,16 @@
+{
+  "name": "json-api-server",
+  "version": "1.0.0",
+  "description": "JSON API server for frontend data",
+  "main": "server.js",
+  "scripts": {
+    "start": "json-server --host 0.0.0.0 --port $PORT db.json --middlewares ./cors.js",
+    "dev": "json-server --watch db.json --port 3001"
+  },
+  "dependencies": {
+    "json-server": "^0.17.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
