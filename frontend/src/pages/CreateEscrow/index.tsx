@@ -468,6 +468,8 @@ const CreateEscrow = () => {
           );
 
           if (transactionHash.success === true) {
+
+           
             // Step 2: Create escrow in contract
             result = await createEscrow(
               creatorAddress,
@@ -483,7 +485,6 @@ const CreateEscrow = () => {
 
             // Step 3: NEW - Notify contract about the deposit
             if (result.success === true) {
-              console.log("🔔 Notifying contract about deposit...");
 
               depositNotification = await notifyDepositContract(
                 api,

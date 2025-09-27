@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -22,80 +22,135 @@ import {
   InputGroup,
   InputRightElement,
   Icon,
-  Spinner
-} from '@chakra-ui/react';
-import { CheckIcon, WarningIcon } from '@chakra-ui/icons';
-import { validatePolkadotAddress, ValidationResult } from '@/utils/polkadotValidator';
-
+  Spinner,
+  Progress,
+  Box,
+  useToast,
+} from "@chakra-ui/react";
+import { CheckIcon, WarningIcon, TimeIcon } from "@chakra-ui/icons";
+import {
+  validatePolkadotAddress,
+  ValidationResult,
+} from "@/utils/polkadotValidator";
+import { useWallet } from "@/hooks/useWalletContext";
+import useTokenDistribution from "@/hooks/useTokenDistribution";
 
 interface PolkadotWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({ isOpen, onClose }) => {
-  const [walletAddress, setWalletAddress] = useState('');
-  const [validation, setValidation] = useState<ValidationResult>({ isValid: false });
+const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
+  isOpen,
+  onClose,
+}) => {
+  const { selectedAccount, api } = useWallet();
+  const [walletAddress, setWalletAddress] = useState("");
+  const [validation, setValidation] = useState<ValidationResult>({
+    isValid: false,
+  });
   const [isValidating, setIsValidating] = useState(false);
-  
-  const subTextColor = useColorModeValue('gray.600', 'gray.300');
-  const errorColor = useColorModeValue('red.500', 'red.300');
-  const successColor = useColorModeValue('green.500', 'green.300');
+  const [claimStatus, setClaimStatus] = useState<any>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
-  // Debounced validation
+  const toast = useToast();
+  const subTextColor = useColorModeValue("gray.600", "gray.300");
+  const errorColor = useColorModeValue("red.500", "red.300");
+  const successColor = useColorModeValue("green.500", "green.300");
+
+  const {
+    isLoading,
+    error,
+    config,
+    claimTokens,
+    checkClaimStatus,
+    clearError,
+    formatTimeRemaining,
+  } = useTokenDistribution({
+    api,
+    selectedAccount: selectedAccount as any,
+  });
+
   useEffect(() => {
     if (!walletAddress.trim()) {
       setValidation({ isValid: false });
       setIsValidating(false);
+      setClaimStatus(null);
       return;
     }
 
     setIsValidating(true);
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       const result = validatePolkadotAddress(walletAddress);
       setValidation(result);
       setIsValidating(false);
-    }, 300); // 300ms debounce
+
+      // Check claim status if address is valid - DIRECT CALL
+      if (result.isValid && checkClaimStatus) {
+        setCheckingStatus(true);
+        try {
+          const status = await checkClaimStatus(
+            result.normalizedAddress || walletAddress
+          );
+          setClaimStatus(status);
+        } catch (error) {
+          console.error("Failed to check claim status:", error);
+          setClaimStatus(null);
+        } finally {
+          setCheckingStatus(false);
+        }
+      } else {
+        setClaimStatus(null);
+      }
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [walletAddress]);
+  // Clear error when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      clearError();
+    }
+  }, [isOpen, clearError]);
 
   const handleClose = () => {
     onClose();
-    setWalletAddress('');
+    setWalletAddress("");
     setValidation({ isValid: false });
+    setClaimStatus(null);
+    clearError();
   };
 
   const handleSubmit = async () => {
-    if (!validation.isValid) return;
+    if (!validation.isValid || !selectedAccount || !api) return;
 
     try {
-      // TODO: Send address to smart contract
-      console.log('Submitting wallet address:', {
-        address: walletAddress,
-        network: validation.network,
-        normalized: validation.normalizedAddress
-      });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      alert(`Address submitted successfully!\nNetwork: ${validation.network}\nAddress: ${validation.normalizedAddress || walletAddress}`);
-      handleClose();
+      const targetAddress = validation.normalizedAddress || walletAddress;
+      const success = await claimTokens(targetAddress);
+
+      if (success) {
+        toast({
+          title: "Tokens Claimed Successfully!",
+          description: `Tokens have been sent to ${targetAddress}`,
+          status: "success",
+          duration: 5000,
+          isClosable: true,
+        });
+        handleClose();
+      }
     } catch (error) {
-      console.error('Failed to submit address:', error);
-      alert('Failed to submit address. Please try again.');
+      console.error("Failed to claim tokens:", error);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && validation.isValid) {
+    if (e.key === "Enter" && validation.isValid && !isLoading) {
       handleSubmit();
     }
   };
 
   const getInputRightElement = () => {
-    if (isValidating) {
+    if (isValidating || checkingStatus) {
       return <Spinner size="sm" color="gray.400" />;
     }
     if (walletAddress.trim() && validation.isValid) {
@@ -107,6 +162,13 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({ isOpen, onClo
     return null;
   };
 
+  const canSubmit =
+    validation.isValid &&
+    claimStatus?.canClaim &&
+    !isLoading &&
+    selectedAccount &&
+    api;
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="lg" isCentered>
       <ModalOverlay bg="blackAlpha.900" />
@@ -114,10 +176,11 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({ isOpen, onClo
         <ModalHeader>
           <VStack align="start" spacing={2}>
             <Text fontSize="xl" fontWeight="bold">
-              Enter Polkadot Wallet Address
+              Claim Test Tokens
             </Text>
             <Text fontSize="sm" color={subTextColor} fontWeight="normal">
-              Please enter your Polkadot wallet address to be credited with test tokens.
+              Enter a Polkadot wallet address to receive test tokens from the
+              faucet.
             </Text>
           </VStack>
         </ModalHeader>
@@ -125,56 +188,161 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({ isOpen, onClo
 
         <ModalBody>
           <VStack spacing={4}>
-            <FormControl isInvalid={walletAddress.trim() !== '' && !validation.isValid}>
+            {/* Faucet Status */}
+            {config && (
+              <Box
+                w="full"
+                p={3}
+                bg={useColorModeValue("gray.50", "gray.800")}
+                borderRadius="md"
+              >
+                <VStack spacing={2} align="start">
+                  <Text fontSize="sm" fontWeight="medium">
+                    Faucet Status
+                  </Text>
+                  <HStack justify="space-between" w="full">
+                    <Text fontSize="xs" color={subTextColor}>
+                      Distribution Amount:
+                    </Text>
+                    <Badge colorScheme="blue">
+                      {config.distributionAmount} tokens
+                    </Badge>
+                  </HStack>
+                  <HStack justify="space-between" w="full">
+                    <Text fontSize="xs" color={subTextColor}>
+                      Cooldown Period:
+                    </Text>
+                    <Badge colorScheme="orange">
+                      {Math.floor(parseInt(config.cooldownPeriod) / 3600)}h
+                    </Badge>
+                  </HStack>
+                  <HStack justify="space-between" w="full">
+                    <Text fontSize="xs" color={subTextColor}>
+                      Status:
+                    </Text>
+                    <Badge colorScheme={config.paused ? "red" : "green"}>
+                      {config.paused ? "Paused" : "Active"}
+                    </Badge>
+                  </HStack>
+                </VStack>
+              </Box>
+            )}
+
+            <FormControl
+              isInvalid={walletAddress.trim() !== "" && !validation.isValid}
+            >
               <FormLabel fontSize="sm" fontWeight="medium">
-                Polkadot Wallet Address
+                Recipient Wallet Address
               </FormLabel>
               <InputGroup>
                 <Input
                   value={walletAddress}
                   onChange={(e) => setWalletAddress(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Enter your Polkadot address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)"
+                  placeholder="Enter Polkadot address (e.g., 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa)"
                   size="md"
                   focusBorderColor="pink.500"
                   errorBorderColor="red.500"
+                  isDisabled={isLoading}
                 />
-                <InputRightElement>
-                  {getInputRightElement()}
-                </InputRightElement>
+                <InputRightElement>{getInputRightElement()}</InputRightElement>
               </InputGroup>
               <Text fontSize="xs" color={subTextColor} mt={2}>
                 Supports Polkadot, Kusama, and other Substrate-based addresses
               </Text>
             </FormControl>
 
-            {/* Validation Status */}
-            {walletAddress.trim() && !isValidating && validation.isValid && (
-              <Alert status="success" borderRadius="md">
+            {/* Loading Progress */}
+            {isLoading && (
+              <Box w="full">
+                <Text fontSize="sm" mb={2} color={subTextColor}>
+                  Processing claim...
+                </Text>
+                <Progress size="sm" isIndeterminate colorScheme="pink" />
+              </Box>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <Alert status="error" borderRadius="md">
                 <AlertIcon />
                 <VStack align="start" spacing={1} flex={1}>
-                  <AlertDescription fontSize="sm">
-                    Valid address detected!
+                  <AlertDescription fontSize="sm" fontWeight="medium">
+                    {error.message}
                   </AlertDescription>
-                  {validation.network && (
-                    <HStack>
-                      <Text fontSize="xs" color={subTextColor}>Network:</Text>
-                      <Badge colorScheme="green" size="sm">{validation.network}</Badge>
-                    </HStack>
-                  )}
+                  <Text fontSize="xs" color={subTextColor}>
+                    Error Code: {error.code}
+                  </Text>
                 </VStack>
               </Alert>
             )}
 
-            {walletAddress.trim() && !isValidating && !validation.isValid && validation.error && (
-              <Alert status="error" borderRadius="md">
+            {/* Validation Status */}
+            {walletAddress.trim() &&
+              !isValidating &&
+              !checkingStatus &&
+              validation.isValid &&
+              claimStatus && (
+                <Alert
+                  status={claimStatus.canClaim ? "success" : "warning"}
+                  borderRadius="md"
+                >
+                  <AlertIcon />
+                  <VStack align="start" spacing={1} flex={1}>
+                    <AlertDescription fontSize="sm">
+                      {claimStatus.canClaim
+                        ? "Ready to claim tokens!"
+                        : "Cannot claim tokens at this time"}
+                    </AlertDescription>
+                    <HStack spacing={4} fontSize="xs">
+                      {validation.network && (
+                        <HStack>
+                          <Text color={subTextColor}>Network:</Text>
+                          <Badge colorScheme="green" size="sm">
+                            {validation.network}
+                          </Badge>
+                        </HStack>
+                      )}
+                    </HStack>
+                    {!claimStatus.canClaim &&
+                      claimStatus.timeUntilNextClaim > 0 && (
+                        <HStack>
+                          <Icon as={TimeIcon} color={subTextColor} />
+                          <Text color={subTextColor}>
+                            Next claim in:{" "}
+                            {formatTimeRemaining(
+                              claimStatus.timeUntilNextClaim
+                            )}
+                          </Text>
+                        </HStack>
+                      )}
+                    
+                  </VStack>
+                </Alert>
+              )}
+
+            {/* Address Validation Error */}
+            {walletAddress.trim() &&
+              !isValidating &&
+              !validation.isValid &&
+              validation.error && (
+                <Alert status="error" borderRadius="md">
+                  <AlertIcon />
+                  <AlertDescription fontSize="sm">
+                    {validation.error}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+            {/* Connection Status */}
+            {!selectedAccount && (
+              <Alert status="warning" borderRadius="md">
                 <AlertIcon />
                 <AlertDescription fontSize="sm">
-                  {validation.error}
+                  Please connect your wallet to claim tokens.
                 </AlertDescription>
               </Alert>
             )}
-
           </VStack>
         </ModalBody>
 
@@ -184,6 +352,7 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({ isOpen, onClo
               variant="outline"
               onClick={handleClose}
               flex={1}
+              isDisabled={isLoading}
             >
               Cancel
             </Button>
@@ -191,11 +360,15 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({ isOpen, onClo
               colorScheme="pink"
               onClick={handleSubmit}
               flex={1}
-              isDisabled={!validation.isValid}
-              isLoading={isValidating}
-              loadingText="Validating..."
+              isDisabled={!canSubmit}
+              isLoading={isLoading}
+              loadingText="Claiming..."
             >
-              Submit Address
+              {claimStatus?.canClaim === false
+                ? `Wait ${formatTimeRemaining(
+                    claimStatus?.timeUntilNextClaim || 0
+                  )}`
+                : "Claim Tokens"}
             </Button>
           </HStack>
         </ModalFooter>

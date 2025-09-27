@@ -244,7 +244,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     const contract = getContract();
     if (!contract || !api || !account) throw new Error('Missing api/account');
 
-    // ADD SIGNER SETUP - This is what was missing!
+    // ADD SIGNER SETUP
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
     api.setSigner(injector.signer);
@@ -292,7 +292,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     const contract = getContract();
     if (!contract || !api || !account) throw new Error('Missing api/account');
 
-    // ADD SIGNER SETUP - This is what was missing!
+    // ADD SIGNER SETUP
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
     api.setSigner(injector.signer);

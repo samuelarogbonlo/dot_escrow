@@ -99,7 +99,7 @@ mod token_distribution {
             Self {
                 owner: caller,
                 token_contract: None,
-                distribution_amount: 2_500_000_000_000_000,
+                distribution_amount: 250_000_000,
                 cooldown_period: 86_400_000,
                 last_claim_time: Mapping::default(),
                 total_distributed: 0,
@@ -110,8 +110,8 @@ mod token_distribution {
                 daily_reset_time: current_time.saturating_add(86_400_000),
                 hourly_distributed: 0,
                 hourly_reset_time: current_time.saturating_add(3_600_000),
-                max_daily_distribution: 100_000_000_000_000_000_000,
-                max_hourly_distribution: 10_000_000_000_000_000_000,
+                max_daily_distribution: 100_000_000_000,
+                max_hourly_distribution: 10_000_000_000,
             }
         }
 
@@ -137,8 +137,8 @@ mod token_distribution {
                 daily_reset_time: current_time.saturating_add(86_400_000),
                 hourly_distributed: 0,
                 hourly_reset_time: current_time.saturating_add(3_600_000),
-                max_daily_distribution: 100_000_000_000_000_000_000,
-                max_hourly_distribution: 10_000_000_000_000_000_000,
+                max_daily_distribution: 100_000_000_000,
+                max_hourly_distribution: 10_000_000_000,
             }
         }
 
@@ -413,7 +413,7 @@ mod token_distribution {
         #[ink::test]
         fn new_works() {
             let contract = TokenDistribution::new();
-            assert_eq!(contract.distribution_amount, 2_500_000_000_000_000);
+            assert_eq!(contract.distribution_amount, 250_000_000);
             assert_eq!(contract.cooldown_period, 86_400_000);
             assert_eq!(contract.total_distributed, 0);
             assert_eq!(contract.paused, false);
@@ -426,11 +426,11 @@ mod token_distribution {
             let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
             let contract = TokenDistribution::new_with_config(
                 accounts.bob,
-                1_000_000_000_000_000,
+                1_000_000,
                 48,
             );
             assert_eq!(contract.token_contract, Some(accounts.bob));
-            assert_eq!(contract.distribution_amount, 1_000_000_000_000_000);
+            assert_eq!(contract.distribution_amount, 1_000_000);
             assert_eq!(contract.cooldown_period, 48_u64.saturating_mul(3_600_000));
         }
 
@@ -469,7 +469,7 @@ mod token_distribution {
         #[ink::test]
         fn set_distribution_amount_works() {
             let mut contract = TokenDistribution::new();
-            let new_amount = 5_000_000_000_000_000;
+            let new_amount = 5_000_000;
             assert_eq!(contract.set_distribution_amount(new_amount), Ok(()));
             assert_eq!(contract.distribution_amount, new_amount);
         }
@@ -517,8 +517,8 @@ mod token_distribution {
         #[ink::test]
         fn set_rate_limits_works() {
             let mut contract = TokenDistribution::new();
-            let new_daily = 200_000_000_000_000_000_000;
-            let new_hourly = 20_000_000_000_000_000_000;
+            let new_daily = 200_000_000_000;
+            let new_hourly = 20_000_000_000;
             assert_eq!(contract.set_rate_limits(new_daily, new_hourly), Ok(()));
             assert_eq!(contract.max_daily_distribution, new_daily);
             assert_eq!(contract.max_hourly_distribution, new_hourly);
@@ -553,7 +553,7 @@ mod token_distribution {
             let contract = TokenDistribution::new();
             let (token, amount, cooldown, distributed, paused) = contract.get_config();
             assert_eq!(token, None);
-            assert_eq!(amount, 2_500_000_000_000_000);
+            assert_eq!(amount, 250_000_000);
             assert_eq!(cooldown, 86_400_000);
             assert_eq!(distributed, 0);
             assert_eq!(paused, false);
@@ -563,9 +563,9 @@ mod token_distribution {
         fn get_rate_limits_works() {
             let contract = TokenDistribution::new();
             let (max_daily, daily, max_hourly, hourly) = contract.get_rate_limits();
-            assert_eq!(max_daily, 100_000_000_000_000_000_000);
+            assert_eq!(max_daily, 100_000_000_000);
             assert_eq!(daily, 0);
-            assert_eq!(max_hourly, 10_000_000_000_000_000_000);
+            assert_eq!(max_hourly, 10_000_000_000);
             assert_eq!(hourly, 0);
         }
 
@@ -654,7 +654,7 @@ mod token_distribution {
 
             let (token, amount, cooldown, distributed, paused) = get_config_result.return_value();
             assert_eq!(token, None);
-            assert_eq!(amount, 2_500_000_000_000_000);
+            assert_eq!(amount, 250_000_000);
             assert_eq!(cooldown, 86_400_000);
             assert_eq!(distributed, 0);
             assert_eq!(paused, false);
