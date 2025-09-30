@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ApiPromise } from '@polkadot/api';
 import { ContractPromise } from '@polkadot/api-contract';
-import { BN } from '@polkadot/util';
-import type { WeightV2 } from '@polkadot/types/interfaces';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { TOKEN_CONTRACT_ABI, TOKEN_CONTRACT_ADDRESS } from '@/contractABI/EscrowABI';
 
@@ -37,30 +35,6 @@ const safeExtractOutput = (output: any): any => {
     }
 
     return output;
-};
-
-const isOptionSome = (option: any): boolean => {
-    if (!option) return false;
-
-    if (typeof option.isSome === 'boolean') {
-        return option.isSome;
-    }
-
-    if (typeof option.isSome === 'function') {
-        return option.isSome();
-    }
-
-    return false;
-};
-
-const safeUnwrapOption = (option: any): any => {
-    if (!isOptionSome(option)) return null;
-
-    if (typeof option.unwrap === 'function') {
-        return option.unwrap();
-    }
-
-    return null;
 };
 
 const safeToString = (value: any): string => {
@@ -321,7 +295,7 @@ const useTokenDistribution = ({
             await new Promise<void>((resolve, reject) => {
                 tx.signAndSend(
                     selectedAccount.address,
-                    ({ status, events, dispatchError }) => {
+                    ({ status, dispatchError }) => {
                         if (status.isInBlock) {
                             console.log('Transaction included in block:', status.asInBlock.toString());
 
@@ -329,28 +303,8 @@ const useTokenDistribution = ({
                                 reject(dispatchError);
                                 return;
                             }
-
-                            // Check for contract events
-                            const contractEvents = events.filter(({ event }) =>
-                                api.events.contracts.ContractEmitted.is(event)
-                            );
-
-                            let success = false;
-                            contractEvents.forEach(({ event }) => {
-                                const decoded = contract.abi.decodeEvent(event.data[1] as any);
-                                if (decoded.event.identifier === 'TokensDistributed') {
-                                    success = true;
-                                    console.log('Tokens distributed successfully:', decoded.args);
-                                }
-                            });
-
-                            if (success) {
-                                resolve();
-                            } else {
-                                reject(new Error('Token distribution failed - no success event found'));
-                            }
                         } else if (status.isFinalized) {
-                            console.log('Transaction finalized:', status.asFinalized.toString());
+                            resolve();
                         } else if (status.isDropped || status.isInvalid) {
                             reject(new Error('Transaction was dropped or invalid'));
                         }
@@ -420,11 +374,7 @@ const useTokenDistribution = ({
                 const timeUntil = (timeUntilResult.output as any).toJSON?.() ?? (timeUntilResult.output as any);
                 const lastClaim = (lastClaimResult.output as any).toJSON?.() ?? (lastClaimResult.output as any);
 
-               
 
-                console.log("can claim", canClaim.ok)
-                console.log(timeUntil)
-                console.log(lastClaim)
 
                 return {
                     canClaim: canClaim.ok,

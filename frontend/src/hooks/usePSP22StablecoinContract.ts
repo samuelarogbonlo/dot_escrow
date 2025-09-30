@@ -30,11 +30,11 @@ export interface StablecoinConfig {
 // Available PSP22 Stablecoins on Aleph Zero
 export const ALEPH_ZERO_STABLECOINS: { [key: string]: StablecoinConfig } = {
     MOST_USDC: {
-        name: "USDC",
-        symbol: "USDC",
+        name: "USDT",
+        symbol: "USDT",
         contractAddress: "5EFDb7mKbougLtr5dnwd5KDfZ3wK55JPGPLiryKq4uRMPR46",
         decimals: 6,
-        description: "USDC bridged via MOST Bridge"
+        description: "USDT bridged via MOST Bridge"
     },
 };
 
