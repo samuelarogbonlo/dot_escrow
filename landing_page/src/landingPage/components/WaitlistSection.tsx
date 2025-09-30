@@ -104,6 +104,8 @@ const WaitlistSection: React.FC = () => {
         }),
       });
 
+      console.log(response)
+
 
       // Note: With no-cors mode, we can't read the response
       // But if no error is thrown, we assume success
