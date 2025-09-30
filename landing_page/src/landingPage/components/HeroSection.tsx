@@ -93,7 +93,7 @@ const HeroSection = () => {
           >
             <Button
               as="a"
-              href="https://escrow-6wpm.vercel.app/connect"
+              href="https://escrow-6wpm.vercel.app"
               target="_blank"
               rel="noopener noreferrer"
               colorScheme="blue"
