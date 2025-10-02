@@ -78,6 +78,20 @@ const Header: React.FC = () => {
                 {item.label}
               </Link>
             ))}
+            {/* Doc link for desktop */}
+            <Link
+              href="https://dotescrow.gitbook.io/dotescrow-docs/"
+              isExternal
+              px={3}
+              py={2}
+              fontSize="sm"
+              fontWeight="medium"
+              color="gray.700"
+              _hover={{ color: "blue.600" }}
+              transition="color 0.2s"
+            >
+              Docs
+            </Link>
           </HStack>
           <Button
             as="a"
@@ -123,6 +137,21 @@ const Header: React.FC = () => {
                 {item.label}
               </Link>
             ))}
+            {/* Doc link for mobile */}
+            <Link
+              href="https://dotescrow.gitbook.io/dotescrow-docs/"
+              isExternal
+              px={3}
+              py={2}
+              borderRadius="md"
+              fontSize="base"
+              fontWeight="medium"
+              color="gray.700"
+              _hover={{ color: "blue.600", bg: "gray.50" }}
+              transition="all 0.2s"
+            >
+              Docs
+            </Link>
             <Button
               as="a"
               href="https://escrow-6wpm.vercel.app"
