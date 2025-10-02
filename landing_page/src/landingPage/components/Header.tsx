@@ -95,7 +95,7 @@ const Header: React.FC = () => {
           </HStack>
           <Button
             as="a"
-            href="https://escrow-6wpm.vercel.app"
+            href="https://app-dotescrow.vercel.app/"
             target="_blank"
             rel="noopener noreferrer"
             colorScheme="blue"
@@ -154,7 +154,7 @@ const Header: React.FC = () => {
             </Link>
             <Button
               as="a"
-              href="https://escrow-6wpm.vercel.app"
+              href="https://app-dotescrow.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
               colorScheme="blue"
