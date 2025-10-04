@@ -176,7 +176,13 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rust-src
+          target: wasm32-unknown-unknown
           override: true
+
+      - name: Install cargo-contract
+        run: |
+          cargo install --force --locked cargo-contract --version 3.2.0
 
       - name: Install substrate-contracts-node
         run: |
