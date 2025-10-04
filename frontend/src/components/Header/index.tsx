@@ -2,9 +2,9 @@ import {
   Box,
   Flex,
   Text,
-  Input,
-  InputGroup,
-  InputLeftElement,
+  // Input,
+  // InputGroup,
+  // InputLeftElement,
   Button,
   HStack,
   IconButton,
@@ -17,27 +17,28 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react";
 import {
-  SearchIcon,
+  // SearchIcon,
   MoonIcon,
   SunIcon,
   ChevronDownIcon,
-  CloseIcon,
+  // CloseIcon,
   // HamburgerIcon,
 } from "@chakra-ui/icons";
 import { FiLogOut, FiUser } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import Notifications from "../Notifications";
 import { useWallet } from "../../hooks/useWalletContext";
-import { useState } from "react";
+// import { useState } from "react";
 
 
 const Header = () => {
   const { colorMode, toggleColorMode } = useColorMode();
   const { selectedAccount, isExtensionReady, disconnectApi } = useWallet();
   const navigate = useNavigate();
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const showMobileSearch = false; // TODO: Implement mobile search
+  // const [showMobileSearch, setShowMobileSearch] = useState(false);
 
-  const isMobile = useBreakpointValue({ base: true, sm: true, md: false });
+  // const isMobile = useBreakpointValue({ base: true, sm: true, md: false });
   const isMobileMenu = useBreakpointValue({ base: true, sm: true, lg: false });
 
   const truncateAddress = (address: string | null) => {

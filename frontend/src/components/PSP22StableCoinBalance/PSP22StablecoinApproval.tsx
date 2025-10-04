@@ -47,7 +47,7 @@ export const PSP22StablecoinApproval: React.FC<PSP22StablecoinApprovalProps> = (
     approveToken,
     checkSufficientBalance,
     checkSufficientAllowance,
-    formatToken
+    // formatToken
   } = usePSP22StablecoinContract(stablecoinKey);
 
   const [approvalAmount, setApprovalAmount] = useState(requiredAmount);

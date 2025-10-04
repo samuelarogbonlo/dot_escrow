@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Text, HStack, Badge, useColorModeValue } from "@chakra-ui/react";
+import { Text, HStack, Badge } from "@chakra-ui/react";
+// import { useColorModeValue } from "@chakra-ui/react";
 
 interface CountdownProps {
   targetDate: number | string
@@ -16,9 +17,9 @@ const Countdown = ({ targetDate, size = "sm" }: CountdownProps) => {
 
   const [isExpired, setIsExpired] = useState(false);
 
-  // Color mode values
-  const expiredBg = useColorModeValue("red.50", "red.900");
-  const expiredColor = useColorModeValue("red.600", "red.300");
+  // Color mode values (unused for now but kept for future styling)
+  // const expiredBg = useColorModeValue("red.50", "red.900");
+  // const expiredColor = useColorModeValue("red.600", "red.300");
 
   useEffect(() => {
     const calculateTimeLeft = () => {
