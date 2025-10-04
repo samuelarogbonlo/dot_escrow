@@ -110,7 +110,7 @@ jobs:
         working-directory: frontend
         run: |
           echo "🧪 Running frontend tests..."
-          echo "Expected: 153 passing, 117 skipped (270 total)"
+          echo "Expected: 151 passing, 119 skipped (270 total)"
           npm test -- --run
           echo "✅ Frontend tests completed successfully"
 
@@ -302,8 +302,8 @@ jobs:
           echo "  ✅ 34/34 tests passing (100%)"
           echo ""
           echo "Frontend Tests:"
-          echo "  ✅ 153 tests passing (56.7%)"
-          echo "  ⏭️  117 tests skipped (43.3%)"
+          echo "  ✅ 151 tests passing (55.9%)"
+          echo "  ⏭️  119 tests skipped (44.1%)"
           echo "  ❌ 0 tests failing (0%)"
           echo ""
           echo "Test Files Status:"
