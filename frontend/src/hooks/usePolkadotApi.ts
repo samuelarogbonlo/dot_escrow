@@ -6,13 +6,15 @@ const ENDPOINTS = {
   LOCAL: 'ws://127.0.0.1:9944',
   WESTEND: 'wss://westend-rpc.polkadot.io',
   WESTEND_ASSETHUB: 'wss://westend-asset-hub-rpc.polkadot.io',
+  PASEO_POP: 'wss://rpc1.paseo.popnetwork.xyz',
+  PASEO_RELAY: 'wss://paseo.rpc.amforc.com:443',
   ALEPH_TESTNET: 'wss://testnet.azero.fans',
   ASSETHUB: 'wss://polkadot-asset-hub-rpc.polkadot.io',
   ROCOCO: 'wss://rococo-rpc.polkadot.io',
   PUBLIC: 'wss://rpc.polkadot.io',
 };
 
-const DEFAULT_ENDPOINT = ENDPOINTS.ALEPH_TESTNET;
+const DEFAULT_ENDPOINT = ENDPOINTS.PASEO_POP;
 
 export interface PolkadotApiStatus {
   api: ApiPromise | null;

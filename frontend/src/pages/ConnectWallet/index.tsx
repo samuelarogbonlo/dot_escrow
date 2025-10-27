@@ -299,21 +299,24 @@ const ConnectWallet = () => {
                 )}
               </Flex>
 
-              {/* {connectionStep === 'node' && !isApiReady && (
+              {connectionStep === 'node' && !isApiReady && (
                 <Box mt={2}>
                   <Text fontSize="sm" fontWeight="medium" mb={2}>Select Network:</Text>
                   <RadioGroup onChange={handleEndpointChange} value={selectedEndpoint}>
                     <Stack direction="column" spacing={2}>
+                      <Radio value={endpoints?.PASEO_POP || 'wss://rpc1.paseo.popnetwork.xyz'}>
+                        Paseo Testnet (Pop Network) - Recommended
+                      </Radio>
+                      <Radio value={endpoints?.PASEO_RELAY || 'wss://paseo.rpc.amforc.com:443'}>
+                        Paseo Relay Chain
+                      </Radio>
                       <Radio value={endpoints?.WESTEND || 'wss://westend-rpc.polkadot.io'}>
                         Westend Testnet
                       </Radio>
                       <Radio value={endpoints?.WESTEND_ASSETHUB || 'wss://westend-asset-hub-rpc.polkadot.io'}>
                         Westend AssetHub Testnet
                       </Radio>
-                      <Radio value={endpoints?.ASSETHUB || 'wss://polkadot-asset-hub-rpc.polkadot.io'}>
-                        Asset Hub
-                      </Radio>
-                      <Radio value={endpoints?.ALEPH_TESTNET || 'wss://ws.test.azero.dev'}>
+                      <Radio value={endpoints?.ALEPH_TESTNET || 'wss://testnet.azero.fans'}>
                         Aleph Testnet
                       </Radio>
                       <Radio value={endpoints?.ROCOCO || 'wss://rococo-rpc.polkadot.io'}>
@@ -325,7 +328,7 @@ const ConnectWallet = () => {
                     </Stack>
                   </RadioGroup>
                 </Box>
-              )} */}
+              )}
             </Flex>
             
             {apiError && connectionStep === 'node' && (

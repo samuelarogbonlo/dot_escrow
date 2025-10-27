@@ -118,12 +118,34 @@ See [TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for comprehensive testing document
 - **[API Reference](docs/API-REFERENCE.md)** - Complete smart contract API documentation
 - **[User Guide](https://dotescrow.gitbook.io/dotescrow-docs/)** - Platform usage instructions
 - **[Testing Guide](docs/TESTING_GUIDE.md)** - Testing strategies and procedures
+- **[Paseo Deployment Guide](PASEO_DEPLOYMENT.md)** - Step-by-step guide to deploy on Paseo testnet
 
 ## 🚢 Deployment
 
-### Testnet (Westend)
-- **Contract**: `5GvRMZSLS6UzHwExFuw5Fw9Ybic1gRdWH9LFy79ssDbDiWvU`
+### Testnet (Paseo - Recommended for Testing)
+- **Network**: Paseo Testnet (Pop Network)
+- **RPC Endpoint**: `wss://rpc1.paseo.popnetwork.xyz`
 - **Frontend**: [testnet.dotescrow.io](https://testnet.dotescrow.io)
+- **Get Test Tokens**: [Polkadot Faucet](https://faucet.polkadot.io/)
+
+**Deploy to Paseo:**
+```bash
+# Install Pop CLI
+cargo install --locked --git https://github.com/r0gue-io/pop-cli
+
+# Get PAS tokens from faucet first
+# Then deploy your contracts
+pop up contract \
+  --constructor new \
+  --args "<your_constructor_args>" \
+  --url wss://rpc1.paseo.popnetwork.xyz
+```
+
+**Alternative**: Use [Substrate Contracts UI](https://contracts-ui.substrate.io/) and select Pop Network (Paseo)
+
+### Legacy Testnet (Aleph/Westend)
+- **Contract**: `5GvRMZSLS6UzHwExFuw5Fw9Ybic1gRdWH9LFy79ssDbDiWvU`
+- **Note**: Legacy deployment, use Paseo for latest features
 
 ### Local Development
 ```bash
@@ -138,6 +160,12 @@ cargo contract upload --suri //Alice
 VITE_CONTRACT_ADDRESS=<deployed_address>
 VITE_RPC_URL=ws://127.0.0.1:9944
 ```
+
+### Network Configuration
+The frontend now supports multiple networks. Users can select their preferred network during wallet connection:
+- **Paseo Testnet (Pop Network)** - Recommended for hackathon/demo testing
+- **Paseo Relay Chain** - Core relay chain
+- Westend, Rococo, and other testnets also supported
 
 ## 🎯 Use Cases
 
