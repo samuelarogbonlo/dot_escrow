@@ -25,17 +25,17 @@ mod escrow_contract {
 
         // Matches PSP22 ABI selector 0x6568382f
         #[ink(message, selector = 0x6568382f)]
-        fn balance_of(&self, owner: AccountId) -> Balance;
+        fn balance_of(&self, owner: Address) -> Balance;
 
         // Matches PSP22 ABI selector 0x4d47d921
         #[ink(message, selector = 0x4d47d921)]
-        fn allowance(&self, owner: AccountId, spender: AccountId) -> Balance;
+        fn allowance(&self, owner: Address, spender: Address) -> Balance;
 
         // Matches PSP22 ABI selector 0xdb20f9f5
         #[ink(message, selector = 0xdb20f9f5)]
         fn transfer(
             &mut self,
-            to: AccountId,
+            to: Address,
             value: Balance,
             data: Vec<u8>,
         ) -> Result<(), PSP22Error>;
@@ -44,15 +44,15 @@ mod escrow_contract {
         #[ink(message)]
         fn transfer_from(
             &mut self,
-            from: AccountId,
-            to: AccountId,
+            from: Address,
+            to: Address,
             value: Balance,
             data: Vec<u8>,
         ) -> Result<(), PSP22Error>;
 
         // Matches PSP22 ABI selector 0xb20f1bbd
         #[ink(message, selector = 0xb20f1bbd)]
-        fn approve(&mut self, spender: AccountId, value: Balance) -> Result<(), PSP22Error>;
+        fn approve(&mut self, spender: Address, value: Balance) -> Result<(), PSP22Error>;
     }
 
     /// PSP22 error types
@@ -128,7 +128,7 @@ mod escrow_contract {
         pub deadline: u64,
         pub completed_at: Option<u64>,
         pub dispute_reason: Option<String>,
-        pub dispute_filed_by: Option<AccountId>,
+        pub dispute_filed_by: Option<Address>,
         pub completion_note: Option<String>,
         pub evidence_file: Option<Vec<Evidence>>,
     }
@@ -138,8 +138,8 @@ mod escrow_contract {
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
     pub struct EscrowData {
         pub id: String,
-        pub creator_address: AccountId,
-        pub counterparty_address: AccountId,
+        pub creator_address: Address,
+        pub counterparty_address: Address,
         pub counterparty_type: String,
         pub title: String,
         pub description: String,
@@ -157,8 +157,8 @@ mod escrow_contract {
         pub transaction_hash: String,
         pub status: String,
         pub message: String,
-        pub receiver_address: AccountId,
-        pub payer_address: AccountId,
+        pub receiver_address: Address,
+        pub payer_address: Address,
     }
 
     #[derive(Encode, Decode, Debug, PartialEq, Eq)]
@@ -191,14 +191,14 @@ mod escrow_contract {
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo, StorageLayout))]
     pub enum ProposalAction {
         SetFee(u16),
-        SetUsdtToken(AccountId),
+        SetUsdtToken(Address),
         SetTokenDecimals(u8),
-        AddSigner(AccountId),
-        RemoveSigner(AccountId),
+        AddSigner(Address),
+        RemoveSigner(Address),
         SetThreshold(u8),
         PauseContract,
         UnpauseContract,
-        EmergencyWithdraw(AccountId, Balance),
+        EmergencyWithdraw(Address, Balance),
     }
 
     #[derive(Encode, Decode, Debug, PartialEq, Eq, Clone)]
@@ -206,9 +206,9 @@ mod escrow_contract {
     pub struct AdminProposal {
         pub id: u64,
         pub action: ProposalAction,
-        pub created_by: AccountId,
+        pub created_by: Address,
         pub created_at: u64,
-        pub approvals: Vec<AccountId>,
+        pub approvals: Vec<Address>,
         pub executed: bool,
         pub executed_at: Option<u64>,
     }
@@ -217,23 +217,23 @@ mod escrow_contract {
     #[ink(storage)]
     pub struct EscrowContract {
         /// Contract owner
-        owner: AccountId,
+        owner: Address,
         /// Platform fee in basis points (100 = 1%)
         fee_bps: u16,
         /// Fee recipient account
-        fee_account: AccountId,
+        fee_account: Address,
         /// Escrow counter for unique IDs
         escrow_counter: u64,
         /// Mapping of escrow ID to escrow data
         escrows: Mapping<String, EscrowData>,
         /// Mapping of user addresses to their escrow IDs
-        user_escrows: Mapping<AccountId, Vec<String>>,
+        user_escrows: Mapping<Address, Vec<String>>,
         /// Mapping of escrow ID to total deposited token amount (in base units)
         escrow_deposits: Mapping<String, Balance>,
         /// Contract paused state
         paused: bool,
         /// USDT token contract address
-        usdt_token: AccountId,
+        usdt_token: Address,
         /// Default escrow duration (90 days in milliseconds)
         default_duration: u64,
         /// Total volume processed
@@ -242,7 +242,7 @@ mod escrow_contract {
         token_decimals: u8,
         /// Multi-signature governance fields
         /// List of authorized signer accounts
-        admin_signers: Vec<AccountId>,
+        admin_signers: Vec<Address>,
         /// Minimum number of approvals required (k-of-n)
         signature_threshold: u8,
         /// Proposal counter for unique IDs
@@ -254,12 +254,10 @@ mod escrow_contract {
     /// Events
     #[ink(event)]
     pub struct EscrowCreated {
-        #[ink(topic)]
         pub escrow_id: String,
-        #[ink(topic)]
-        pub creator: AccountId,
-        #[ink(topic)]
-        pub counterparty: AccountId,
+        
+        pub creator: Address,
+        pub counterparty: Address,
         pub counterparty_type: String,
         pub title: String,
         pub total_amount: String,
@@ -268,7 +266,6 @@ mod escrow_contract {
 
     #[ink(event)]
     pub struct EscrowStatusChanged {
-        #[ink(topic)]
         pub escrow_id: String,
         pub old_status: EscrowStatus,
         pub new_status: EscrowStatus,
@@ -277,9 +274,7 @@ mod escrow_contract {
 
     #[ink(event)]
     pub struct MilestoneStatusChanged {
-        #[ink(topic)]
         pub escrow_id: String,
-        #[ink(topic)]
         pub milestone_id: String,
         pub old_status: MilestoneStatus,
         pub new_status: MilestoneStatus,
@@ -287,21 +282,17 @@ mod escrow_contract {
 
     #[ink(event)]
     pub struct MilestoneReleased {
-        #[ink(topic)]
         pub escrow_id: String,
-        #[ink(topic)]
         pub milestone_id: String,
-        pub receiver_address: AccountId,
-        pub payer_address: AccountId,
+        pub receiver_address: Address,
+        pub payer_address: Address,
         pub amount: String,
         pub transaction_hash: String,
     }
 
     #[ink(event)]
     pub struct MilestoneTaskDone {
-        #[ink(topic)]
         pub escrow_id: String,
-        #[ink(topic)]
         pub milestone_id: String,
         pub completion_note: String,
         pub evidence_file: Vec<Evidence>,
@@ -309,74 +300,71 @@ mod escrow_contract {
 
     #[ink(event)]
     pub struct MilestoneDisputed {
-        #[ink(topic)]
         pub escrow_id: String,
-        #[ink(topic)]
         pub milestone_id: String,
-        pub filed_by: AccountId,
+        pub filed_by: Address,
         pub reason: String,
         pub dispute_id: String,
     }
 
     #[ink(event)]
     pub struct CounterpartyNotified {
-        #[ink(topic)]
         pub escrow_id: String,
         pub notification_type: String,
-        pub sender_address: AccountId,
-        pub recipient_address: AccountId,
+        pub sender_address: Address,
+        pub recipient_address: Address,
         pub notification_id: String,
     }
 
     /// Multi-signature governance events
     #[ink(event)]
     pub struct ProposalCreated {
-        #[ink(topic)]
+        
         pub proposal_id: u64,
         pub action: ProposalAction,
-        pub created_by: AccountId,
+        pub created_by: Address,
     }
 
     #[ink(event)]
     pub struct ProposalApproved {
-        #[ink(topic)]
+        
         pub proposal_id: u64,
-        pub approved_by: AccountId,
+        pub approved_by: Address,
         pub approvals_count: u8,
     }
 
     #[ink(event)]
     pub struct ProposalExecuted {
-        #[ink(topic)]
+        
         pub proposal_id: u64,
-        pub executed_by: AccountId,
+        pub executed_by: Address,
     }
 
     #[ink(event)]
     pub struct AdminSignerAdded {
-        #[ink(topic)]
-        pub signer: AccountId,
-        pub added_by: AccountId,
+        
+        pub signer: Address,
+        pub added_by: Address,
     }
 
     #[ink(event)]
     pub struct AdminSignerRemoved {
-        #[ink(topic)]
-        pub signer: AccountId,
-        pub removed_by: AccountId,
+        
+        pub signer: Address,
+        pub removed_by: Address,
     }
 
     #[ink(event)]
     pub struct ThresholdChanged {
         pub old_threshold: u8,
         pub new_threshold: u8,
-        pub changed_by: AccountId,
+        pub changed_by: Address,
     }
 
     impl EscrowContract {
         /// Constructor
         #[ink(constructor)]
-        pub fn new(usdt_token: AccountId, fee_account: AccountId) -> Self {
+        pub fn new(usdt_token: Address, fee_account: Address) -> Self {
             let caller = Self::env().caller();
             let mut admin_signers = Vec::new();
             admin_signers.push(caller);
@@ -405,7 +393,7 @@ mod escrow_contract {
         #[ink(message)]
         pub fn create_escrow(
             &mut self,
-            counterparty_address: AccountId,
+            counterparty_address: Address,
             counterparty_type: String,
             status: String,
             title: String,
@@ -630,7 +618,7 @@ mod escrow_contract {
 
             // Optional: verify contract actually has at least this much balance (best-effort)
             let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
-            let contract_balance = token.balance_of(self.env().account_id());
+            let contract_balance = token.balance_of(self.env().address());
             let current_deposit = self.escrow_deposits.get(&escrow_id).unwrap_or(0);
             if contract_balance < current_deposit.saturating_add(amount) {
                 return Err(EscrowError::InsufficientBalance);
@@ -753,7 +741,7 @@ mod escrow_contract {
             }
 
             // Optional: also ensure contract's global token balance is sufficient
-            let contract_balance = token.balance_of(self.env().account_id());
+            let contract_balance = token.balance_of(self.env().address());
             if contract_balance < amount {
                 return Err(EscrowError::InsufficientBalance);
             }
@@ -921,7 +909,7 @@ mod escrow_contract {
             &mut self,
             escrow_id: String,
             notification_type: String,
-            recipient_address: AccountId,
+            recipient_address: Address,
             _message: Option<String>,
             _notification_kind: Option<String>,
         ) -> Result<NotificationResponse, EscrowError> {
@@ -1092,26 +1080,26 @@ mod escrow_contract {
         #[ink(message)]
         pub fn propose_set_usdt_token(
             &mut self,
-            new_token_address: AccountId,
+            new_token_address: Address,
         ) -> Result<u64, EscrowError> {
             self.submit_proposal(ProposalAction::SetUsdtToken(new_token_address))
         }
 
         /// Legacy function (deprecated - use propose_set_usdt_token)
         #[ink(message)]
-        pub fn set_usdt_token(&mut self, _new_token_address: AccountId) -> Result<(), EscrowError> {
+        pub fn set_usdt_token(&mut self, _new_token_address: Address) -> Result<(), EscrowError> {
             Err(EscrowError::Unauthorized) // Force use of proposal system
         }
 
         /// Get the current PSP22 token contract address
         #[ink(message)]
-        pub fn get_usdt_token(&self) -> AccountId {
+        pub fn get_usdt_token(&self) -> Address {
             self.usdt_token
         }
 
         /// Get token configuration (token address, decimals, fee_bps)
         #[ink(message)]
-        pub fn get_token_config(&self) -> (AccountId, u8, u16) {
+        pub fn get_token_config(&self) -> (Address, u8, u16) {
             (self.usdt_token, self.token_decimals, self.fee_bps)
         }
 
@@ -1119,7 +1107,7 @@ mod escrow_contract {
         #[ink(message)]
         pub fn get_token_balance(&self) -> Balance {
             let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
-            token.balance_of(self.env().account_id())
+            token.balance_of(self.env().address())
         }
 
         /// Propose to update token decimals (requires multisig approval)
@@ -1191,17 +1179,17 @@ mod escrow_contract {
 
         /// Getter functions
         #[ink(message)]
-        pub fn get_contract_info(&self) -> (AccountId, u16, bool, u128) {
+        pub fn get_contract_info(&self) -> (Address, u16, bool, u128) {
             (self.owner, self.fee_bps, self.paused, self.total_volume)
         }
 
         /// Debug 1: Check token contract configuration
         #[ink(message)]
-        pub fn debug_token_config(&self) -> Result<(AccountId, Balance, u8, String), EscrowError> {
+        pub fn debug_token_config(&self) -> Result<(Address, Balance, u8, String), EscrowError> {
             let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
 
             // Try to get contract balance - this will fail if token address is wrong
-            let balance_result = token.balance_of(self.env().account_id());
+            let balance_result = token.balance_of(self.env().address());
 
             Ok((
                 self.usdt_token,     // Token contract address
@@ -1215,7 +1203,7 @@ mod escrow_contract {
         #[ink(message)]
         pub fn debug_test_transfer(
             &mut self,
-            to: AccountId,
+            to: Address,
             amount_str: String,
         ) -> Result<String, EscrowError> {
             // Parse amount using contract's logic
@@ -1226,7 +1214,7 @@ mod escrow_contract {
             let mut token: ink::contract_ref!(PSP22) = self.usdt_token.into();
 
             // Check contract balance first
-            let contract_balance = token.balance_of(self.env().account_id());
+            let contract_balance = token.balance_of(self.env().address());
             if contract_balance < amount {
                 return Ok(format!(
                     "Insufficient balance. Contract has: {}, Requested: {}",
@@ -1260,7 +1248,7 @@ mod escrow_contract {
         #[ink(message)]
         pub fn debug_token_interface(&self) -> Result<(Balance, Balance), EscrowError> {
             let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
-            let contract_id = self.env().account_id();
+            let contract_id = self.env().address();
 
             // Test all critical PSP22 methods
             let total_supply = token.total_supply();
@@ -1314,7 +1302,7 @@ mod escrow_contract {
 
             // Check token balance
             let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
-            let contract_balance = token.balance_of(self.env().account_id());
+            let contract_balance = token.balance_of(self.env().address());
 
             // Calculate fees
             let fee = amount * self.fee_bps as u128 / 10000;
@@ -1408,7 +1396,7 @@ mod escrow_contract {
 
             // Check 1: Contract config
             let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
-            let contract_balance = token.balance_of(self.env().account_id());
+            let contract_balance = token.balance_of(self.env().address());
             if contract_balance == 0 {
                 issues.push("CRITICAL: Contract has zero token balance".to_string());
             }
@@ -1643,7 +1631,7 @@ mod escrow_contract {
                     // This would require PSP22 token transfer logic
                     // For now, just validate that the contract has sufficient balance
                     let token: ink::contract_ref!(PSP22) = self.usdt_token.into();
-                    let balance = token.balance_of(self.env().account_id());
+                    let balance = token.balance_of(self.env().address());
                     if balance < *amount {
                         return Err(EscrowError::InsufficientBalance);
                     }
@@ -1668,7 +1656,7 @@ mod escrow_contract {
         /// Read-only getters for UI integration
         /// Get list of admin signers
         #[ink(message)]
-        pub fn get_admin_signers(&self) -> Vec<AccountId> {
+        pub fn get_admin_signers(&self) -> Vec<Address> {
             self.admin_signers.clone()
         }
 
@@ -1692,7 +1680,7 @@ mod escrow_contract {
 
         /// Check if an account is an admin signer
         #[ink(message)]
-        pub fn is_admin_signer(&self, account: AccountId) -> bool {
+        pub fn is_admin_signer(&self, account: Address) -> bool {
             self.admin_signers.contains(&account)
         }
     }
@@ -1700,7 +1688,7 @@ mod escrow_contract {
     /// Default implementation
     impl Default for EscrowContract {
         fn default() -> Self {
-            Self::new(AccountId::from([0u8; 32]), AccountId::from([0u8; 32]))
+            Self::new(Address::from([0u8; 20]), Address::from([0u8; 20]))
         }
     }
 
@@ -1740,10 +1728,10 @@ mod escrow_contract {
         }
 
         /// Helper function to create test accounts
-        fn create_test_accounts() -> (AccountId, AccountId, AccountId) {
-            let client = AccountId::from([1u8; 32]);
-            let provider = AccountId::from([2u8; 32]);
-            let fee_account = AccountId::from([3u8; 32]);
+        fn create_test_accounts() -> (Address, Address, Address) {
+            let client = Address::from([1u8; 20]);
+            let provider = Address::from([2u8; 20]);
+            let fee_account = Address::from([3u8; 20]);
             (client, provider, fee_account)
         }
 
@@ -1751,7 +1739,7 @@ mod escrow_contract {
         fn test_basic_escrow_data_structure() {
             // Setup - Test contract initialization and basic data structures
             let (_client, _provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let contract = EscrowContract::new(usdt_token, fee_account);
 
             // Test 1: Verify contract initialization
@@ -1780,7 +1768,7 @@ mod escrow_contract {
         fn test_status_parsing_functionality() {
             // Setup - Test status parsing which is critical for frontend integration
             let (_client, _provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let contract = EscrowContract::new(usdt_token, fee_account);
 
             // Test escrow status parsing (matches frontend status values)
@@ -1802,7 +1790,7 @@ mod escrow_contract {
         fn test_error_types_and_validation() {
             // Setup - Test error handling and validation logic
             let (_client, _provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let _contract = EscrowContract::new(usdt_token, fee_account);
 
             // Test error type creation and comparison
@@ -1827,7 +1815,7 @@ mod escrow_contract {
         fn test_fee_calculation_logic() {
             // Setup - Test fee calculation which is critical for payments
             let (_client, _provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let mut contract = EscrowContract::new(usdt_token, fee_account);
 
             // Test different fee rates
@@ -1855,7 +1843,7 @@ mod escrow_contract {
         fn test_token_amount_parsing() {
             // Setup
             let (_client, _provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let contract = EscrowContract::new(usdt_token, fee_account);
 
             // Test various amount formats that frontend might send
@@ -1889,7 +1877,7 @@ mod escrow_contract {
         fn test_escrow_counter_increment() {
             // Setup
             let (_client, provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let mut contract = EscrowContract::new(usdt_token, fee_account);
 
             let milestones = create_test_milestones();
@@ -1926,7 +1914,7 @@ mod escrow_contract {
         fn test_contract_pause_functionality() {
             // Setup
             let (_client, provider, fee_account) = create_test_accounts();
-            let usdt_token = AccountId::from([4u8; 32]);
+            let usdt_token = Address::from([4u8; 20]);
             let mut contract = EscrowContract::new(usdt_token, fee_account);
 
             // Pause contract via proposal system
@@ -1997,7 +1985,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_create_escrow_unit() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             let milestones = vec![Milestone {
@@ -2030,7 +2018,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_fee_calculation_unit() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Test fee calculation (1% default)
@@ -2049,7 +2037,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_create_escrow_paused_contract() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Pause the contract
@@ -2072,7 +2060,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_create_escrow_invalid_status() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             let result = contract.create_escrow(
@@ -2092,11 +2080,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_complete_milestone_task_unit() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Set caller as counterparty
-            ink::env::test::set_caller::<Environment>(accounts.bob);
+            ink::env::test::set_caller(accounts.bob);
 
             // Create escrow first with bob as counterparty
             let milestones = vec![Milestone {
@@ -2143,11 +2131,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_complete_milestone_unauthorized() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Set caller as alice (not the counterparty)
-            ink::env::test::set_caller::<Environment>(accounts.alice);
+            ink::env::test::set_caller(accounts.alice);
 
             // Create escrow with bob as counterparty
             let milestones = vec![Milestone {
@@ -2190,11 +2178,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_complete_milestone_wrong_status() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Set caller as counterparty
-            ink::env::test::set_caller::<Environment>(accounts.bob);
+            ink::env::test::set_caller(accounts.bob);
 
             // Create escrow with milestone in Pending status (not InProgress)
             let milestones = vec![Milestone {
@@ -2237,11 +2225,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_release_milestone_authorization() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Set caller as alice (creator)
-            ink::env::test::set_caller::<Environment>(accounts.alice);
+            ink::env::test::set_caller(accounts.alice);
 
             // Create escrow
             let milestones = vec![Milestone {
@@ -2283,11 +2271,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_dispute_milestone_unit() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Set caller as alice (creator)
-            ink::env::test::set_caller::<Environment>(accounts.alice);
+            ink::env::test::set_caller(accounts.alice);
 
             // Create escrow
             let milestones = vec![Milestone {
@@ -2333,11 +2321,10 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_pause_unpause_unit() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            // Set caller as owner BEFORE creating contract
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            // Set caller as owner (alice is default in test environment)
-            ink::env::test::set_caller::<Environment>(accounts.alice);
 
             // Initially not paused
             assert!(!contract.paused);
@@ -2353,11 +2340,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_pause_unauthorized() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Set caller as non-owner
-            ink::env::test::set_caller::<Environment>(accounts.bob);
+            ink::env::test::set_caller(accounts.bob);
 
             // Try to pause as non-owner
             let result = contract.pause_contract();
@@ -2367,7 +2354,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_get_escrow_not_found() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Try to get non-existent escrow
@@ -2378,7 +2365,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_get_escrow_milestone_not_found() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Create escrow
@@ -2404,7 +2391,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_amount_parsing_unit() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Test valid amounts
@@ -2420,7 +2407,7 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_fee_calculation_edge_cases() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Test with different fee rates
@@ -2443,7 +2430,8 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_multisig_initialization() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Contract should initialize with deployer as only admin signer
@@ -2455,11 +2443,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_proposal_submission() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Alice (deployer/admin) submits a proposal
-            ink::env::test::set_caller::<Environment>(accounts.alice);
             let proposal_id = contract
                 .submit_proposal(ProposalAction::SetFee(250))
                 .unwrap();
@@ -2478,11 +2466,11 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_unauthorized_proposal_submission() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
             // Bob (not an admin) tries to submit a proposal
-            ink::env::test::set_caller::<Environment>(accounts.bob);
+            ink::env::test::set_caller(accounts.bob);
             let result = contract.submit_proposal(ProposalAction::SetFee(250));
             assert!(result.is_err());
             assert_eq!(result.unwrap_err(), EscrowError::Unauthorized);
@@ -2490,11 +2478,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_proposal_approval_and_execution() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            // Submit proposal as alice
-            ink::env::test::set_caller::<Environment>(accounts.alice);
             let proposal_id = contract
                 .submit_proposal(ProposalAction::SetFee(250))
                 .unwrap();
@@ -2507,11 +2493,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_multisig_threshold_requiring_multiple_approvals() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            // Alice adds Bob as admin signer
-            ink::env::test::set_caller::<Environment>(accounts.alice);
             let _add_proposal_id = contract
                 .submit_proposal(ProposalAction::AddSigner(accounts.bob))
                 .unwrap();
@@ -2533,7 +2517,7 @@ mod escrow_contract {
             assert!(!proposal.executed); // Should not auto-execute with only 1 approval
 
             // Bob approves the proposal
-            ink::env::test::set_caller::<Environment>(accounts.bob);
+            ink::env::test::set_caller(accounts.bob);
             contract.approve_proposal(fee_proposal_id).unwrap();
 
             // Now proposal should be executed
@@ -2544,11 +2528,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_duplicate_approval_prevention() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            // Add bob as signer and set threshold to 2
-            ink::env::test::set_caller::<Environment>(accounts.alice);
             let _add_proposal_id = contract
                 .submit_proposal(ProposalAction::AddSigner(accounts.bob))
                 .unwrap();
@@ -2569,10 +2551,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_signer_management() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            ink::env::test::set_caller::<Environment>(accounts.alice);
 
             // Add bob as signer
             let _add_bob_id = contract
@@ -2597,10 +2578,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_threshold_validation() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            ink::env::test::set_caller::<Environment>(accounts.alice);
 
             // Try to set threshold to 0 (should fail validation)
             let _proposal_id = contract
@@ -2619,10 +2599,10 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_legacy_admin_functions_blocked() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
 
-            ink::env::test::set_caller::<Environment>(accounts.alice);
+            ink::env::test::set_caller(accounts.alice);
 
             // Legacy functions should now be blocked
             assert_eq!(
@@ -2649,10 +2629,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_proposal_actions_execution() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            ink::env::test::set_caller::<Environment>(accounts.alice);
 
             // Test pause/unpause
             let _pause_id = contract
@@ -2686,10 +2665,9 @@ mod escrow_contract {
 
         #[ink::test]
         fn test_proposal_getters() {
-            let accounts = ink::env::test::default_accounts::<Environment>();
+            let accounts = ink::env::test::default_accounts();
+            ink::env::test::set_caller(accounts.alice);
             let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            ink::env::test::set_caller::<Environment>(accounts.alice);
 
             // Test initial state
             assert_eq!(contract.get_proposal_counter(), 0);
