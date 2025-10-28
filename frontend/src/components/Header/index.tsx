@@ -15,12 +15,17 @@ import {
   MenuDivider,
   useColorMode,
   useBreakpointValue,
+  Badge,
+  useToast,
+  VStack,
+  Tooltip,
 } from "@chakra-ui/react";
 import {
   // SearchIcon,
   MoonIcon,
   SunIcon,
   ChevronDownIcon,
+  CopyIcon,
   // CloseIcon,
   // HamburgerIcon,
 } from "@chakra-ui/icons";
@@ -28,22 +33,30 @@ import { FiLogOut, FiUser } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import Notifications from "../Notifications";
 import { useWallet } from "../../hooks/useWalletContext";
+import { formatSS58, formatH160 } from "../../utils/addressConversion";
 // import { useState } from "react";
 
 
 const Header = () => {
   const { colorMode, toggleColorMode } = useColorMode();
-  const { selectedAccount, isExtensionReady, disconnectApi } = useWallet();
+  const { selectedAccount, selectedH160Address, isExtensionReady, disconnectApi } = useWallet();
   const navigate = useNavigate();
+  const toast = useToast();
   const showMobileSearch = false; // TODO: Implement mobile search
   // const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   // const isMobile = useBreakpointValue({ base: true, sm: true, md: false });
   const isMobileMenu = useBreakpointValue({ base: true, sm: true, lg: false });
 
-  const truncateAddress = (address: string | null) => {
-    if (!address) return "";
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: `${label} copied`,
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    });
   };
 
   const handleDisconnect = async () => {
@@ -129,12 +142,59 @@ const Header = () => {
                   size="sm"
                   rightIcon={<ChevronDownIcon />}
                 >
-                  {selectedAccount.meta.name ||
-                    truncateAddress(selectedAccount.address)}
+                  {selectedAccount.meta.name || formatSS58(selectedAccount.address)}
                 </MenuButton>
                 <MenuList>
-                  <MenuItem icon={<FiUser />}>
-                    {truncateAddress(selectedAccount.address)}
+                  <MenuItem icon={<FiUser />} closeOnSelect={false}>
+                    <VStack align="stretch" spacing={2} w="full">
+                      {/* SS58 Address */}
+                      <HStack justify="space-between" w="full">
+                        <VStack align="start" spacing={0}>
+                          <HStack>
+                            <Text fontSize="xs" fontWeight="bold">SS58</Text>
+                            <Badge colorScheme="purple" fontSize="xs">Substrate</Badge>
+                          </HStack>
+                          <Tooltip label={selectedAccount.address} placement="bottom">
+                            <Text fontSize="sm">{formatSS58(selectedAccount.address)}</Text>
+                          </Tooltip>
+                        </VStack>
+                        <IconButton
+                          aria-label="Copy SS58 address"
+                          icon={<CopyIcon />}
+                          size="xs"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(selectedAccount.address, "SS58 address");
+                          }}
+                        />
+                      </HStack>
+
+                      {/* H160 Address */}
+                      {selectedH160Address && (
+                        <HStack justify="space-between" w="full" pt={2} borderTopWidth="1px">
+                          <VStack align="start" spacing={0}>
+                            <HStack>
+                              <Text fontSize="xs" fontWeight="bold">H160</Text>
+                              <Badge colorScheme="blue" fontSize="xs">Contract</Badge>
+                            </HStack>
+                            <Tooltip label={selectedH160Address} placement="bottom">
+                              <Text fontSize="sm">{formatH160(selectedH160Address)}</Text>
+                            </Tooltip>
+                          </VStack>
+                          <IconButton
+                            aria-label="Copy H160 address"
+                            icon={<CopyIcon />}
+                            size="xs"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(selectedH160Address, "H160 address");
+                            }}
+                          />
+                        </HStack>
+                      )}
+                    </VStack>
                   </MenuItem>
                   <MenuDivider />
                   <MenuItem icon={<FiLogOut />} onClick={handleDisconnect}>

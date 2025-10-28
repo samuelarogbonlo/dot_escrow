@@ -1,6 +1,22 @@
 import { ContractPromise } from '@polkadot/api-contract';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/EscrowABI';
+import type { AccountWithAddresses } from '../hooks/usePolkadotExtension';
+import { toH160 } from './addressConversion';
+
+/**
+ * Get H160 address from account (ink! v6 / pallet-revive requirement)
+ * @param account - Account object (may already have h160Address field)
+ * @returns H160 address string
+ */
+const getH160Address = (account: InjectedAccountWithMeta | AccountWithAddresses): string => {
+  // Check if account already has h160Address (from usePolkadotExtension)
+  if ('h160Address' in account && account.h160Address) {
+    return account.h160Address;
+  }
+  // Otherwise convert SS58 to H160
+  return toH160(account.address);
+};
 
 /**
  * Utility function to safely convert timestamps from smart contract
@@ -99,8 +115,11 @@ const estimateGas = async (
     }
 
     // Perform a dry run to estimate gas
+    // Use H160 address for ink! v6 / pallet-revive
+    const callerAddress = getH160Address(account);
+
     const { gasRequired, result, output } = await query(
-      account.address,
+      callerAddress,
       {
         gasLimit: api.registry.createType('WeightV2', {
            refTime: 100000000000, // Use high limit for estimation
@@ -214,17 +233,23 @@ export const createEscrowContract = async (
     }));
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
+    // Still use SS58 for wallet signing
     const injector = await web3FromAddress(account.address);
     api.setSigner(injector.signer);
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    let userAccountId: any;
-    let counterpartyAccountId: any;
+    // Convert addresses to H160 format (required for ink! v6 / pallet-revive)
+    let creatorH160: string;
+    let counterpartyH160: string;
 
     try {
-      userAccountId = api.createType('AccountId', creatorAddress);
-      counterpartyAccountId = api.createType('AccountId', counterpartyAddress);
+      creatorH160 = toH160(creatorAddress);
+      counterpartyH160 = toH160(counterpartyAddress);
+      console.log('[Contract] Converted addresses to H160:', {
+        creator: creatorH160,
+        counterparty: counterpartyH160
+      });
     } catch (error) {
       console.error('[Contract] Invalid address format:', error);
       return {
@@ -240,7 +265,7 @@ export const createEscrowContract = async (
       contract,
       'createEscrow',
       account,
-      [counterpartyAccountId, counterpartyType, status, title, description, totalAmount, contractMilestones, transactionHash]
+      [counterpartyH160, counterpartyType, status, title, description, totalAmount, contractMilestones, transactionHash]
     );
 
     const tx = contract.tx.createEscrow(
@@ -248,7 +273,7 @@ export const createEscrowContract = async (
         gasLimit,
         storageDepositLimit: null,
       },
-      counterpartyAccountId,
+      counterpartyH160, // Use H160 address for contract call
       counterpartyType,
       status,
       title,
@@ -418,8 +443,11 @@ export const getEscrowContract = async (
     );
 
     // Call the get_escrow function (read-only query)
+    // Use H160 address for ink! v6 / pallet-revive
+    const callerAddress = getH160Address(account);
+
     const result = await contract.query.getEscrow(
-      account.address, // caller address
+      callerAddress, // caller address (H160)
       {
         gasLimit,
         storageDepositLimit: null,
@@ -539,8 +567,11 @@ export const listEscrowsContract = async (
     );
 
     // Call the list_escrows function (read-only query)
+    // Use H160 address for ink! v6 / pallet-revive
+    const callerAddress = getH160Address(account);
+
     const result = await contract.query.listEscrows(
-      account.address, // caller address
+      callerAddress, // caller address (H160)
       {
         gasLimit,
         storageDepositLimit: null,
