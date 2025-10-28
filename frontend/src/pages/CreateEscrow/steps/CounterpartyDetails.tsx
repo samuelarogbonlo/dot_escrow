@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   VStack,
   FormControl,
@@ -18,9 +18,11 @@ import {
   Flex,
   Badge,
   useColorModeValue,
+  HStack,
 } from '@chakra-ui/react';
 import { EscrowFormData } from '../index';
 import { FiCopy, FiCheck } from 'react-icons/fi';
+import { isSS58, isH160, detectAddressFormat, toH160, formatSS58, formatH160 } from '../../../utils/addressConversion';
 
 interface CounterpartyDetailsProps {
   formData: EscrowFormData;
@@ -36,6 +38,8 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
   userAddress,
 }) => {
   const { hasCopied, onCopy } = useClipboard(userAddress);
+  const [addressFormat, setAddressFormat] = useState<'ss58' | 'h160' | 'unknown'>('unknown');
+  const [convertedAddress, setConvertedAddress] = useState<string>('');
 
   // Set up color mode values
   const boxBg = useColorModeValue('white', 'gray.700');
@@ -51,41 +55,58 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
   const textColor = useColorModeValue('gray.600', 'gray.300');
   const addressBoxBg = useColorModeValue('gray.50', 'gray.700');
 
-  // Validation function for counterparty address
+  // Enhanced validation function for counterparty address (supports SS58 and H160)
   const validateCounterpartyAddress = (address: string): string | null => {
     if (!address.trim()) {
       return 'Address is required';
     }
-    
+
     if (address.toLowerCase() === userAddress.toLowerCase()) {
       return 'Counterparty address cannot be the same as your address';
     }
-    
-    // Add additional Polkadot address format validation if needed
-    // This is a basic check - you might want to add more sophisticated validation
-    if (!/^[1-9A-HJ-NP-Za-km-z]{47,48}$/.test(address)) {
-      return 'Please enter a valid Polkadot address';
+
+    // Validate address format (SS58 or H160)
+    const format = detectAddressFormat(address);
+    if (format === 'unknown') {
+      return 'Please enter a valid SS58 or H160 address';
     }
-    
-    return null;
+
+    // Try converting to validate
+    try {
+      if (format === 'ss58') {
+        toH160(address); // Will throw if invalid
+      }
+      return null;
+    } catch (error) {
+      return 'Invalid address format';
+    }
   };
 
-  // Validate on address change
+  // Auto-detect address format and convert
   useEffect(() => {
     if (formData.counterpartyAddress) {
-      const validationError = validateCounterpartyAddress(formData.counterpartyAddress);
-      
-      // You'll need to implement a way to update errors in your parent component
-      // This assumes you have a function to update errors
-      if (validationError) {
-        // Signal error to parent component
-        // updateErrors?.({ counterpartyAddress: validationError });
-      } else {
-        // Clear error if validation passes
-        // updateErrors?.({ counterpartyAddress: '' });
+      const format = detectAddressFormat(formData.counterpartyAddress);
+      setAddressFormat(format);
+
+      // Convert to opposite format for display
+      try {
+        if (format === 'ss58') {
+          const h160 = toH160(formData.counterpartyAddress);
+          setConvertedAddress(h160);
+        } else if (format === 'h160') {
+          // H160 is already the format needed for contracts
+          setConvertedAddress('');
+        } else {
+          setConvertedAddress('');
+        }
+      } catch (error) {
+        setConvertedAddress('');
       }
+    } else {
+      setAddressFormat('unknown');
+      setConvertedAddress('');
     }
-  }, [formData.counterpartyAddress, userAddress]);
+  }, [formData.counterpartyAddress]);
 
   const handleTypeChange = (value: 'client' | 'worker') => {
     updateFormData({ counterpartyType: value });
@@ -171,18 +192,27 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
         </Flex>
       </Box>
 
-      <FormControl 
-        isRequired 
+      <FormControl
+        isRequired
         isInvalid={Boolean(errors.counterpartyAddress) || Boolean(hasAddressConflict)}
       >
         <FormLabel>
-          {formData.counterpartyType === 'worker'
-            ? 'Worker Address'
-            : 'Client Address'}
+          <HStack>
+            <Text>
+              {formData.counterpartyType === 'worker'
+                ? 'Worker Address'
+                : 'Client Address'}
+            </Text>
+            {addressFormat !== 'unknown' && (
+              <Badge colorScheme={addressFormat === 'ss58' ? 'purple' : 'blue'}>
+                {addressFormat === 'ss58' ? 'SS58' : 'H160'}
+              </Badge>
+            )}
+          </HStack>
         </FormLabel>
         <InputGroup>
           <Input
-            placeholder="Enter Polkadot address"
+            placeholder="Enter SS58 or H160 address"
             value={formData.counterpartyAddress}
             onChange={handleAddressChange}
             fontFamily="monospace"
@@ -199,12 +229,29 @@ const CounterpartyDetails: React.FC<CounterpartyDetailsProps> = ({
             </Button>
           </InputRightElement>
         </InputGroup>
+
+        {/* Show converted address */}
+        {convertedAddress && addressFormat === 'ss58' && (
+          <Box mt={2} p={2} bg={addressBoxBg} borderRadius="md" borderWidth="1px">
+            <Text fontSize="xs" color={textColor} mb={1}>
+              H160 (Contract Format):
+            </Text>
+            <HStack>
+              <Text fontSize="sm" fontFamily="monospace" flex="1">
+                {formatH160(convertedAddress)}
+              </Text>
+              <Badge colorScheme="blue" fontSize="xs">Auto-converted</Badge>
+            </HStack>
+          </Box>
+        )}
+
         <FormHelperText>
-          Enter the Polkadot address of the {formData.counterpartyType === 'worker' ? 'worker' : 'client'}
+          Enter SS58 (Substrate) or H160 (Contract) address. Format is auto-detected.
         </FormHelperText>
+
         {(errors.counterpartyAddress || hasAddressConflict) && (
           <FormErrorMessage>
-            {hasAddressConflict 
+            {hasAddressConflict
               ? 'Counterparty address cannot be the same as your address'
               : errors.counterpartyAddress
             }

@@ -1,0 +1,29 @@
+[package]
+name = "psp22_token"
+version = "0.1.0"
+authors = ["Escrow Team"]
+edition = "2021"
+
+[dependencies]
+ink = { workspace = true }
+scale = { workspace = true }
+scale-info = { workspace = true, optional = true }
+
+[lib]
+path = "lib.rs"
+
+[package.metadata.contract]
+target = "polkavm"
+generate = "code-only"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+]
+ink-as-dependency = []
+
+[dev-dependencies]
+ink_e2e = "6.0.0-alpha"

@@ -15,6 +15,7 @@ interface WalletContextType {
   // Extension state
   accounts: any[];
   selectedAccount: any;
+  selectedH160Address: string | null; // H160 address for contract calls
   isExtensionReady: boolean;
   isExtensionLoading: boolean;
   extensionError: string | null;
@@ -148,6 +149,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       // Extension state
       accounts: extension.accounts || [],
       selectedAccount: extension.selectedAccount,
+      selectedH160Address: extension.selectedH160Address,
       isExtensionReady: extension.isReady,
       isExtensionLoading: extension.isLoading,
       extensionError: extension.error,

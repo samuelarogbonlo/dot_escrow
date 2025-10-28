@@ -34,7 +34,7 @@ A production-ready, USDT-based escrow platform bringing trust-minimized payment 
 
 | Component | Technology | Status |
 |-----------|-----------|--------|
-| **Smart Contract** | ink! 5.0 (Rust) | ✅ Deployed |
+| **Smart Contract** | ink! 6.0.0-alpha (Rust, PolkaVM) | ✅ Deployed |
 | **Frontend** | React 18, TypeScript, Vite | ✅ Complete |
 | **Wallet Integration** | Polkadot.js API | ✅ Integrated |
 | **Testing** | Vitest, Cargo Test | ✅ 90%+ Coverage |
@@ -45,8 +45,8 @@ A production-ready, USDT-based escrow platform bringing trust-minimized payment 
 ### Prerequisites
 
 - Node.js 18+
-- Rust 1.70+
-- cargo-contract 3.0+
+- Rust 1.90+ (required for ink! v6)
+- cargo-contract 6.0.0-alpha (for PolkaVM support)
 
 ### Quick Start
 
@@ -55,12 +55,15 @@ A production-ready, USDT-based escrow platform bringing trust-minimized payment 
 git clone https://github.com/samuelarogbonlo/dot_escrow
 cd dot_escrow
 
-# Install smart contract dependencies
-cd contracts
-cargo build --release
+# Install cargo-contract v6 (for ink! v6 PolkaVM support)
+cargo install cargo-contract --version 6.0.0-alpha --force
+
+# Build smart contracts
+cd contracts/escrow
+cargo contract build --release
 
 # Install frontend dependencies
-cd ../frontend
+cd ../../frontend
 npm install
 
 # Run development server
@@ -122,48 +125,53 @@ See [TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for comprehensive testing document
 
 ## 🚢 Deployment
 
-### Testnet (Paseo - Recommended for Testing)
-- **Network**: Paseo Testnet (Pop Network)
+### Live Deployment (Pop Network - Paseo Testnet)
+- **Network**: Pop Network (Paseo Testnet with pallet-revive)
 - **RPC Endpoint**: `wss://rpc1.paseo.popnetwork.xyz`
-- **Frontend**: [testnet.dotescrow.io](https://testnet.dotescrow.io)
+- **Escrow Contract**: `0x57c0082e71f89e1feb6b56ab36f0ae271c118019`
+- **PSP22 Token Contract**: `0xd10852e9a6366cfab48f52e98f896344cbbc132c`
+- **ink! Version**: 6.0.0-alpha (PolkaVM)
 - **Get Test Tokens**: [Polkadot Faucet](https://faucet.polkadot.io/)
 
-**Deploy to Paseo:**
+**Deploy Your Own Instance:**
 ```bash
-# Install Pop CLI
-cargo install --locked --git https://github.com/r0gue-io/pop-cli
+# Install cargo-contract v6 (required for ink! v6)
+cargo install cargo-contract --version 6.0.0-alpha --force
 
-# Get PAS tokens from faucet first
-# Then deploy your contracts
-pop up contract \
+# Build contract
+cd contracts/escrow
+cargo contract build --release
+
+# Deploy to Pop Network
+cargo contract instantiate \
   --constructor new \
-  --args "<your_constructor_args>" \
-  --url wss://rpc1.paseo.popnetwork.xyz
+  --args "0xd10852e9a6366cfab48f52e98f896344cbbc132c" "0x<fee_account>" \
+  --url wss://rpc1.paseo.popnetwork.xyz \
+  --suri "<your_seed_phrase>" \
+  --skip-confirm --execute \
+  target/ink/escrow_contract/escrow_contract.contract
 ```
 
-**Alternative**: Use [Substrate Contracts UI](https://contracts-ui.substrate.io/) and select Pop Network (Paseo)
-
-### Legacy Testnet (Aleph/Westend)
-- **Contract**: `5GvRMZSLS6UzHwExFuw5Fw9Ybic1gRdWH9LFy79ssDbDiWvU`
-- **Note**: Legacy deployment, use Paseo for latest features
+**Note**: Pop Network uses H160 (20-byte Ethereum-style) addresses for pallet-revive compatibility. See [PASEO_DEPLOYMENT.md](PASEO_DEPLOYMENT.md) for detailed deployment guide.
 
 ### Local Development
 ```bash
-# Start local node
-substrate-contracts-node --dev
+# For ink! v6 local development, use substrate-contracts-node with PolkaVM support
+# (Check substrate-contracts-node releases for PolkaVM-compatible version)
 
-# Deploy contract
+# Build contracts
+cd contracts/escrow
 cargo contract build --release
-cargo contract upload --suri //Alice
 
 # Configure frontend (.env)
-VITE_CONTRACT_ADDRESS=<deployed_address>
-VITE_RPC_URL=ws://127.0.0.1:9944
+VITE_ESCROW_CONTRACT_ADDRESS=0x57c0082e71f89e1feb6b56ab36f0ae271c118019
+VITE_TOKEN_CONTRACT_ADDRESS=0xd10852e9a6366cfab48f52e98f896344cbbc132c
+VITE_RPC_URL=wss://rpc1.paseo.popnetwork.xyz
 ```
 
 ### Network Configuration
-The frontend now supports multiple networks. Users can select their preferred network during wallet connection:
-- **Paseo Testnet (Pop Network)** - Recommended for hackathon/demo testing
+The frontend supports multiple Polkadot networks:
+- **Pop Network (Paseo)** - Live deployment with pallet-revive (ink! v6)
 - **Paseo Relay Chain** - Core relay chain
 - Westend, Rococo, and other testnets also supported
 
