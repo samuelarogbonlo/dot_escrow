@@ -154,25 +154,22 @@ describe('ConnectWallet', () => {
     expect(screen.getByText('Connection failed')).toBeInTheDocument();
   });
 
-  it('shows retry button on failed connection attempts', async () => {
+  it('shows retry button on failed connection attempts', () => {
+    Object.assign(mockWalletContext, {
+      extensionError: 'Connection failed',
+    });
+
     render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // First click shows "Connect"
-    const connectButton = screen.getByRole('button', { name: /connect/i });
-    await user.click(connectButton);
-
-    // After clicking, button text changes to "Retry" (connectionRetries > 0)
-    await waitFor(() => {
-      const retryButton = screen.getByRole('button', { name: /retry/i });
-      expect(retryButton).toBeInTheDocument();
-    });
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    expect(retryButton).toBeInTheDocument();
   });
 
-  it('progresses to account selection when extension ready', async () => {
+  it('progresses to account selection when extension ready', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
       accounts: [
@@ -193,14 +190,9 @@ describe('ConnectWallet', () => {
       </TestWrapper>
     );
 
-    // Wait for account select dropdown to appear (connectionStep changes to 'account')
-    await waitFor(() => {
-      // Check for the select dropdown with placeholder text
-      expect(screen.getByText(/choose which account to use/i)).toBeInTheDocument();
-      // Check options exist with correct format: "Name - first6...last4"
-      expect(screen.getByText('Test Account 1 - 5Grwva...utQY')).toBeInTheDocument();
-      expect(screen.getByText('Test Account 2 - 5FHneW...94ty')).toBeInTheDocument();
-    });
+    expect(screen.getByDisplayValue('')).toBeInTheDocument(); // Account select dropdown
+    expect(screen.getByText('Test Account 1 - 5Grwva...tQY')).toBeInTheDocument();
+    expect(screen.getByText('Test Account 2 - 5FHneW...94ty')).toBeInTheDocument();
   });
 
   it('allows selecting an account', async () => {
@@ -220,289 +212,225 @@ describe('ConnectWallet', () => {
       </TestWrapper>
     );
 
-    // Wait for the select dropdown to appear
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
+    const accountSelect = screen.getByDisplayValue('');
     await user.selectOptions(accountSelect, '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
 
     expect(mockWalletContext.selectAccount).toHaveBeenCalledWith('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
   });
 
-  it('shows selected account information', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows selected account information', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      // Mock selectAccount to update the selectedAccount
-      selectAccount: vi.fn().mockImplementation((address) => {
-        Object.assign(mockWalletContext, {
-          selectedAccount: testAccount,
-        });
-      }),
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Wait for dropdown and select an account
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-
-    // Force a rerender to pick up mock state change
-    rerender(
-      <TestWrapper>
-        <ConnectWallet />
-      </TestWrapper>
-    );
-
-    // Check that selected account info is shown
-    await waitFor(() => {
-      expect(screen.getByText('Selected: Test Account')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Selected: Test Account')).toBeInTheDocument();
   });
 
-  it('shows network selection when ready to connect to node', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows network selection when ready to connect to node', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      selectAccount: vi.fn().mockImplementation((address) => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account first
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Wait for network selection step
-    await waitFor(() => {
-      expect(screen.getByText(/step 3.*blockchain/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('Select Network:')).toBeInTheDocument();
+    expect(screen.getByText('Westend Testnet')).toBeInTheDocument();
+    expect(screen.getByText('Westend AssetHub Testnet')).toBeInTheDocument();
+    expect(screen.getByText('Asset Hub')).toBeInTheDocument();
+    expect(screen.getByText('Aleph Testnet')).toBeInTheDocument();
+    expect(screen.getByText('Rococo Testnet')).toBeInTheDocument();
+    expect(screen.getByText('Local Node')).toBeInTheDocument();
   });
 
   it('allows selecting different network endpoints', async () => {
-    // Network selection UI is currently commented out in the implementation
-    // This test verifies Step 3 appears when account is selected
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account to progress to node step
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
+    const assetHubRadio = screen.getByRole('radio', { name: /asset hub/i });
+    await user.click(assetHubRadio);
 
-    // Verify Step 3 blockchain connection is shown
-    await waitFor(() => {
-      expect(screen.getByText(/step 3.*blockchain/i)).toBeInTheDocument();
-    });
+    expect(assetHubRadio).toBeChecked();
   });
 
   it('calls connectApi when connect to node button clicked', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account to progress to node step
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
+    const nodeConnectButtons = screen.getAllByRole('button', { name: /connect/i });
+    const nodeConnectButton = nodeConnectButtons.find(button => 
+      button.closest('[data-testid="node-connection-step"]') || 
+      !button.closest('[data-testid="extension-connection-step"]')
+    ) || nodeConnectButtons[nodeConnectButtons.length - 1];
 
-    // Click the Connect button in Step 3
-    const connectButtons = await waitFor(() => screen.getAllByRole('button', { name: /connect/i }));
-    const nodeConnectButton = connectButtons[connectButtons.length - 1]; // Last connect button is for node
     await user.click(nodeConnectButton);
 
-    expect(mockWalletContext.connectApi).toHaveBeenCalled();
+    expect(mockWalletContext.connectApi).toHaveBeenCalledWith('wss://westend-rpc.polkadot.io');
   });
 
-  it('shows loading state when connecting to node', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows loading state when connecting to node', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
       isApiConnecting: true,
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Check connect button is disabled while connecting
-    await waitFor(() => {
-      const connectButtons = screen.getAllByRole('button', { name: /connect/i });
-      const nodeConnectButton = connectButtons[connectButtons.length - 1];
-      expect(nodeConnectButton).toBeDisabled();
-    });
+    const connectButtons = screen.getAllByRole('button', { name: /connect/i });
+    const nodeConnectButton = connectButtons[connectButtons.length - 1];
+    expect(nodeConnectButton).toBeDisabled();
   });
 
-  it('shows API connection error', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows API connection error', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
       apiError: 'Failed to connect to node',
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account to reach node step
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Check error message is displayed
-    await waitFor(() => {
-      expect(screen.getByText('Failed to connect to node')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Failed to connect to node')).toBeInTheDocument();
   });
 
-  it('shows continue to dashboard button when fully connected', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows continue to dashboard button when fully connected', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
       isApiReady: true,
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-
-    // Update mock to be API ready
-    Object.assign(mockWalletContext, { isApiReady: true });
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Check for continue button
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /continue to dashboard/i })).toBeInTheDocument();
-    });
+    expect(screen.getByRole('button', { name: /continue to dashboard/i })).toBeInTheDocument();
   });
 
   it('navigates to dashboard when continue button clicked', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      isApiReady: false,
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
+      isApiReady: true,
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account and set API ready
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    Object.assign(mockWalletContext, { isApiReady: true });
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Click continue button
-    const continueButton = await waitFor(() => screen.getByRole('button', { name: /continue to dashboard/i }));
+    const continueButton = screen.getByRole('button', { name: /continue to dashboard/i });
     await user.click(continueButton);
 
     expect(mockNavigate).toHaveBeenCalledWith('/');
@@ -538,53 +466,46 @@ describe('ConnectWallet', () => {
     expect(screen.getByText('Talisman')).toBeInTheDocument();
   });
 
-  it('shows correct visual indicators for completed steps', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows correct visual indicators for completed steps', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      isApiReady: false,
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
+      isApiReady: true,
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    Object.assign(mockWalletContext, { isApiReady: true });
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Check for completed state (all steps done)
-    await waitFor(() => {
-      expect(screen.getByText(/continue to dashboard/i)).toBeInTheDocument();
-    });
+    // All steps should show check icons when completed
+    const checkIcons = screen.getAllByTestId('check-icon') || 
+                      document.querySelectorAll('[data-icon="check"]') ||
+                      document.querySelectorAll('svg');
+    
+    // We should have visual indicators for completed steps
+    expect(checkIcons.length).toBeGreaterThan(0);
   });
 
   it('handles account selection state correctly', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
     });
 
     const { rerender } = render(
@@ -593,46 +514,48 @@ describe('ConnectWallet', () => {
       </TestWrapper>
     );
 
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
+    const accountSelect = screen.getByDisplayValue('');
+    await user.selectOptions(accountSelect, '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
 
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    await waitFor(() => {
-      expect(screen.getByText('Selected: Test Account')).toBeInTheDocument();
+    // Simulate the account being selected
+    Object.assign(mockWalletContext, {
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
     });
+
+    rerender(
+      <TestWrapper>
+        <ConnectWallet />
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Selected: Test Account')).toBeInTheDocument();
   });
 
-  it('shows different error messages for local node connection', async () => {
-    const testAccount = {
-      address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-      meta: { name: 'Test Account', source: 'polkadot-js' },
-    };
-
+  it('shows different error messages for local node connection', () => {
     Object.assign(mockWalletContext, {
       isExtensionReady: true,
-      selectedAccount: null,
-      accounts: [testAccount],
+      selectedAccount: {
+        address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+        meta: { name: 'Test Account', source: 'polkadot-js' },
+      },
+      accounts: [
+        {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account', source: 'polkadot-js' },
+        },
+      ],
       apiError: 'Failed to connect',
-      selectAccount: vi.fn().mockImplementation(() => {
-        Object.assign(mockWalletContext, { selectedAccount: testAccount });
-      }),
     });
 
-    const { rerender } = render(
+    render(
       <TestWrapper>
         <ConnectWallet />
       </TestWrapper>
     );
 
-    // Select account to reach node step where error shows
-    const accountSelect = await waitFor(() => screen.getByRole('combobox'));
-    await user.selectOptions(accountSelect, testAccount.address);
-    rerender(<TestWrapper><ConnectWallet /></TestWrapper>);
-
-    // Check for local node error message hint
-    await waitFor(() => {
-      expect(screen.getByText(/if using local node/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText(/if using local node/i)).toBeInTheDocument();
   });
 });

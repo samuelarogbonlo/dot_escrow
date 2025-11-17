@@ -295,8 +295,7 @@ describe('ReleaseMilestoneModal', () => {
     expect(cancelButton).toBeInTheDocument();
   });
 
-  // SKIPPED: Chakra Modal overlay click doesn't trigger onClose in test environment
-  it.skip('closes modal on overlay click', () => {
+  it('closes modal on overlay click', () => {
     render(
       <TestWrapper>
         <ReleaseMilestoneModal

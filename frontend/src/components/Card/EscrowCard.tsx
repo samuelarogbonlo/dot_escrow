@@ -84,7 +84,7 @@ const EscrowCard = ({ escrow }: { escrow: EscrowData }) => {
             {escrow.milestones.reduce(
               (sum, milestone) => sum + Number(milestone.amount),
               0
-            )}{" "}
+            ).toLocaleString()}{" "}
             USDT
           </Text>
         </Box>

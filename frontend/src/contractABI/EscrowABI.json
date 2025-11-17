@@ -1,12 +1,12 @@
 {
   "source": {
-    "hash": "0x25ac8cd8d57f3f1959b355f300791bf3438c8494283fac14954e55f5c125f3b3",
-    "language": "ink! 6.0.0-alpha",
-    "compiler": "rustc 1.87.0",
+    "hash": "0x687f246cf9615a5ef17d56af9fb7a50097cf81ee53308fa19f0555e3791e7b29",
+    "language": "ink! 6.0.0-beta",
+    "compiler": "rustc 1.91.0",
     "build_info": {
       "build_mode": "Release",
-      "cargo_contract_version": "6.0.0-alpha",
-      "rust_toolchain": "stable-aarch64-apple-darwin"
+      "cargo_contract_version": "6.0.0-beta",
+      "rust_toolchain": "stable-x86_64-pc-windows-msvc"
     }
   },
   "contract": {
@@ -62,7 +62,7 @@
         "displayName": [
           "AccountId"
         ],
-        "type": 72
+        "type": 83
       },
       "balance": {
         "displayName": [
@@ -74,21 +74,15 @@
         "displayName": [
           "BlockNumber"
         ],
-        "type": 94
-      },
-      "chainExtension": {
-        "displayName": [
-          "ChainExtension"
-        ],
-        "type": 95
+        "type": 86
       },
       "hash": {
         "displayName": [
           "Hash"
         ],
-        "type": 93
+        "type": 85
       },
-      "maxEventTopics": 4,
+      "nativeToEthRatio": 100000000,
       "staticBufferSize": 16384,
       "timestamp": {
         "displayName": [
@@ -190,133 +184,48 @@
           {
             "docs": [],
             "indexed": false,
-            "label": "escrow_id",
+            "label": "proposal_id",
             "type": {
               "displayName": [
-                "String"
+                "u64"
               ],
-              "type": 5
+              "type": 4
             }
           },
           {
             "docs": [],
             "indexed": false,
-            "label": "old_status",
+            "label": "action",
             "type": {
               "displayName": [
-                "EscrowStatus"
+                "ProposalAction"
               ],
-              "type": 17
+              "type": 34
             }
           },
           {
             "docs": [],
             "indexed": false,
-            "label": "new_status",
+            "label": "created_by",
             "type": {
               "displayName": [
-                "EscrowStatus"
+                "Address"
               ],
-              "type": 17
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "transaction_hash",
-            "type": {
-              "displayName": [
-                "Option"
-              ],
-              "type": 10
+              "type": 0
             }
           }
         ],
         "docs": [],
-        "label": "EscrowStatusChanged",
+        "label": "ProposalCreated",
         "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0x56849f169c95901f02aefa25398fb0463f79532d3b0bab0d20d255d4777ba5aa"
+        "signature_topic": "0x9b0885f106ab32e7813fd8620d03f8109878d312db1f6c5e9189f242010a4014"
       },
       {
         "args": [
           {
             "docs": [],
             "indexed": false,
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "milestone_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "old_status",
-            "type": {
-              "displayName": [
-                "MilestoneStatus"
-              ],
-              "type": 8
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "new_status",
-            "type": {
-              "displayName": [
-                "MilestoneStatus"
-              ],
-              "type": 8
-            }
-          }
-        ],
-        "docs": [],
-        "label": "MilestoneStatusChanged",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0xd5f5c40861c615d810598576dcb169744a04aa5f9cd66e13695423de91e04f44"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "milestone_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "receiver_address",
+            "label": "signer",
             "type": {
               "displayName": [
                 "Address"
@@ -327,7 +236,234 @@
           {
             "docs": [],
             "indexed": false,
-            "label": "payer_address",
+            "label": "added_by",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          }
+        ],
+        "docs": [],
+        "label": "AdminSignerAdded",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0x6a19066b2a8b812ee5624198473b943e59918dcfefb9f6ffcae83d3b2f5303d4"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "proposal_id",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 4
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "approved_by",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "approvals_count",
+            "type": {
+              "displayName": [
+                "u8"
+              ],
+              "type": 2
+            }
+          }
+        ],
+        "docs": [],
+        "label": "ProposalApproved",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0x8c66f7a20bb0e862843d6a740d6e7854cb5086f5c4634dee9668f8e252cc238f"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "proposal_id",
+            "type": {
+              "displayName": [
+                "u64"
+              ],
+              "type": 4
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "executed_by",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          }
+        ],
+        "docs": [],
+        "label": "ProposalExecuted",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0xe3b17069954fe664e16843f57865dbc56241c85cb6ed25a4963ef220a902d092"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "old_threshold",
+            "type": {
+              "displayName": [
+                "u8"
+              ],
+              "type": 2
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "new_threshold",
+            "type": {
+              "displayName": [
+                "u8"
+              ],
+              "type": 2
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "changed_by",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          }
+        ],
+        "docs": [],
+        "label": "ThresholdChanged",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0x46176b1c0197e8b1b81c58bf2aced0b6a0fcd1228b1a91b9eab3897a7c542e1d"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "escrow_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "milestone_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "filed_by",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "reason",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "dispute_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          }
+        ],
+        "docs": [],
+        "label": "MilestoneDisputed",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0x9e1f6d55485d49c7ad09b2a367098bdfd271110396211bc59999182f1054d879"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "escrow_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "milestone_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "receiver_account_id",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "payer_account_id",
             "type": {
               "displayName": [
                 "Address"
@@ -420,276 +556,6 @@
           {
             "docs": [],
             "indexed": false,
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "milestone_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "filed_by",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "reason",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "dispute_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "docs": [],
-        "label": "MilestoneDisputed",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0x9e1f6d55485d49c7ad09b2a367098bdfd271110396211bc59999182f1054d879"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "notification_type",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "sender_address",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "recipient_address",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "notification_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "docs": [],
-        "label": "CounterpartyNotified",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0xaf5ef3fce1bc7f84ce106da92f7641f1c071fcab3d991804033957d13ffa5f9d"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "proposal_id",
-            "type": {
-              "displayName": [
-                "u64"
-              ],
-              "type": 4
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "action",
-            "type": {
-              "displayName": [
-                "ProposalAction"
-              ],
-              "type": 34
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "created_by",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          }
-        ],
-        "docs": [
-          "Multi-signature governance events"
-        ],
-        "label": "ProposalCreated",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0x9b0885f106ab32e7813fd8620d03f8109878d312db1f6c5e9189f242010a4014"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "proposal_id",
-            "type": {
-              "displayName": [
-                "u64"
-              ],
-              "type": 4
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "approved_by",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "approvals_count",
-            "type": {
-              "displayName": [
-                "u8"
-              ],
-              "type": 2
-            }
-          }
-        ],
-        "docs": [],
-        "label": "ProposalApproved",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0x8c66f7a20bb0e862843d6a740d6e7854cb5086f5c4634dee9668f8e252cc238f"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "proposal_id",
-            "type": {
-              "displayName": [
-                "u64"
-              ],
-              "type": 4
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "executed_by",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          }
-        ],
-        "docs": [],
-        "label": "ProposalExecuted",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0xe3b17069954fe664e16843f57865dbc56241c85cb6ed25a4963ef220a902d092"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "signer",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          },
-          {
-            "docs": [],
-            "indexed": false,
-            "label": "added_by",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          }
-        ],
-        "docs": [],
-        "label": "AdminSignerAdded",
-        "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0x6a19066b2a8b812ee5624198473b943e59918dcfefb9f6ffcae83d3b2f5303d4"
-      },
-      {
-        "args": [
-          {
-            "docs": [],
-            "indexed": false,
             "label": "signer",
             "type": {
               "displayName": [
@@ -720,41 +586,167 @@
           {
             "docs": [],
             "indexed": false,
-            "label": "old_threshold",
+            "label": "escrow_id",
             "type": {
               "displayName": [
-                "u8"
+                "String"
               ],
-              "type": 2
+              "type": 5
             }
           },
           {
             "docs": [],
             "indexed": false,
-            "label": "new_threshold",
+            "label": "old_status",
             "type": {
               "displayName": [
-                "u8"
+                "EscrowStatus"
               ],
-              "type": 2
+              "type": 17
             }
           },
           {
             "docs": [],
             "indexed": false,
-            "label": "changed_by",
+            "label": "new_status",
+            "type": {
+              "displayName": [
+                "EscrowStatus"
+              ],
+              "type": 17
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "transaction_hash",
+            "type": {
+              "displayName": [
+                "Option"
+              ],
+              "type": 10
+            }
+          }
+        ],
+        "docs": [],
+        "label": "EscrowStatusChanged",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0x56849f169c95901f02aefa25398fb0463f79532d3b0bab0d20d255d4777ba5aa"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "escrow_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "notification_type",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "sender_account_id",
             "type": {
               "displayName": [
                 "Address"
               ],
               "type": 0
             }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "recipient_account_id",
+            "type": {
+              "displayName": [
+                "Address"
+              ],
+              "type": 0
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "notification_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
           }
         ],
         "docs": [],
-        "label": "ThresholdChanged",
+        "label": "CounterpartyNotified",
         "module_path": "escrow_contract::escrow_contract",
-        "signature_topic": "0x46176b1c0197e8b1b81c58bf2aced0b6a0fcd1228b1a91b9eab3897a7c542e1d"
+        "signature_topic": "0xaf5ef3fce1bc7f84ce106da92f7641f1c071fcab3d991804033957d13ffa5f9d"
+      },
+      {
+        "args": [
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "escrow_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "milestone_id",
+            "type": {
+              "displayName": [
+                "String"
+              ],
+              "type": 5
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "old_status",
+            "type": {
+              "displayName": [
+                "MilestoneStatus"
+              ],
+              "type": 8
+            }
+          },
+          {
+            "docs": [],
+            "indexed": false,
+            "label": "new_status",
+            "type": {
+              "displayName": [
+                "MilestoneStatus"
+              ],
+              "type": 8
+            }
+          }
+        ],
+        "docs": [],
+        "label": "MilestoneStatusChanged",
+        "module_path": "escrow_contract::escrow_contract",
+        "signature_topic": "0xd5f5c40861c615d810598576dcb169744a04aa5f9cd66e13695423de91e04f44"
       }
     ],
     "lang_error": {
@@ -822,12 +814,12 @@
             }
           },
           {
-            "label": "milestones",
+            "label": "milestones_input",
             "type": {
               "displayName": [
                 "Vec"
               ],
-              "type": 6
+              "type": 40
             }
           },
           {
@@ -852,7 +844,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 40
+          "type": 43
         },
         "selector": "0x547b21c4"
       },
@@ -880,7 +872,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 43
+          "type": 46
         },
         "selector": "0x5d715835"
       },
@@ -917,7 +909,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 45
+          "type": 48
         },
         "selector": "0x2e625f54"
       },
@@ -963,7 +955,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 43
+          "type": 46
         },
         "selector": "0xbf219b52"
       },
@@ -1009,7 +1001,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 43
+          "type": 46
         },
         "selector": "0x83bbbe83"
       },
@@ -1027,7 +1019,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 47
+          "type": 50
         },
         "selector": "0xa32705cd"
       },
@@ -1054,9 +1046,7 @@
         ],
         "default": false,
         "docs": [
-          " Notify the contract about a token deposit made for a specific escrow",
-          " This should be called by the depositor (or UI) after transferring tokens to the contract address",
-          " `amount_str` is human-readable and will be converted using `token_decimals`"
+          " Notify deposit"
         ],
         "label": "notify_deposit",
         "mutates": true,
@@ -1066,7 +1056,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 50
+          "type": 53
         },
         "selector": "0xa0f09d77"
       },
@@ -1121,7 +1111,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0xfdffba96"
       },
@@ -1158,7 +1148,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 54
+          "type": 57
         },
         "selector": "0xce781e95"
       },
@@ -1185,7 +1175,7 @@
         ],
         "default": false,
         "docs": [
-          " Mark milestone as completed by counterparty"
+          " Complete milestone"
         ],
         "label": "complete_milestone",
         "mutates": true,
@@ -1195,7 +1185,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0x36949880"
       },
@@ -1241,7 +1231,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 57
+          "type": 60
         },
         "selector": "0x85f03726"
       },
@@ -1266,7 +1256,7 @@
             }
           },
           {
-            "label": "recipient_address",
+            "label": "recipient_account_id",
             "type": {
               "displayName": [
                 "Address"
@@ -1305,7 +1295,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 60
+          "type": 63
         },
         "selector": "0x2076ee5c"
       },
@@ -1333,7 +1323,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 63
+          "type": 66
         },
         "selector": "0xbef02f2d"
       },
@@ -1341,8 +1331,7 @@
         "args": [],
         "default": false,
         "docs": [
-          " Admin functions now requiring multi-signature approval",
-          " Propose to pause the contract (requires multisig approval)"
+          " Multi-signature governance functions"
         ],
         "label": "propose_pause_contract",
         "mutates": true,
@@ -1352,16 +1341,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 66
+          "type": 69
         },
         "selector": "0x7b2fde3f"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Propose to unpause the contract (requires multisig approval)"
-        ],
+        "docs": [],
         "label": "propose_unpause_contract",
         "mutates": true,
         "payable": false,
@@ -1370,7 +1357,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 66
+          "type": 69
         },
         "selector": "0x8d1d3ca5"
       },
@@ -1387,9 +1374,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Propose to update fee (requires multisig approval)"
-        ],
+        "docs": [],
         "label": "propose_update_fee",
         "mutates": true,
         "payable": false,
@@ -1398,17 +1383,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 66
+          "type": 69
         },
         "selector": "0x42af16f4"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Legacy owner-only functions (deprecated - use propose_* variants)",
-          " These are kept for backward compatibility but now require multisig"
-        ],
+        "docs": [],
         "label": "pause_contract",
         "mutates": true,
         "payable": false,
@@ -1417,7 +1399,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0x1cef9351"
       },
@@ -1433,7 +1415,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0x14a1bd4a"
       },
@@ -1459,7 +1441,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0xa42bb8f4"
       },
@@ -1476,9 +1458,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Propose to update the PSP22 token contract address (requires multisig approval)"
-        ],
+        "docs": [],
         "label": "propose_set_usdt_token",
         "mutates": true,
         "payable": false,
@@ -1487,14 +1467,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 66
+          "type": 69
         },
         "selector": "0xbd5a5ef9"
       },
       {
         "args": [
           {
-            "label": "_new_token_address",
+            "label": "new_token_address",
             "type": {
               "displayName": [
                 "Address"
@@ -1504,9 +1484,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Legacy function (deprecated - use propose_set_usdt_token)"
-        ],
+        "docs": [],
         "label": "set_usdt_token",
         "mutates": true,
         "payable": false,
@@ -1515,16 +1493,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0xbd653fc0"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Get the current PSP22 token contract address"
-        ],
+        "docs": [],
         "label": "get_usdt_token",
         "mutates": false,
         "payable": false,
@@ -1533,16 +1509,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 68
+          "type": 71
         },
         "selector": "0xf92f1ffe"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Get token configuration (token address, decimals, fee_bps)"
-        ],
+        "docs": [],
         "label": "get_token_config",
         "mutates": false,
         "payable": false,
@@ -1551,16 +1525,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 69
+          "type": 72
         },
         "selector": "0x8d3df5ed"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Get this contract's current PSP22 token balance"
-        ],
+        "docs": [],
         "label": "get_token_balance",
         "mutates": false,
         "payable": false,
@@ -1569,7 +1541,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 71
+          "type": 74
         },
         "selector": "0xa4afc1d6"
       },
@@ -1586,9 +1558,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Propose to update token decimals (requires multisig approval)"
-        ],
+        "docs": [],
         "label": "propose_set_token_decimals",
         "mutates": true,
         "payable": false,
@@ -1597,7 +1567,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 66
+          "type": 69
         },
         "selector": "0x06f99a87"
       },
@@ -1614,9 +1584,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Legacy function (deprecated - use propose_set_token_decimals)"
-        ],
+        "docs": [],
         "label": "set_token_decimals",
         "mutates": true,
         "payable": false,
@@ -1625,7 +1593,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0x277e5876"
       },
@@ -1635,9 +1603,9 @@
             "label": "_new_token_address",
             "type": {
               "displayName": [
-                "AccountId"
+                "Address"
               ],
-              "type": 72
+              "type": 0
             }
           },
           {
@@ -1651,9 +1619,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Legacy function (deprecated - use separate proposals for token and decimals)"
-        ],
+        "docs": [],
         "label": "set_token_and_decimals",
         "mutates": true,
         "payable": false,
@@ -1662,16 +1628,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0x113656fd"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Getter functions"
-        ],
+        "docs": [],
         "label": "get_contract_info",
         "mutates": false,
         "payable": false,
@@ -1680,266 +1644,9 @@
             "ink",
             "MessageResult"
           ],
-          "type": 74
+          "type": 75
         },
         "selector": "0x57f2226d"
-      },
-      {
-        "args": [],
-        "default": false,
-        "docs": [
-          " Debug 1: Check token contract configuration"
-        ],
-        "label": "debug_token_config",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 76
-        },
-        "selector": "0xf400dba9"
-      },
-      {
-        "args": [
-          {
-            "label": "to",
-            "type": {
-              "displayName": [
-                "Address"
-              ],
-              "type": 0
-            }
-          },
-          {
-            "label": "amount_str",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Debug 2: Test basic token transfer capability"
-        ],
-        "label": "debug_test_transfer",
-        "mutates": true,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 40
-        },
-        "selector": "0x5bf8108d"
-      },
-      {
-        "args": [
-          {
-            "label": "amount_str",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Debug 3: Check amount parsing logic"
-        ],
-        "label": "debug_amount_parsing",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 79
-        },
-        "selector": "0x6c86ebc6"
-      },
-      {
-        "args": [],
-        "default": false,
-        "docs": [
-          " Debug 4: Check PSP22 token interface compatibility"
-        ],
-        "label": "debug_token_interface",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 82
-        },
-        "selector": "0x73f8ca3e"
-      },
-      {
-        "args": [
-          {
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [],
-        "label": "debug_escrow_deposits",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 79
-        },
-        "selector": "0x54a546b8"
-      },
-      {
-        "args": [
-          {
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "label": "milestone_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Debug 5: Detailed milestone release simulation (without actual transfer)"
-        ],
-        "label": "debug_milestone_release_simulation",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 40
-        },
-        "selector": "0x82a7898a"
-      },
-      {
-        "args": [
-          {
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Debug 6: Check escrow and milestone status"
-        ],
-        "label": "debug_escrow_status",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 40
-        },
-        "selector": "0x40440f42"
-      },
-      {
-        "args": [
-          {
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Debug 7: Check who can call functions"
-        ],
-        "label": "debug_caller_info",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 40
-        },
-        "selector": "0x579f2a5a"
-      },
-      {
-        "args": [
-          {
-            "label": "escrow_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          },
-          {
-            "label": "milestone_id",
-            "type": {
-              "displayName": [
-                "String"
-              ],
-              "type": 5
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Debug 8: Comprehensive diagnosis"
-        ],
-        "label": "debug_comprehensive_diagnosis",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 85
-        },
-        "selector": "0x48a89ec0"
       },
       {
         "args": [
@@ -1954,10 +1661,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Multi-signature governance functions",
-          " Submit a new proposal for admin action"
-        ],
+        "docs": [],
         "label": "submit_proposal",
         "mutates": true,
         "payable": false,
@@ -1966,7 +1670,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 66
+          "type": 69
         },
         "selector": "0xc4d32d79"
       },
@@ -1983,9 +1687,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Approve an existing proposal"
-        ],
+        "docs": [],
         "label": "approve_proposal",
         "mutates": true,
         "payable": false,
@@ -1994,7 +1696,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0x1a430fd0"
       },
@@ -2011,9 +1713,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Execute a proposal that has enough approvals"
-        ],
+        "docs": [],
         "label": "execute_proposal",
         "mutates": true,
         "payable": false,
@@ -2022,17 +1722,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 52
+          "type": 55
         },
         "selector": "0xde5bbbbc"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Read-only getters for UI integration",
-          " Get list of admin signers"
-        ],
+        "docs": [],
         "label": "get_admin_signers",
         "mutates": false,
         "payable": false,
@@ -2041,16 +1738,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 87
+          "type": 77
         },
         "selector": "0x923f8b44"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Get current signature threshold"
-        ],
+        "docs": [],
         "label": "get_signature_threshold",
         "mutates": false,
         "payable": false,
@@ -2059,7 +1754,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 88
+          "type": 78
         },
         "selector": "0x8a01f276"
       },
@@ -2076,9 +1771,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Get proposal by ID"
-        ],
+        "docs": [],
         "label": "get_proposal",
         "mutates": false,
         "payable": false,
@@ -2087,16 +1780,14 @@
             "ink",
             "MessageResult"
           ],
-          "type": 89
+          "type": 79
         },
         "selector": "0xba4dc5ec"
       },
       {
         "args": [],
         "default": false,
-        "docs": [
-          " Get current proposal counter"
-        ],
+        "docs": [],
         "label": "get_proposal_counter",
         "mutates": false,
         "payable": false,
@@ -2105,7 +1796,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 91
+          "type": 81
         },
         "selector": "0xa68c55ad"
       },
@@ -2122,9 +1813,7 @@
           }
         ],
         "default": false,
-        "docs": [
-          " Check if an account is an admin signer"
-        ],
+        "docs": [],
         "label": "is_admin_signer",
         "mutates": false,
         "payable": false,
@@ -2133,7 +1822,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 92
+          "type": 82
         },
         "selector": "0x274f6689"
       }
@@ -3784,83 +3473,75 @@
       "id": 40,
       "type": {
         "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 41
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
+          "sequence": {
             "type": 41
-          },
-          {
-            "name": "E",
-            "type": 39
           }
-        ],
-        "path": [
-          "Result"
-        ]
+        }
       }
     },
     {
       "id": 41,
       "type": {
         "def": {
-          "variant": {
-            "variants": [
+          "composite": {
+            "fields": [
               {
-                "fields": [
-                  {
-                    "type": 5
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
+                "name": "id",
+                "type": 5,
+                "typeName": "String"
               },
               {
-                "fields": [
-                  {
-                    "type": 42
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
+                "name": "description",
+                "type": 5,
+                "typeName": "String"
+              },
+              {
+                "name": "amount",
+                "type": 5,
+                "typeName": "String"
+              },
+              {
+                "name": "status",
+                "type": 5,
+                "typeName": "String"
+              },
+              {
+                "name": "deadline",
+                "type": 4,
+                "typeName": "u64"
+              },
+              {
+                "name": "completed_at",
+                "type": 9,
+                "typeName": "Option<u64>"
+              },
+              {
+                "name": "dispute_reason",
+                "type": 10,
+                "typeName": "Option<String>"
+              },
+              {
+                "name": "dispute_filed_by",
+                "type": 11,
+                "typeName": "Option<Address>"
+              },
+              {
+                "name": "completion_note",
+                "type": 10,
+                "typeName": "Option<String>"
+              },
+              {
+                "name": "evidence_file",
+                "type": 42,
+                "typeName": "Option<Vec<String>>"
               }
             ]
           }
         },
-        "params": [
-          {
-            "name": "T",
-            "type": 5
-          },
-          {
-            "name": "E",
-            "type": 42
-          }
-        ],
         "path": [
-          "Result"
+          "escrow_contract",
+          "escrow_contract",
+          "MilestoneInput"
         ]
       }
     },
@@ -3872,63 +3553,28 @@
             "variants": [
               {
                 "index": 0,
-                "name": "Unauthorized"
+                "name": "None"
               },
               {
+                "fields": [
+                  {
+                    "type": 22
+                  }
+                ],
                 "index": 1,
-                "name": "EscrowNotFound"
-              },
-              {
-                "index": 2,
-                "name": "MilestoneNotFound"
-              },
-              {
-                "index": 3,
-                "name": "InvalidStatus"
-              },
-              {
-                "index": 4,
-                "name": "ContractPaused"
-              },
-              {
-                "index": 5,
-                "name": "InsufficientBalance"
-              },
-              {
-                "index": 6,
-                "name": "TokenTransferFailed"
-              },
-              {
-                "index": 7,
-                "name": "DeadlineExceeded"
-              },
-              {
-                "index": 8,
-                "name": "AlreadyCompleted"
-              },
-              {
-                "index": 9,
-                "name": "InvalidAmount"
-              },
-              {
-                "index": 10,
-                "name": "DuplicateId"
-              },
-              {
-                "index": 11,
-                "name": "FeeTooHigh"
-              },
-              {
-                "index": 12,
-                "name": "TokenNotConfigured"
+                "name": "Some"
               }
             ]
           }
         },
+        "params": [
+          {
+            "name": "T",
+            "type": 22
+          }
+        ],
         "path": [
-          "escrow_contract",
-          "escrow_contract",
-          "EscrowError"
+          "Option"
         ]
       }
     },
@@ -3983,7 +3629,7 @@
               {
                 "fields": [
                   {
-                    "type": 16
+                    "type": 5
                   }
                 ],
                 "index": 0,
@@ -3992,7 +3638,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4004,11 +3650,11 @@
         "params": [
           {
             "name": "T",
-            "type": 16
+            "type": 5
           },
           {
             "name": "E",
-            "type": 42
+            "type": 45
           }
         ],
         "path": [
@@ -4023,9 +3669,81 @@
           "variant": {
             "variants": [
               {
+                "index": 0,
+                "name": "Unauthorized"
+              },
+              {
+                "index": 1,
+                "name": "EscrowNotFound"
+              },
+              {
+                "index": 2,
+                "name": "MilestoneNotFound"
+              },
+              {
+                "index": 3,
+                "name": "InvalidStatus"
+              },
+              {
+                "index": 4,
+                "name": "InvalidEscrowStatus"
+              },
+              {
+                "index": 5,
+                "name": "ContractPaused"
+              },
+              {
+                "index": 6,
+                "name": "InsufficientBalance"
+              },
+              {
+                "index": 7,
+                "name": "TokenTransferFailed"
+              },
+              {
+                "index": 8,
+                "name": "DeadlineExceeded"
+              },
+              {
+                "index": 9,
+                "name": "AlreadyCompleted"
+              },
+              {
+                "index": 10,
+                "name": "InvalidAmount"
+              },
+              {
+                "index": 11,
+                "name": "DuplicateId"
+              },
+              {
+                "index": 12,
+                "name": "FeeTooHigh"
+              },
+              {
+                "index": 13,
+                "name": "TokenNotConfigured"
+              }
+            ]
+          }
+        },
+        "path": [
+          "escrow_contract",
+          "escrow_contract",
+          "EscrowError"
+        ]
+      }
+    },
+    {
+      "id": 46,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
                 "fields": [
                   {
-                    "type": 46
+                    "type": 47
                   }
                 ],
                 "index": 0,
@@ -4046,53 +3764,11 @@
         "params": [
           {
             "name": "T",
-            "type": 46
+            "type": 47
           },
           {
             "name": "E",
             "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 46,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 7
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 42
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 7
-          },
-          {
-            "name": "E",
-            "type": 42
           }
         ],
         "path": [
@@ -4109,7 +3785,7 @@
               {
                 "fields": [
                   {
-                    "type": 48
+                    "type": 16
                   }
                 ],
                 "index": 0,
@@ -4118,7 +3794,7 @@
               {
                 "fields": [
                   {
-                    "type": 39
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4130,11 +3806,11 @@
         "params": [
           {
             "name": "T",
-            "type": 48
+            "type": 16
           },
           {
             "name": "E",
-            "type": 39
+            "type": 45
           }
         ],
         "path": [
@@ -4160,7 +3836,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 39
                   }
                 ],
                 "index": 1,
@@ -4176,7 +3852,7 @@
           },
           {
             "name": "E",
-            "type": 42
+            "type": 39
           }
         ],
         "path": [
@@ -4188,10 +3864,42 @@
       "id": 49,
       "type": {
         "def": {
-          "sequence": {
-            "type": 16
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 7
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 45
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
           }
-        }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 7
+          },
+          {
+            "name": "E",
+            "type": 45
+          }
+        ],
+        "path": [
+          "Result"
+        ]
       }
     },
     {
@@ -4245,7 +3953,7 @@
               {
                 "fields": [
                   {
-                    "type": 26
+                    "type": 52
                   }
                 ],
                 "index": 0,
@@ -4254,7 +3962,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4266,11 +3974,11 @@
         "params": [
           {
             "name": "T",
-            "type": 26
+            "type": 52
           },
           {
             "name": "E",
-            "type": 42
+            "type": 45
           }
         ],
         "path": [
@@ -4282,12 +3990,22 @@
       "id": 52,
       "type": {
         "def": {
+          "sequence": {
+            "type": 16
+          }
+        }
+      }
+    },
+    {
+      "id": 53,
+      "type": {
+        "def": {
           "variant": {
             "variants": [
               {
                 "fields": [
                   {
-                    "type": 53
+                    "type": 54
                   }
                 ],
                 "index": 0,
@@ -4308,53 +4026,11 @@
         "params": [
           {
             "name": "T",
-            "type": 53
+            "type": 54
           },
           {
             "name": "E",
             "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 53,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 21
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 42
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 21
-          },
-          {
-            "name": "E",
-            "type": 42
           }
         ],
         "path": [
@@ -4371,7 +4047,7 @@
               {
                 "fields": [
                   {
-                    "type": 55
+                    "type": 26
                   }
                 ],
                 "index": 0,
@@ -4380,7 +4056,7 @@
               {
                 "fields": [
                   {
-                    "type": 39
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4392,11 +4068,11 @@
         "params": [
           {
             "name": "T",
-            "type": 55
+            "type": 26
           },
           {
             "name": "E",
-            "type": 39
+            "type": 45
           }
         ],
         "path": [
@@ -4422,7 +4098,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 39
                   }
                 ],
                 "index": 1,
@@ -4438,7 +4114,7 @@
           },
           {
             "name": "E",
-            "type": 42
+            "type": 39
           }
         ],
         "path": [
@@ -4450,40 +4126,41 @@
       "id": 56,
       "type": {
         "def": {
-          "composite": {
-            "fields": [
+          "variant": {
+            "variants": [
               {
-                "name": "transaction_hash",
-                "type": 5,
-                "typeName": "String"
+                "fields": [
+                  {
+                    "type": 21
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
               },
               {
-                "name": "status",
-                "type": 5,
-                "typeName": "String"
-              },
-              {
-                "name": "message",
-                "type": 5,
-                "typeName": "String"
-              },
-              {
-                "name": "receiver_address",
-                "type": 0,
-                "typeName": "Address"
-              },
-              {
-                "name": "payer_address",
-                "type": 0,
-                "typeName": "Address"
+                "fields": [
+                  {
+                    "type": 45
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
               }
             ]
           }
         },
+        "params": [
+          {
+            "name": "T",
+            "type": 21
+          },
+          {
+            "name": "E",
+            "type": 45
+          }
+        ],
         "path": [
-          "escrow_contract",
-          "escrow_contract",
-          "ReleaseResponse"
+          "Result"
         ]
       }
     },
@@ -4547,7 +4224,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4563,7 +4240,7 @@
           },
           {
             "name": "E",
-            "type": 42
+            "type": 45
           }
         ],
         "path": [
@@ -4578,7 +4255,7 @@
           "composite": {
             "fields": [
               {
-                "name": "dispute_id",
+                "name": "transaction_hash",
                 "type": 5,
                 "typeName": "String"
               },
@@ -4591,6 +4268,16 @@
                 "name": "message",
                 "type": 5,
                 "typeName": "String"
+              },
+              {
+                "name": "receiver_account_id",
+                "type": 0,
+                "typeName": "Address"
+              },
+              {
+                "name": "payer_account_id",
+                "type": 0,
+                "typeName": "Address"
               }
             ]
           }
@@ -4598,7 +4285,7 @@
         "path": [
           "escrow_contract",
           "escrow_contract",
-          "DisputeResponse"
+          "ReleaseResponse"
         ]
       }
     },
@@ -4662,7 +4349,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4678,7 +4365,7 @@
           },
           {
             "name": "E",
-            "type": 42
+            "type": 45
           }
         ],
         "path": [
@@ -4693,7 +4380,7 @@
           "composite": {
             "fields": [
               {
-                "name": "notification_id",
+                "name": "dispute_id",
                 "type": 5,
                 "typeName": "String"
               },
@@ -4713,7 +4400,7 @@
         "path": [
           "escrow_contract",
           "escrow_contract",
-          "NotificationResponse"
+          "DisputeResponse"
         ]
       }
     },
@@ -4777,7 +4464,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4793,7 +4480,7 @@
           },
           {
             "name": "E",
-            "type": 42
+            "type": 45
           }
         ],
         "path": [
@@ -4808,7 +4495,7 @@
           "composite": {
             "fields": [
               {
-                "name": "transaction_hash",
+                "name": "notification_id",
                 "type": 5,
                 "typeName": "String"
               },
@@ -4818,14 +4505,9 @@
                 "typeName": "String"
               },
               {
-                "name": "confirmations",
-                "type": 4,
-                "typeName": "u64"
-              },
-              {
-                "name": "block_number",
-                "type": 4,
-                "typeName": "u64"
+                "name": "message",
+                "type": 5,
+                "typeName": "String"
               }
             ]
           }
@@ -4833,7 +4515,7 @@
         "path": [
           "escrow_contract",
           "escrow_contract",
-          "TransactionStatus"
+          "NotificationResponse"
         ]
       }
     },
@@ -4888,7 +4570,7 @@
               {
                 "fields": [
                   {
-                    "type": 4
+                    "type": 68
                   }
                 ],
                 "index": 0,
@@ -4897,7 +4579,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 45
                   }
                 ],
                 "index": 1,
@@ -4909,11 +4591,11 @@
         "params": [
           {
             "name": "T",
-            "type": 4
+            "type": 68
           },
           {
             "name": "E",
-            "type": 42
+            "type": 45
           }
         ],
         "path": [
@@ -4925,41 +4607,35 @@
       "id": 68,
       "type": {
         "def": {
-          "variant": {
-            "variants": [
+          "composite": {
+            "fields": [
               {
-                "fields": [
-                  {
-                    "type": 0
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
+                "name": "transaction_hash",
+                "type": 5,
+                "typeName": "String"
               },
               {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
+                "name": "status",
+                "type": 5,
+                "typeName": "String"
+              },
+              {
+                "name": "confirmations",
+                "type": 4,
+                "typeName": "u64"
+              },
+              {
+                "name": "block_number",
+                "type": 4,
+                "typeName": "u64"
               }
             ]
           }
         },
-        "params": [
-          {
-            "name": "T",
-            "type": 0
-          },
-          {
-            "name": "E",
-            "type": 39
-          }
-        ],
         "path": [
-          "Result"
+          "escrow_contract",
+          "escrow_contract",
+          "TransactionStatus"
         ]
       }
     },
@@ -5009,6 +4685,132 @@
       "id": 70,
       "type": {
         "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 4
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 45
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 4
+          },
+          {
+            "name": "E",
+            "type": 45
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 71,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 0
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 39
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 0
+          },
+          {
+            "name": "E",
+            "type": 39
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 72,
+      "type": {
+        "def": {
+          "variant": {
+            "variants": [
+              {
+                "fields": [
+                  {
+                    "type": 73
+                  }
+                ],
+                "index": 0,
+                "name": "Ok"
+              },
+              {
+                "fields": [
+                  {
+                    "type": 39
+                  }
+                ],
+                "index": 1,
+                "name": "Err"
+              }
+            ]
+          }
+        },
+        "params": [
+          {
+            "name": "T",
+            "type": 73
+          },
+          {
+            "name": "E",
+            "type": 39
+          }
+        ],
+        "path": [
+          "Result"
+        ]
+      }
+    },
+    {
+      "id": 73,
+      "type": {
+        "def": {
           "tuple": [
             0,
             2,
@@ -5018,7 +4820,7 @@
       }
     },
     {
-      "id": 71,
+      "id": 74,
       "type": {
         "def": {
           "variant": {
@@ -5060,38 +4862,7 @@
       }
     },
     {
-      "id": 72,
-      "type": {
-        "def": {
-          "composite": {
-            "fields": [
-              {
-                "type": 73,
-                "typeName": "[u8; 32]"
-              }
-            ]
-          }
-        },
-        "path": [
-          "ink_primitives",
-          "types",
-          "AccountId"
-        ]
-      }
-    },
-    {
-      "id": 73,
-      "type": {
-        "def": {
-          "array": {
-            "len": 32,
-            "type": 2
-          }
-        }
-      }
-    },
-    {
-      "id": 74,
+      "id": 75,
       "type": {
         "def": {
           "variant": {
@@ -5099,7 +4870,7 @@
               {
                 "fields": [
                   {
-                    "type": 75
+                    "type": 76
                   }
                 ],
                 "index": 0,
@@ -5120,7 +4891,7 @@
         "params": [
           {
             "name": "T",
-            "type": 75
+            "type": 76
           },
           {
             "name": "E",
@@ -5133,7 +4904,7 @@
       }
     },
     {
-      "id": 75,
+      "id": 76,
       "type": {
         "def": {
           "tuple": [
@@ -5146,7 +4917,7 @@
       }
     },
     {
-      "id": 76,
+      "id": 77,
       "type": {
         "def": {
           "variant": {
@@ -5154,7 +4925,7 @@
               {
                 "fields": [
                   {
-                    "type": 77
+                    "type": 31
                   }
                 ],
                 "index": 0,
@@ -5175,7 +4946,7 @@
         "params": [
           {
             "name": "T",
-            "type": 77
+            "type": 31
           },
           {
             "name": "E",
@@ -5188,7 +4959,7 @@
       }
     },
     {
-      "id": 77,
+      "id": 78,
       "type": {
         "def": {
           "variant": {
@@ -5196,7 +4967,7 @@
               {
                 "fields": [
                   {
-                    "type": 78
+                    "type": 2
                   }
                 ],
                 "index": 0,
@@ -5205,7 +4976,7 @@
               {
                 "fields": [
                   {
-                    "type": 42
+                    "type": 39
                   }
                 ],
                 "index": 1,
@@ -5217,29 +4988,16 @@
         "params": [
           {
             "name": "T",
-            "type": 78
+            "type": 2
           },
           {
             "name": "E",
-            "type": 42
+            "type": 39
           }
         ],
         "path": [
           "Result"
         ]
-      }
-    },
-    {
-      "id": 78,
-      "type": {
-        "def": {
-          "tuple": [
-            0,
-            26,
-            2,
-            5
-          ]
-        }
       }
     },
     {
@@ -5291,364 +5049,6 @@
           "variant": {
             "variants": [
               {
-                "fields": [
-                  {
-                    "type": 81
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 42
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 81
-          },
-          {
-            "name": "E",
-            "type": 42
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 81,
-      "type": {
-        "def": {
-          "tuple": [
-            26,
-            5
-          ]
-        }
-      }
-    },
-    {
-      "id": 82,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 83
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 83
-          },
-          {
-            "name": "E",
-            "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 83,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 84
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 42
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 84
-          },
-          {
-            "name": "E",
-            "type": 42
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 84,
-      "type": {
-        "def": {
-          "tuple": [
-            26,
-            26
-          ]
-        }
-      }
-    },
-    {
-      "id": 85,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 86
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 86
-          },
-          {
-            "name": "E",
-            "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 86,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 22
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 42
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 22
-          },
-          {
-            "name": "E",
-            "type": 42
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 87,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 31
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 31
-          },
-          {
-            "name": "E",
-            "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 88,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 2
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 2
-          },
-          {
-            "name": "E",
-            "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 89,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 90
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 39
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 90
-          },
-          {
-            "name": "E",
-            "type": 39
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 90,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
                 "index": 0,
                 "name": "None"
               },
@@ -5676,7 +5076,7 @@
       }
     },
     {
-      "id": 91,
+      "id": 81,
       "type": {
         "def": {
           "variant": {
@@ -5718,7 +5118,7 @@
       }
     },
     {
-      "id": 92,
+      "id": 82,
       "type": {
         "def": {
           "variant": {
@@ -5760,13 +5160,44 @@
       }
     },
     {
-      "id": 93,
+      "id": 83,
       "type": {
         "def": {
           "composite": {
             "fields": [
               {
-                "type": 73,
+                "type": 84,
+                "typeName": "[u8; 32]"
+              }
+            ]
+          }
+        },
+        "path": [
+          "ink_primitives",
+          "types",
+          "AccountId"
+        ]
+      }
+    },
+    {
+      "id": 84,
+      "type": {
+        "def": {
+          "array": {
+            "len": 32,
+            "type": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 85,
+      "type": {
+        "def": {
+          "composite": {
+            "fields": [
+              {
+                "type": 84,
                 "typeName": "[u8; 32]"
               }
             ]
@@ -5780,26 +5211,13 @@
       }
     },
     {
-      "id": 94,
+      "id": 86,
       "type": {
         "def": {
           "primitive": "u32"
         }
       }
-    },
-    {
-      "id": 95,
-      "type": {
-        "def": {
-          "variant": {}
-        },
-        "path": [
-          "ink_primitives",
-          "types",
-          "NoChainExtension"
-        ]
-      }
     }
   ],
-  "version": 5
+  "version": 6
 }

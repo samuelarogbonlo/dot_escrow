@@ -3,9 +3,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet } from './useWalletContext';
 import { BN } from '@polkadot/util';
 import { ContractPromise } from '@polkadot/api-contract';
-import { PSP22_ABI } from '@/contractABI/PSP22ABI';
-import { ESCROW_CONTRACT_ADDRESS, } from '@/contractABI/EscrowABI';
-
+import { PSP22_TOKEN_ABI } from '@/contractABI/EscrowABI';
+import { ESCROW_CONTRACT_ADDRESS } from '@/contractABI/EscrowABI';
+import { substrateToH160 } from '@/utils/substrateToH160';
 
 export interface StablecoinBalance {
     balance: string;
@@ -27,18 +27,32 @@ export interface StablecoinConfig {
     description?: string;
 }
 
-// Available PSP22 Stablecoins on Aleph Zero
-export const ALEPH_ZERO_STABLECOINS: { [key: string]: StablecoinConfig } = {
-    MOST_USDC: {
-        name: "USDT",
+// PSP22 Stablecoins on Pop Network (Paseo Testnet)
+export const PASETHUB_NETWORK_STABLECOINS: { [key: string]: StablecoinConfig } = {
+    TEST_USDT: {
+        name: "Test USDT",
         symbol: "USDT",
-        contractAddress: "5EFDb7mKbougLtr5dnwd5KDfZ3wK55JPGPLiryKq4uRMPR46",
-        decimals: 6,
-        description: "USDT bridged via MOST Bridge"
+        contractAddress: "0x72744B75567f11016F2287f75597a29E14017f83",
+        decimals: 10,
+        description: "Test USDT on Pop Network (Paseo Testnet)"
     },
 };
 
-export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZERO_STABLECOINS = 'MOST_USDC') => {
+export const usePSP22StablecoinContract = (
+    stablecoinKey: keyof typeof PASETHUB_NETWORK_STABLECOINS = 'TEST_USDT'
+) => {
+
+    const stablecoinConfig = PASETHUB_NETWORK_STABLECOINS[stablecoinKey];
+
+    // 2. ADD SAFETY CHECK
+    if (!stablecoinConfig) {
+        throw new Error(
+            `Invalid stablecoin key: "${stablecoinKey}". ` +
+            `Available keys: ${Object.keys(PASETHUB_NETWORK_STABLECOINS).join(', ')}`
+        );
+    }
+
+
     const { api, selectedAccount, getSigner } = useWallet();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -51,51 +65,127 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         decimals: number;
         totalSupply: string;
     } | null>(null);
+    const [contractExists, setContractExists] = useState<boolean | null>(null);
 
-    // Get current stablecoin config
-    const stablecoinConfig = ALEPH_ZERO_STABLECOINS[stablecoinKey];
-
-
-    // Use useRef to store stable references
     const TOKEN_UNIT = useRef(new BN(10).pow(new BN(stablecoinConfig.decimals)));
     const isInitializedRef = useRef(false);
 
 
+    // Check network connection - MOVED UP
+    const checkPaseoNetworkConnection = useCallback((): boolean => {
+        if (!api) return false;
+        const hasContracts = api.query.contracts !== undefined || api.query.revive !== undefined;
+        return hasContracts;
+    }, [api]);
+
+    // Verify contract exists on-chain
+    const verifyContractExists = useCallback(async (): Promise<boolean> => {
+        if (!api) {
+            console.log('⏳ API not ready for verification');
+            return false;
+        }
+
+        console.log("API DATA", api)
+
+        try {
+            stablecoinConfig.contractAddress
+
+
+
+            // Check Revive pallet
+            if (api.query.revive?.accountInfoOf) {
+                const contractInfo = await api.query.revive.accountInfoOf(stablecoinConfig.contractAddress);
+                console.log(contractInfo)
+                const exists = contractInfo.isSome;
+                console.log('Contract exists (Revive pallet):', exists);
+                if (exists) {
+                    console.log('Contract info:', contractInfo.toHuman());
+                }
+                return exists;
+            }
+
+            console.warn('⚠️ No contract pallet found (neither Contracts nor Revive)');
+            return false;
+        } catch (err) {
+            console.error('❌ Contract verification error:', err);
+            return false;
+        }
+    }, [api, stablecoinConfig.contractAddress]);
 
     // Initialize contract
     useEffect(() => {
-        if (api && stablecoinConfig.contractAddress) {
-            try {
-                const contractInstance = new ContractPromise(api, PSP22_ABI, stablecoinConfig.contractAddress);
-                setContract(contractInstance);
-                console.log(`Initialized ${stablecoinConfig.name} contract:`, stablecoinConfig.contractAddress);
-            } catch (err) {
-                console.error(`Failed to initialize ${stablecoinConfig.name} contract:`, err);
-                setError(`Failed to initialize ${stablecoinConfig.name} contract`);
+        const initContract = async () => {
+            if (!api || !stablecoinConfig.contractAddress) {
+                console.log('⏳ Waiting for API or contract address...');
+                return;
             }
-        }
-    }, [api, stablecoinConfig.contractAddress, stablecoinConfig.name]);
 
-    // Format token amount with proper decimals
+            try {
+                console.log('🔄 Initializing contract...');
+                console.log('Original H160:', stablecoinConfig.contractAddress);
+
+                // For PolkaVM contracts, use H160 address directly (not padded)
+                // The ContractPromise will handle the address format based on the ABI environment
+                const contractAddress = stablecoinConfig.contractAddress.startsWith('0x')
+                    ? stablecoinConfig.contractAddress
+                    : `0x${stablecoinConfig.contractAddress}`;
+
+                console.log('Contract address (H160):', contractAddress);
+
+                // Verify contract exists first (using padded format for on-chain check)
+                const exists = await verifyContractExists();
+                setContractExists(exists);
+
+                if (!exists) {
+                    const errorMsg = `Contract not found at address ${stablecoinConfig.contractAddress}`;
+                    console.error('❌', errorMsg);
+                    setError(errorMsg);
+                    return;
+                }
+
+                // Create contract instance with H160 address directly
+                // The ABI environment is set to H160 (type 0), so ContractPromise expects H160
+                const contractInstance = new ContractPromise(
+                    api,
+                    PSP22_TOKEN_ABI,
+                    contractAddress
+                );
+
+                setContract(contractInstance);
+                console.log(`✅ Initialized ${stablecoinConfig.name} contract`);
+                console.log('Contract address used:', contractInstance.address.toString());
+                console.log('Available query methods:', Object.keys(contractInstance.query));
+                console.log('Available tx methods:', Object.keys(contractInstance.tx));
+
+            } catch (err: any) {
+                console.error(`❌ Failed to initialize ${stablecoinConfig.name} contract`);
+                console.error('Error:', err?.message);
+                setError(`Failed to initialize contract: ${err?.message || 'Unknown error'}`);
+                setContractExists(false);
+            }
+        };
+
+        initContract();
+    }, [api, stablecoinConfig.contractAddress, stablecoinConfig.name, verifyContractExists]);
+
+
+    // Format token amount
     const formatToken = useCallback((amount: string | BN): string => {
         const bn = typeof amount === 'string' ? new BN(amount) : amount;
-
         if (bn.isZero()) return '0.00';
 
-        // Handle different decimal places properly
         const divisor = TOKEN_UNIT.current;
         const wholePart = bn.div(divisor);
         const remainder = bn.mod(divisor);
 
-        // Format decimal part based on token decimals
-        const decimalPlaces = Math.min(stablecoinConfig.decimals, 6); // Show max 6 decimal places
+        const decimalPlaces = Math.min(stablecoinConfig.decimals, 6);
         const decimalDivisor = new BN(10).pow(new BN(stablecoinConfig.decimals - decimalPlaces));
         const decimalPart = remainder.div(decimalDivisor).toString().padStart(decimalPlaces, '0');
 
         return `${wholePart.toString()}.${decimalPart}`;
     }, [stablecoinConfig.decimals]);
 
-    // Parse token amount from user input to contract units
+    // Parse token amount
     const parseToken = useCallback((amount: string): BN => {
         const [whole, decimal = ''] = amount.split('.');
         const paddedDecimal = decimal.padEnd(stablecoinConfig.decimals, '0').slice(0, stablecoinConfig.decimals);
@@ -103,127 +193,123 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         return new BN(totalAmount);
     }, [stablecoinConfig.decimals]);
 
-
- 
-
-    // Check if we're connected to Aleph Zero 
-    const checkAlephZeroConnection = useCallback((): boolean => {
-        if (!api) return false;
-        const hasContracts = api.query.contracts !== undefined;
-        return hasContracts;
-    }, [api]);
-
-    // Get contract information (name, symbol, decimals, total supply)
-    const getContractInfo = useCallback(async (): Promise<{ success: boolean; info?: any; error?: string }> => {
+    // Get contract info
+    const getContractInfo = useCallback(async (): Promise<{
+        success: boolean;
+        info?: any;
+        error?: string
+    }> => {
         if (!api || !contract) {
             return { success: false, error: 'API or contract not ready' };
         }
 
+        if (contractExists === false) {
+            return { success: false, error: 'Contract does not exist' };
+        }
+
         try {
             const gasLimit = api.registry.createType('WeightV2', {
-                refTime: new BN('10000000000'),
-                proofSize: new BN('131072'),
+                refTime: new BN('100000000000'),
+                proofSize: new BN('262144'),
             });
 
-            // Try to get token info (some contracts might not have all these methods)
+            
+
             const queries = await Promise.allSettled([
-                contract.query.tokenName?.(selectedAccount?.address || '0x00', { gasLimit, storageDepositLimit: null }),
-                contract.query.tokenSymbol?.(selectedAccount?.address || '0x00', { gasLimit, storageDepositLimit: null }),
-                contract.query.tokenDecimals?.(selectedAccount?.address || '0x00', { gasLimit, storageDepositLimit: null }),
-                contract.query.totalSupply?.(selectedAccount?.address || '0x00', { gasLimit, storageDepositLimit: null })
+                contract.query.totalSupply(
+                    selectedAccount?.address || '0x0000000000000000000000000000000000000000000000000000000000000000',
+                    { gasLimit, storageDepositLimit: null }
+                ),
             ]);
 
             const info = {
                 name: stablecoinConfig.name,
                 symbol: stablecoinConfig.symbol,
                 decimals: stablecoinConfig.decimals,
-                totalSupply: '0'
+                totalSupply: '1000000000000000000'
             };
 
-            // Parse results if available
             if (queries[0].status === 'fulfilled' && queries[0].value?.output) {
-                info.name = queries[0].value.output.toString();
-            }
-            if (queries[1].status === 'fulfilled' && queries[1].value?.output) {
-                info.symbol = queries[1].value.output.toString();
-            }
-            if (queries[2].status === 'fulfilled' && queries[2].value?.output) {
-                info.decimals = parseInt(queries[2].value.output.toString());
-            }
-            if (queries[3].status === 'fulfilled' && queries[3].value?.output) {
-                info.totalSupply = queries[3].value.output.toString();
+                const output = queries[0].value.output as any;
+                if (output.isOk) {
+                    info.totalSupply = output.asOk.toString();
+                }
             }
 
             setContractInfo(info);
             return { success: true, info };
         } catch (err) {
             console.warn('Could not fetch contract info:', err);
-            // Set fallback info
             const fallbackInfo = {
                 name: stablecoinConfig.name,
                 symbol: stablecoinConfig.symbol,
                 decimals: stablecoinConfig.decimals,
-                totalSupply: '0'
+                totalSupply: '1000000000000000000'
             };
             setContractInfo(fallbackInfo);
             return { success: true, info: fallbackInfo };
         }
-    }, [api, contract, selectedAccount?.address, stablecoinConfig]);
+    }, [api, contract, selectedAccount?.address, stablecoinConfig, contractExists]);
 
-    // Get token balance
-    const getBalance = useCallback(async (): Promise<{ success: boolean; balance?: StablecoinBalance; error?: string }> => {
+    // Get balance - TRY DIFFERENT ADDRESS FORMATS
+    const getBalance = useCallback(async (): Promise<{
+        success: boolean;
+        balance?: StablecoinBalance;
+        error?: string
+    }> => {
         if (!api || !selectedAccount || !contract) {
             return { success: false, error: 'Wallet or contract not ready' };
         }
 
-        if (!checkAlephZeroConnection()) {
-            return { success: false, error: 'Not connected to Aleph Zero network' };
+        if (!checkPaseoNetworkConnection()) {
+            return { success: false, error: 'Not connected to Pop Network' };
+        }
+
+        if (contractExists === false) {
+            return { success: false, error: 'Contract does not exist' };
         }
 
         setIsLoading(true);
         setError(null);
 
         try {
-
             const gasLimit = api.registry.createType('WeightV2', {
-                refTime: new BN('10000000000'),
-                proofSize: new BN('131072'),
+                refTime: new BN('100000000000'),
+                proofSize: new BN('262144'),
             });
 
-            console.log('Calling balanceOf with address:', selectedAccount.address);
 
-            const queryResult = await contract.query["psp22::balanceOf"](
-                selectedAccount.address,
+            // Call balanceOf with H160 address
+            // The caller (first param) should be SS58 for the API, but the parameter (account to query) should be H160
+            const queryResult = await contract.query.balanceOf(
+                selectedAccount.address, // Caller (SS58 for API)
                 {
                     gasLimit,
                     storageDepositLimit: null,
                 },
-                selectedAccount.address
+                substrateToH160(selectedAccount.address) // Parameter - H160 address for the contract
             );
 
-            console.log('Query result:', queryResult);
 
-            const { result, output } = queryResult;
+            if (queryResult.result.isErr) {
+                const errDetails = queryResult.result.asErr;
+                console.error('Balance query error:', errDetails.toHuman());
+                const error = `Balance query failed: ${JSON.stringify(errDetails.toHuman())}`;
+                setError(error);
+                setIsLoading(false);
+                return { success: false, error };
+            }
 
-            if (result.isOk && output) {
-                // Cast output to any to avoid TypeScript errors
-                const outputAny = output as any
-
-                // The key fix: properly extract the balance value
+            // Process successful result
+            if (queryResult.result.isOk && queryResult.output) {
+                const outputAny = queryResult.output as any;
                 let balanceValue: BN;
 
                 if (outputAny.isOk) {
-                    // If output is a Result type, get the Ok value
-                    const okValue = outputAny.asOk;
-                    balanceValue = new BN(okValue.toString());
-                    console.log('Extracted from output.asOk:', okValue.toString());
+                    balanceValue = new BN(outputAny.asOk.toString().replace(/,/g, ''));
                 } else {
-                    // Fallback: convert output directly
-                    balanceValue = new BN(output.toString());
-                    console.log('Extracted from output.toString():', output.toString());
+                    balanceValue = new BN(queryResult.output.toString().replace(/,/g, ''));
                 }
-
-                console.log("Final balance value:", balanceValue.toString());
 
                 const balanceResult: StablecoinBalance = {
                     balance: balanceValue.toString(),
@@ -231,71 +317,97 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
                     decimals: stablecoinConfig.decimals
                 };
 
-                console.log(`${stablecoinConfig.symbol} Balance found:`, balanceResult);
+                console.log(`✅ ${stablecoinConfig.symbol} Balance:`, balanceResult.formatted);
                 setBalance(balanceResult);
+                setIsLoading(false);
                 return { success: true, balance: balanceResult };
-            } else {
-                const error = result.isErr ? result.asErr.toString() : 'Balance query failed';
-                console.log('Query failed:', error);
-                setError(error);
-                return { success: false, error };
             }
-        } catch (err: any) {
-            console.error('Balance query error:', err);
-            console.error('Error stack:', err.stack);
-            const error = `Balance query failed: ${err}`;
-            setError(error);
-            return { success: false, error };
-        } finally {
-            setIsLoading(false);
-        }
-    }, [api, selectedAccount, contract, formatToken, checkAlephZeroConnection, stablecoinConfig.decimals, stablecoinConfig.symbol]);
 
-    // Get token allowance
-    const getAllowance = useCallback(async (): Promise<{ success: boolean; allowance?: StablecoinAllowance; error?: string }> => {
+            // No output received
+            const error = 'Balance query returned no output';
+            console.error('❌', error);
+            setError(error);
+            setIsLoading(false);
+            return { success: false, error };
+
+        } catch (err: any) {
+            console.error('❌ Balance query exception:', err);
+            const error = `Balance query failed: ${err.message || err}`;
+            setError(error);
+            setIsLoading(false);
+            return { success: false, error };
+        }
+    }, [
+        api,
+        selectedAccount,
+        contract,
+        formatToken,
+        checkPaseoNetworkConnection,
+        stablecoinConfig,
+        contractExists
+    ]);
+
+    // Get allowance
+    const getAllowance = useCallback(async (): Promise<{
+        success: boolean;
+        allowance?: StablecoinAllowance;
+        error?: string
+    }> => {
         if (!api || !selectedAccount || !contract) {
             return { success: false, error: 'Wallet or contract not ready' };
         }
 
-        if (!checkAlephZeroConnection()) {
-            return { success: false, error: 'Not connected to Aleph Zero network' };
+        if (!checkPaseoNetworkConnection()) {
+            return { success: false, error: 'Not connected to Pop Network' };
+        }
+
+        if (contractExists === false) {
+            return { success: false, error: 'Contract does not exist' };
         }
 
         setIsLoading(true);
         setError(null);
 
         try {
-            const { result, output } = await contract.query["psp22::allowance"](
-                selectedAccount.address,
+            const gasLimit = api.registry.createType('WeightV2', {
+                refTime: new BN('100000000000'),
+                proofSize: new BN('262144'),
+            });
+
+
+
+
+            const { result, output } = await contract.query.allowance(
+                selectedAccount.address, // Caller (SS58 for API)
                 {
-                    gasLimit: api.registry.createType('WeightV2', {
-                        refTime: new BN('10000000000'),
-                        proofSize: new BN('131072'),
-                    }),
+                    gasLimit,
                     storageDepositLimit: null,
                 },
-                selectedAccount.address,
-                ESCROW_CONTRACT_ADDRESS
+                substrateToH160(selectedAccount.address), // Owner H160
+                ESCROW_CONTRACT_ADDRESS // Spender H160
             );
 
-            if (result.isOk && output) {
-                const outputAny = output as any
+            if (result.isErr) {
+                console.error('Allowance query error:', result.asErr.toHuman());
+                const allowanceResult: StablecoinAllowance = {
+                    allowance: '0',
+                    formatted: '0.00',
+                    isApproved: false
+                };
+                setAllowance(allowanceResult);
+                setIsLoading(false);
+                return { success: true, allowance: allowanceResult };
+            }
 
-                let allowanceValue;
+            if (result.isOk && output) {
+                const outputAny = output as any;
+                let allowanceValue: BN;
 
                 if (outputAny.isOk) {
-                    // If output is a Result type, get the Ok value
-                    const okValue = outputAny.asOk;
-                    allowanceValue = new BN(okValue.toString());
-                    console.log('Extracted from output.asOk:', okValue.toString());
+                    allowanceValue = new BN(outputAny.asOk.toString().replace(/,/g, ''));
                 } else {
-                    // Fallback: convert output directly
-                    allowanceValue = new BN(output.toString());
-                    console.log('Extracted from output.toString():', output.toString());
+                    allowanceValue = new BN(output.toString().replace(/,/g, ''));
                 }
-
-                console.log("Final allowance value:", allowanceValue.toString());
-
 
                 const allowanceResult: StablecoinAllowance = {
                     allowance: allowanceValue.toString(),
@@ -304,64 +416,77 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
                 };
 
                 setAllowance(allowanceResult);
-                return { success: true, allowance: allowanceResult };
-            } else {
-                const allowanceResult: StablecoinAllowance = {
-                    allowance: '0',
-                    formatted: '0.00',
-                    isApproved: false
-                };
-
-                setAllowance(allowanceResult);
+                setIsLoading(false);
                 return { success: true, allowance: allowanceResult };
             }
-        } catch (err) {
-            const error = `Allowance query failed: ${err}`;
-            setError(error);
-            return { success: false, error };
-        } finally {
-            setIsLoading(false);
-        }
-    }, [api, selectedAccount, contract, formatToken, checkAlephZeroConnection]);
 
-    // Approve token spending
-    const approveToken = useCallback(async (amount: string): Promise<{ success: boolean; error?: string }> => {
+            const allowanceResult: StablecoinAllowance = {
+                allowance: '0',
+                formatted: '0.00',
+                isApproved: false
+            };
+            setAllowance(allowanceResult);
+            setIsLoading(false);
+            return { success: true, allowance: allowanceResult };
+
+        } catch (err: any) {
+            console.error('Allowance query error:', err);
+            const allowanceResult: StablecoinAllowance = {
+                allowance: '0',
+                formatted: '0.00',
+                isApproved: false
+            };
+            setAllowance(allowanceResult);
+            setIsLoading(false);
+            return { success: true, allowance: allowanceResult };
+        }
+    }, [api, selectedAccount, contract, formatToken, checkPaseoNetworkConnection, contractExists]);
+
+    // Approve tokens
+    const approveToken = useCallback(async (amount: string): Promise<{
+        success: boolean;
+        error?: string
+    }> => {
         if (!api || !selectedAccount || !contract) {
             return { success: false, error: 'Wallet or contract not ready' };
         }
 
-        if (!checkAlephZeroConnection()) {
-            return { success: false, error: 'Not connected to Aleph Zero network' };
+        if (!checkPaseoNetworkConnection()) {
+            return { success: false, error: 'Not connected to Pop Network' };
+        }
+
+        if (contractExists === false) {
+            return { success: false, error: 'Contract does not exist' };
         }
 
         setIsLoading(true);
         setError(null);
 
-        console.log("approve has reached this stage");
-
         try {
-            
-
             const amountBN = parseToken(amount);
 
-            const query = await contract.query["psp22::approve"](
-                selectedAccount.address,
+
+            const query = await contract.query.approve(
+                selectedAccount.address, // Caller (SS58 for API)
                 {
                     gasLimit: api.registry.createType('WeightV2', {
-                        refTime: new BN('10000000000'),
-                        proofSize: new BN('131072'),
+                        refTime: new BN('100000000000'),
+                        proofSize: new BN('262144'),
                     }),
                     storageDepositLimit: null,
                 },
-                ESCROW_CONTRACT_ADDRESS,
+                ESCROW_CONTRACT_ADDRESS, // Spender H160
                 amountBN.toString()
             );
 
-            console.log('query result: ', query);
+            if (query.result.isErr) {
+                const error = `Approval dry run failed: ${query.result.asErr.toHuman()}`;
+                setError(error);
+                setIsLoading(false);
+                return { success: false, error };
+            }
 
             const { gasRequired, storageDeposit } = query;
-
-            // Get the signer using your getSigner function
             const signerResult = await getSigner(selectedAccount.address);
             if (!signerResult.success) {
                 setIsLoading(false);
@@ -369,19 +494,17 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
             }
 
             return new Promise((resolve) => {
-                contract.tx["psp22::approve"](
+                contract.tx.approve(
                     {
                         gasLimit: gasRequired,
                         storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
                     },
-                    ESCROW_CONTRACT_ADDRESS,
+                    ESCROW_CONTRACT_ADDRESS, // Spender H160
                     amountBN.toString()
                 ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
                     const { status, events, dispatchError } = result;
-                    console.log('Transaction status:', status.type);
 
                     if (dispatchError) {
-                        console.error('Approval error:', dispatchError.toString());
                         setError(`Approval failed: ${dispatchError.toString()}`);
                         setIsLoading(false);
                         resolve({ success: false, error: dispatchError.toString() });
@@ -394,7 +517,7 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
                         );
 
                         if (success) {
-                            console.log(`${stablecoinConfig.symbol} approval successful`);
+                            console.log(`✅ ${stablecoinConfig.symbol} approval successful`);
                             getAllowance();
                             resolve({ success: true });
                         } else {
@@ -406,111 +529,108 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
                     }
                 });
             });
-        } catch (err) {
-            const error = `Approval failed: ${err}`;
-            console.log('approve gone wrong');
+        } catch (err: any) {
+            const error = `Approval failed: ${err.message || err}`;
             setError(error);
             setIsLoading(false);
             return { success: false, error };
         }
-    }, [api, selectedAccount, contract, parseToken, getAllowance, checkAlephZeroConnection, stablecoinConfig.symbol, getSigner]);
+    }, [api, selectedAccount, contract, parseToken, getAllowance, checkPaseoNetworkConnection, stablecoinConfig.symbol, getSigner, contractExists]);
+
     // Transfer tokens
-   const transferToken = useCallback(async (
-    to: string,
-    amount: string
-): Promise<{ success: boolean; error?: string; txHash?: string }> => {
-    if (!api || !selectedAccount || !contract) {
-        return { success: false, error: 'Wallet or contract not ready' };
-    }
-
-    if (!checkAlephZeroConnection()) {
-        return { success: false, error: 'Not connected to Aleph Zero network' };
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-
-        const amountBN = parseToken(amount);
-
-        const { gasRequired, storageDeposit } = await contract.query["psp22::transfer"](
-            selectedAccount.address,
-            {
-                gasLimit: api.registry.createType('WeightV2', {
-                    refTime: new BN('10000000000'),
-                    proofSize: new BN('131072'),
-                }),
-                storageDepositLimit: null,
-            },
-            to,
-            amountBN.toString(),
-            []
-        );
-
-        // Get the signer using your getSigner function
-        const signerResult = await getSigner(selectedAccount.address);
-        if (!signerResult.success) {
-            setIsLoading(false);
-            return { success: false, error: signerResult.error || 'Failed to get signer' };
+    const transferToken = useCallback(async (
+        to: string,
+        amount: string
+    ): Promise<{ success: boolean; error?: string; txHash?: string }> => {
+        if (!api || !selectedAccount || !contract) {
+            return { success: false, error: 'Wallet or contract not ready' };
         }
 
-        return new Promise((resolve) => {
-            contract.tx["psp22::transfer"](
+        if (!checkPaseoNetworkConnection()) {
+            return { success: false, error: 'Not connected to Pop Network' };
+        }
+
+        if (contractExists === false) {
+            return { success: false, error: 'Contract does not exist' };
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const amountBN = parseToken(amount);
+
+            // Convert 'to' address to H160 if it's SS58, otherwise use as-is
+           
+
+            const { gasRequired, storageDeposit } = await contract.query.transfer(
+                selectedAccount.address, // Caller (SS58 for API)
                 {
-                    gasLimit: gasRequired,
-                    storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
+                    gasLimit: api.registry.createType('WeightV2', {
+                        refTime: new BN('100000000000'),
+                        proofSize: new BN('262144'),
+                    }),
+                    storageDepositLimit: null,
                 },
-                to,
+                to, // To address in H160 format
                 amountBN.toString(),
                 []
-            ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
-                const { status, events, dispatchError, txHash } = result;
+            );
 
-                if (dispatchError) {
-                    console.error('Transfer error:', dispatchError.toString());
-                    setError(`Transfer failed: ${dispatchError.toString()}`);
-                    setIsLoading(false);
-                    resolve({ 
-                        success: false, 
-                        error: dispatchError.toString(),
-                        txHash: txHash?.toString() // Include txHash even on error for debugging
-                    });
-                    return;
-                }
+            const signerResult = await getSigner(selectedAccount.address);
+            if (!signerResult.success) {
+                setIsLoading(false);
+                return { success: false, error: signerResult.error || 'Failed to get signer' };
+            }
 
-                if (status.isFinalized) {
-                    const success = !events.some(({ event }: { event: any }) =>
-                        event.section === 'system' && event.method === 'ExtrinsicFailed'
-                    );
+            return new Promise((resolve) => {
+                contract.tx.transfer(
+                    {
+                        gasLimit: gasRequired,
+                        storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
+                    },
+                    to, // To address in H160 format
+                    amountBN.toString(),
+                    []
+                ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
+                    const { status, events, dispatchError, txHash } = result;
 
-                    if (success) {
-                        console.log(`${stablecoinConfig.symbol} transfer successful, txHash: ${txHash?.toString()}`);
-                        getBalance();
-                        resolve({ 
-                            success: true, 
-                            txHash: txHash?.toString() 
+                    if (dispatchError) {
+                        setError(`Transfer failed: ${dispatchError.toString()}`);
+                        setIsLoading(false);
+                        resolve({
+                            success: false,
+                            error: dispatchError.toString(),
+                            txHash: txHash?.toString()
                         });
-                    } else {
-                        const error = `${stablecoinConfig.symbol} transfer failed`;
-                        setError(error);
-                        resolve({ 
-                            success: false, 
-                            error,
-                            txHash: txHash?.toString() 
-                        });
+                        return;
                     }
-                    setIsLoading(false);
-                }
+
+                    if (status.isFinalized) {
+                        const success = !events.some(({ event }: { event: any }) =>
+                            event.section === 'system' && event.method === 'ExtrinsicFailed'
+                        );
+
+                        if (success) {
+                            getBalance();
+                            resolve({ success: true, txHash: txHash?.toString() });
+                        } else {
+                            const error = `Transfer failed`;
+                            setError(error);
+                            resolve({ success: false, error, txHash: txHash?.toString() });
+                        }
+                        setIsLoading(false);
+                    }
+                });
             });
-        });
-    } catch (err) {
-        const error = `Transfer failed: ${err}`;
-        setError(error);
-        setIsLoading(false);
-        return { success: false, error };
-    }
-}, [api, selectedAccount, contract, parseToken, getBalance, checkAlephZeroConnection, stablecoinConfig.symbol]);
+        } catch (err: any) {
+            const error = `Transfer failed: ${err.message || err}`;
+            setError(error);
+            setIsLoading(false);
+            return { success: false, error };
+        }
+    }, [api, selectedAccount, contract, parseToken, getBalance, checkPaseoNetworkConnection, getSigner, contractExists]);
+
     // Utility functions
     const checkSufficientBalance = useCallback((requiredAmount: string): boolean => {
         if (!balance) return false;
@@ -526,65 +646,54 @@ export const usePSP22StablecoinContract = (stablecoinKey: keyof typeof ALEPH_ZER
         return approved.gte(required);
     }, [allowance, parseToken]);
 
-    // FIXED: Auto-refresh on account change - remove functions from dependency array
+
+    // Auto-refresh on mount
     useEffect(() => {
-        if (selectedAccount && contract && checkAlephZeroConnection() && !isInitializedRef.current) {
+        // Only run if all conditions are met
+        const shouldRefresh = selectedAccount &&
+            contract &&
+            checkPaseoNetworkConnection() &&
+            contractExists === true &&
+            !isInitializedRef.current;
+
+        if (shouldRefresh) {
             isInitializedRef.current = true;
+
+            console.log('🔄 Auto-refreshing contract data...');
             getContractInfo();
             getBalance();
             getAllowance();
         }
 
-        // Reset initialization flag when account changes
         return () => {
-            if (selectedAccount) {
+            if (!selectedAccount) {
                 isInitializedRef.current = false;
             }
         };
-    }, [selectedAccount?.address, contract, api]); // Only depend on primitive values
-
-    // Provide a manual refresh function
-    const refreshData = useCallback(async () => {
-        if (selectedAccount && contract && checkAlephZeroConnection()) {
-            await Promise.all([
-                getContractInfo(),
-                getBalance(),
-                getAllowance()
-            ]);
-        }
-    }, [selectedAccount, contract, getContractInfo, getBalance, getAllowance, checkAlephZeroConnection]);
+    }, [selectedAccount, contract, contractExists, checkPaseoNetworkConnection, getContractInfo, getBalance, getAllowance]);
 
     return {
-        // Current stablecoin configuration
         stablecoinConfig,
-
-        // State
         balance,
         allowance,
         contractInfo,
         isLoading,
         error,
         contract,
+        contractExists,
 
-        // Methods
         getBalance,
         getAllowance,
-        getContractInfo,
         approveToken,
         transferToken,
         formatToken,
-        parseToken,
         checkSufficientBalance,
         checkSufficientAllowance,
-        checkAlephZeroConnection,
-        refreshData, // New manual refresh function
 
-        // Constants
         TOKEN_DECIMALS: stablecoinConfig.decimals,
         TOKEN_CONTRACT_ADDRESS: stablecoinConfig.contractAddress,
         ESCROW_CONTRACT_ADDRESS,
 
-        // Available stablecoins
-        availableStablecoins: ALEPH_ZERO_STABLECOINS
+        availableStablecoins: PASETHUB_NETWORK_STABLECOINS
     };
 };

@@ -6,6 +6,8 @@ Complete documentation for the `.escrow` ink! smart contract API with milestone-
 
 The `.escrow` contract provides decentralized escrow services with milestone tracking, multi-signature governance, and USDT token integration. All transactions are recorded on-chain with comprehensive event logging.
 
+**🔑 Important:** This contract uses **H160 (20-byte) addresses** instead of AccountId (32-byte) to ensure compatibility with Pop Network's pallet-revive (EVM-compatible) environment. All addresses follow the Ethereum-style `0x...` format.
+
 ## 🏗️ **Core Data Structures**
 
 ### **EscrowData**
@@ -14,8 +16,8 @@ Primary structure containing all escrow information.
 ```rust
 pub struct EscrowData {
     pub id: String,                          // Unique escrow identifier
-    pub creator_address: AccountId,          // Escrow creator
-    pub counterparty_address: AccountId,     // Counterparty (provider/client)
+    pub creator_address: Address,            // Escrow creator (H160/20-byte)
+    pub counterparty_address: Address,       // Counterparty (H160/20-byte)
     pub counterparty_type: String,           // Role of counterparty
     pub title: String,                       // Escrow title
     pub description: String,                 // Detailed description
@@ -27,19 +29,37 @@ pub struct EscrowData {
 }
 ```
 
+### **MilestoneInput**
+Input structure for creating milestones (accepts strings for easier frontend integration).
+
+```rust
+pub struct MilestoneInput {
+    pub id: String,                          // Unique milestone ID
+    pub description: String,                 // Milestone description
+    pub amount: String,                      // Amount as string
+    pub status: String,                      // Status as string (e.g., "Pending", "InProgress")
+    pub deadline: u64,                       // Deadline timestamp
+    pub completed_at: Option<u64>,           // Completion timestamp
+    pub dispute_reason: Option<String>,      // Reason if disputed
+    pub dispute_filed_by: Option<Address>,   // Who filed dispute (H160/20-byte)
+    pub completion_note: Option<String>,     // Completion notes
+    pub evidence_file: Option<Vec<String>>,  // Evidence URLs (converted to Evidence structs)
+}
+```
+
 ### **Milestone**
-Individual payment milestone structure.
+Internal milestone structure (used by contract storage).
 
 ```rust
 pub struct Milestone {
     pub id: String,                          // Unique milestone ID
     pub description: String,                 // Milestone description
     pub amount: String,                      // Amount for this milestone
-    pub status: MilestoneStatus,             // Current status
+    pub status: MilestoneStatus,             // Current status (enum)
     pub deadline: u64,                       // Deadline timestamp
     pub completed_at: Option<u64>,           // Completion timestamp
     pub dispute_reason: Option<String>,      // Reason if disputed
-    pub dispute_filed_by: Option<AccountId>, // Who filed dispute
+    pub dispute_filed_by: Option<Address>,   // Who filed dispute (H160/20-byte)
     pub completion_note: Option<String>,     // Completion notes
     pub evidence_file: Option<Vec<Evidence>>, // Supporting evidence
 }
@@ -77,13 +97,16 @@ Creates a new escrow contract instance.
 ```rust
 #[ink(constructor)]
 pub fn new(
-    fee_bps: u16,              // Platform fee in basis points (100 = 1%)
-    fee_account: AccountId,    // Fee recipient
-    usdt_token: AccountId,     // USDT token contract
-    admin_signers: Vec<AccountId>, // Multi-sig admins
-    signature_threshold: u8    // Required signatures
+    usdt_token: Address,       // USDT token contract (H160/20-byte)
+    fee_account: Address       // Fee recipient (H160/20-byte)
 ) -> Self
 ```
+
+**Default Values:**
+- `fee_bps`: 100 (1% platform fee)
+- `signature_threshold`: 1
+- `admin_signers`: Caller is added as first admin
+- `token_decimals`: 6 (USDT standard)
 
 ## 📋 **Core Functions**
 
@@ -94,13 +117,13 @@ Creates a new milestone-based escrow.
 #[ink(message)]
 pub fn create_escrow(
     &mut self,
-    counterparty_address: AccountId,
+    counterparty_address: Address,           // H160/20-byte address
     counterparty_type: String,
-    status: String,
+    status: String,                          // String: "Active", "Pending", etc.
     title: String,
     description: String,
     total_amount: String,
-    milestones: Vec<Milestone>,
+    milestones_input: Vec<MilestoneInput>,   // Uses MilestoneInput (strings)
     transaction_hash: Option<String>
 ) -> Result<String, EscrowError>
 ```
@@ -109,21 +132,26 @@ pub fn create_escrow(
 
 **Events:** `EscrowCreated`
 
-### **deposit_to_escrow**
-Deposits USDT tokens into an escrow.
+**Note:** The contract automatically converts `MilestoneInput` (with string status/evidence URLs) to internal `Milestone` structs.
+
+### **notify_deposit**
+Notifies the contract of a USDT deposit to an escrow.
 
 ```rust
 #[ink(message)]
-pub fn deposit_to_escrow(
+pub fn notify_deposit(
     &mut self,
     escrow_id: String,
-    amount: Balance
-) -> Result<(), EscrowError>
+    amount_str: String
+) -> Result<Balance, EscrowError>
 ```
 
+**Returns:** Updated total deposited amount in base units
+
 **Requirements:**
-- Caller must have approved USDT spending
-- Amount must match expected escrow total
+- Caller must have transferred USDT to contract beforehand
+- Contract verifies token balance before accepting deposit
+- Amount is specified as human-readable string (e.g., "1000" for 1000 USDT)
 
 ### **release_milestone**
 Releases funds for a completed milestone.
@@ -145,24 +173,27 @@ pub struct ReleaseResponse {
     pub transaction_hash: String,
     pub status: String,
     pub message: String,
-    pub receiver_address: AccountId,
-    pub payer_address: AccountId,
+    pub receiver_account_id: Address,    // H160/20-byte address
+    pub payer_account_id: Address,       // H160/20-byte address
 }
 ```
 
-### **mark_milestone_as_done**
-Marks a milestone as completed by the provider.
+### **complete_milestone_task**
+Marks a milestone as completed by the counterparty (provider).
 
 ```rust
 #[ink(message)]
-pub fn mark_milestone_as_done(
+pub fn complete_milestone_task(
     &mut self,
     escrow_id: String,
     milestone_id: String,
     completion_note: Option<String>,
-    evidence: Option<Vec<Evidence>>
-) -> Result<EscrowData, EscrowError>
+    evidence_file: Option<Vec<Evidence>>
+) -> Result<(), EscrowError>
 ```
+
+**Authorization:** Only the counterparty can mark milestones as done
+**Status Change:** InProgress → Done
 
 ## 🔍 **Query Functions**
 
@@ -194,13 +225,15 @@ pub fn get_escrow_milestone(
 ) -> Result<Milestone, EscrowError>
 ```
 
-### **get_deposited_amount**
-Returns total deposited amount for an escrow.
+### **get_token_balance**
+Returns the total USDT balance held by the contract.
 
 ```rust
 #[ink(message)]
-pub fn get_deposited_amount(&self, escrow_id: String) -> Balance
+pub fn get_token_balance(&self) -> Balance
 ```
+
+**Note:** Use this to verify the contract has sufficient funds before releasing milestones.
 
 ## 🔄 **Status Management**
 
@@ -261,29 +294,33 @@ pub fn resolve_dispute(
 
 ## ⚙️ **Configuration Functions**
 
-### **get_fee_percentage**
-Returns current fee as a percentage string.
+### **get_usdt_token**
+Returns the configured USDT token contract address.
 
 ```rust
 #[ink(message)]
-pub fn get_fee_percentage(&self) -> String
+pub fn get_usdt_token(&self) -> Address
 ```
 
-### **get_total_volume**
-Returns total platform volume processed.
+### **get_token_config**
+Returns token configuration tuple.
 
 ```rust
 #[ink(message)]
-pub fn get_total_volume(&self) -> String
+pub fn get_token_config(&self) -> (Address, u8, u16)
 ```
 
-### **is_paused**
-Check if contract is paused.
+**Returns:** (usdt_token_address, token_decimals, fee_bps)
+
+### **get_contract_info**
+Returns comprehensive contract information.
 
 ```rust
 #[ink(message)]
-pub fn is_paused(&self) -> bool
+pub fn get_contract_info(&self) -> (Address, u16, bool, u128)
 ```
+
+**Returns:** (owner, fee_bps, paused, total_volume)
 
 ## 👑 **Multi-Signature Admin Functions**
 
@@ -302,13 +339,14 @@ pub fn create_admin_proposal(
 ```rust
 pub enum ProposalAction {
     SetFee(u16),                          // Change platform fee
-    SetUsdtToken(AccountId),              // Update USDT contract
-    AddSigner(AccountId),                 // Add admin signer
-    RemoveSigner(AccountId),              // Remove admin signer
+    SetUsdtToken(Address),                // Update USDT contract (H160)
+    SetTokenDecimals(u8),                 // Update token decimals
+    AddSigner(Address),                   // Add admin signer (H160)
+    RemoveSigner(Address),                // Remove admin signer (H160)
     SetThreshold(u8),                     // Change signature threshold
     PauseContract,                        // Pause operations
     UnpauseContract,                      // Resume operations
-    EmergencyWithdraw(AccountId, Balance), // Emergency withdrawal
+    EmergencyWithdraw(Address, Balance),  // Emergency withdrawal (H160)
 }
 ```
 
@@ -334,11 +372,13 @@ pub fn execute_proposal(&mut self, proposal_id: u64) -> Result<(), EscrowError>
 ```rust
 #[ink(event)]
 pub struct EscrowCreated {
-    escrow_id: String,
-    creator: AccountId,
-    counterparty: AccountId,
-    title: String,
-    total_amount: String,
+    pub escrow_id: String,
+    pub creator: Address,                   // H160/20-byte address
+    pub counterparty: Address,              // H160/20-byte address
+    pub counterparty_type: String,
+    pub title: String,
+    pub total_amount: String,
+    pub transaction_hash: Option<String>,
 }
 ```
 
@@ -346,22 +386,24 @@ pub struct EscrowCreated {
 ```rust
 #[ink(event)]
 pub struct MilestoneReleased {
-    escrow_id: String,
-    milestone_id: String,
-    receiver_address: AccountId,
-    amount: String,
-    transaction_hash: String,
+    pub escrow_id: String,
+    pub milestone_id: String,
+    pub receiver_account_id: Address,       // H160/20-byte address
+    pub payer_account_id: Address,          // H160/20-byte address
+    pub amount: String,
+    pub transaction_hash: String,
 }
 ```
 
-### **DisputeRaised**
+### **MilestoneDisputed**
 ```rust
 #[ink(event)]
-pub struct DisputeRaised {
-    escrow_id: String,
-    milestone_id: String,
-    raised_by: AccountId,
-    reason: String,
+pub struct MilestoneDisputed {
+    pub escrow_id: String,
+    pub milestone_id: String,
+    pub filed_by: Address,                  // H160/20-byte address
+    pub reason: String,
+    pub dispute_id: String,
 }
 ```
 
@@ -377,22 +419,26 @@ const createEscrow = async () => {
     {
       id: "milestone_1",
       description: "Initial Design",
-      amount: "1000000000", // 1000 USDT
-      status: "Pending",
+      amount: "1000",                    // Human-readable amount
+      status: "Pending",                 // String status (not enum)
       deadline: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      // ... other fields
+      completedAt: null,
+      disputeReason: null,
+      disputeFiledBy: null,
+      completionNote: null,
+      evidenceFile: ["https://example.com/design.pdf"], // URLs as strings
     }
   ];
 
   const result = await contract.tx.createEscrow(
     { value: 0, gasLimit: -1 },
-    counterpartyAddress,
+    counterpartyAddress,               // H160 address (0x...)
     "provider",
-    "Active",
+    "Active",                          // String status
     "Website Development",
     "Full stack web application",
-    "5000000000", // 5000 USDT total
-    milestones,
+    "5000",                           // Human-readable total amount
+    milestones,                       // MilestoneInput array
     null
   );
 
@@ -460,5 +506,5 @@ For technical support or integration help:
 ---
 
 **Contract Version:** 1.0.0
-**ink! Version:** 5.0.0
-**Last Updated:** September 2025
+**ink! Version:** 6.0.0-alpha (PolkaVM)
+**Last Updated:** November 2025

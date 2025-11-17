@@ -23,13 +23,11 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
 
   setIsLoading(true);
   try {
-    const baseUrl = "escrowdata.up.railway.app";
+    const baseUrl = "https://escrowdb.up.railway.app";
     const checkUrl = `${baseUrl}/comment?escrowId=${escrowId}&milestoneId=${milestoneId}`;
 
     const response = await axios.get(checkUrl);
 
-    console.log('Fetch response:', response.data);
-    console.log('Fetch response status:', response.status);
 
     // Check for successful HTTP status
     if (response.status === 200) {
@@ -40,12 +38,8 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
         // Get the first (and likely only) conversation
         const conversationData = conversationsArray[0];
         
-        console.log('Conversation ID:', conversationData.id);
-        console.log('Conversation data:', conversationData);
-
         // Check if the conversation has messages
         if (conversationData.messages && Array.isArray(conversationData.messages)) {
-          console.log("We have conversation with messages");
           
           // Transform messages to comment format that matches your UI expectations
           const transformedComments = conversationData.messages.map((message: Message) => ({
@@ -66,7 +60,6 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
         }
       } else {
         // No conversations found or empty array
-        console.log('No conversation data found');
         setComments([]);
       }
 
@@ -103,7 +96,7 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
 
   setIsSubmitting(true);
   try {
-    const baseUrl = "escrowdata.up.railway.app";
+    const baseUrl = "https://escrowdb.up.railway.app";
 
     // Step 1: Check if conversation already exists
     const checkUrl = `${baseUrl}/comment?escrowId=${escrowId}&milestoneId=${milestoneId}`;
@@ -113,12 +106,10 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
       const checkResponse = await axios.get(checkUrl);
       const conversationsArray = checkResponse.data;
       
-      console.log('Check response:', conversationsArray);
       
       // Handle array response - get the first conversation if it exists
       if (Array.isArray(conversationsArray) && conversationsArray.length > 0) {
         existingConversation = conversationsArray[0];
-        console.log('Found existing conversation:', existingConversation);
       }
     } catch (checkError) {
       // If 404, no conversation exists yet
@@ -135,7 +126,6 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
     let response;
 
     if (existingConversation && existingConversation.id) {
-      console.log('Updating existing conversation:', existingConversation.id);
       
       // Step 2a: Append to existing conversation
       const updateUrl = `${baseUrl}/comment/${existingConversation.id}`;
@@ -150,7 +140,6 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
         },
       });
     } else {
-      console.log('Creating new conversation');
       
       // Step 2b: Create new conversation
       const createUrl = `${baseUrl}/comment`;

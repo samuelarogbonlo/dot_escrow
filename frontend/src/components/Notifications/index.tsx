@@ -60,7 +60,7 @@ const Notifications = () => {
       if (!isExtensionReady || !selectedAccount) return;
 
       try {
-        const response = await axios.get(`escrowdata.up.railway.app/notify`);
+        const response = await axios.get(`https://escrowdb.up.railway.app/notify`);
 
         const notificationList = response.data.filter(
           (m: any) => m.recipientAddress === selectedAccount.address
@@ -118,7 +118,7 @@ const Notifications = () => {
       );
 
       // Make API call to update read status on backend
-      const response = await axios.patch(`escrowdata.up.railway.app/notify/${id}`, {
+      const response = await axios.patch(`https://escrowdb.up.railway.app/notify/${id}`, {
         read: true,
       });
 

@@ -335,8 +335,7 @@ describe('CancelEscrowModal', () => {
     expect(textarea).toHaveValue('Test cancellation reason');
   });
 
-  // SKIPPED: Test times out in CI due to typing very long text character by character
-  it.skip('handles long cancellation reasons appropriately', async () => {
+  it('handles long cancellation reasons appropriately', async () => {
     render(
       <TestWrapper>
         <CancelEscrowModal

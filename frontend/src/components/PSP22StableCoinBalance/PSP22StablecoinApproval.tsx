@@ -19,10 +19,10 @@ import {
   FormHelperText
 } from '@chakra-ui/react';
 import { FiCheck, FiAlertCircle, FiShield, FiDollarSign } from 'react-icons/fi';
-import { usePSP22StablecoinContract, ALEPH_ZERO_STABLECOINS } from '../../hooks/usePSP22StablecoinContract';
+import { usePSP22StablecoinContract, PASETHUB_NETWORK_STABLECOINS } from '../../hooks/usePSP22StablecoinContract';
 
 interface PSP22StablecoinApprovalProps {
-  stablecoinKey?: keyof typeof ALEPH_ZERO_STABLECOINS;
+  stablecoinKey?: keyof typeof PASETHUB_NETWORK_STABLECOINS;
   requiredAmount: string;
   onApprovalComplete?: () => void;
   onApprovalStart?: () => void;
@@ -31,7 +31,7 @@ interface PSP22StablecoinApprovalProps {
 }
 
 export const PSP22StablecoinApproval: React.FC<PSP22StablecoinApprovalProps> = ({
-  stablecoinKey = 'MOST_USDC',
+  stablecoinKey = 'TEST_USDT',
   requiredAmount,
   onApprovalComplete,
   onApprovalStart,
@@ -47,7 +47,7 @@ export const PSP22StablecoinApproval: React.FC<PSP22StablecoinApprovalProps> = (
     approveToken,
     checkSufficientBalance,
     checkSufficientAllowance,
-    // formatToken
+    formatToken
   } = usePSP22StablecoinContract(stablecoinKey);
 
   const [approvalAmount, setApprovalAmount] = useState(requiredAmount);

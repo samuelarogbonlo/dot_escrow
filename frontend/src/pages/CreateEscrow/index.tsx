@@ -40,6 +40,7 @@ import { useWallet } from "../../hooks/useWalletContext";
 import { usePSP22StablecoinContract } from "@/hooks/usePSP22StablecoinContract";
 import { ESCROW_CONTRACT_ADDRESS } from "@/contractABI/EscrowABI";
 import { notifyDepositContract } from "@/utils/escrowContractUtils";
+import { substrateToH160 } from "@/utils/substrateToH160";
 
 // Form steps components
 import BasicDetails from "./steps/BasicDetails";
@@ -130,6 +131,7 @@ const CreateEscrow = () => {
     connectExtension,
     checkTransactionStatus,
   } = useWallet();
+
 
   const {
     balance,
@@ -416,7 +418,7 @@ const CreateEscrow = () => {
 
     try {
       const creatorAddress = selectedAccount.address;
-      const counterpartyAddress = formData.counterpartyAddress;
+      const counterpartyAddress = substrateToH160(formData.counterpartyAddress);
       const counterpartyType = formData.counterpartyType;
 
       const milestones = formData.milestones.map((m, index) => {
@@ -468,8 +470,6 @@ const CreateEscrow = () => {
           );
 
           if (transactionHash.success === true) {
-
-           
             // Step 2: Create escrow in contract
             result = await createEscrow(
               creatorAddress,
@@ -485,7 +485,6 @@ const CreateEscrow = () => {
 
             // Step 3: NEW - Notify contract about the deposit
             if (result.success === true) {
-
               depositNotification = await notifyDepositContract(
                 api,
                 selectedAccount,

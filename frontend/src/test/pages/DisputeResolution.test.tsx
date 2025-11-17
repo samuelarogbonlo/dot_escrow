@@ -40,8 +40,7 @@ vi.mock('@chakra-ui/react', async () => {
   };
 });
 
-// SKIPPED: DisputeResolution page is completely commented out in implementation
-describe.skip('DisputeResolution Page', () => {
+describe('DisputeResolution Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

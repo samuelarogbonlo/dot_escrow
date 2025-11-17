@@ -1,5 +1,4 @@
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
-import { hexToU8a, isHex } from '@polkadot/util';
 
 // Polkadot network prefixes
 export const POLKADOT_NETWORKS = {

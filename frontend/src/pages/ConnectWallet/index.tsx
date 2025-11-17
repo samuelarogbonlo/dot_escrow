@@ -31,6 +31,12 @@ const ConnectWallet = () => {
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   
+  // Reset state on component mount to handle navigation from dashboard
+  useEffect(() => {
+    setUserHasSelectedAccount(false);
+    setConnectionStep('extension');
+  }, []);
+  
   // Check if we can proceed to the next step
   useEffect(() => {
     if (isExtensionReady && accounts.length > 0 && !userHasSelectedAccount) {
@@ -49,6 +55,14 @@ const ConnectWallet = () => {
       setConnectionStep('extension');
     }
   }, [isExtensionReady, accounts.length]);
+  
+  // Auto-select account if only one is available
+  useEffect(() => {
+    if (connectionStep === 'account' && accounts.length === 1 && !userHasSelectedAccount) {
+      selectAccount(accounts[0].address);
+      setUserHasSelectedAccount(true);
+    }
+  }, [connectionStep, accounts, userHasSelectedAccount, selectAccount]);
   
   // Handle wallet connection
   const handleConnectExtension = async () => {
@@ -173,7 +187,6 @@ const ConnectWallet = () => {
               borderRadius="md" 
               alignItems="center"
               justifyContent="space-between"
-              bg={connectionStep === 'extension' ? 'blue.50' : isExtensionReady ? 'green.50' : 'gray.50'}
               borderColor={connectionStep === 'extension' ? 'blue.200' : isExtensionReady ? 'green.200' : 'gray.200'}
             >
               <VStack align="start" spacing={1}>
@@ -230,13 +243,14 @@ const ConnectWallet = () => {
               borderRadius="md" 
               alignItems="center"
               justifyContent="space-between"
-              bg={connectionStep === 'account' ? 'blue.50' : (selectedAccount && userHasSelectedAccount) ? 'green.50' : 'gray.50'}
               borderColor={connectionStep === 'account' ? 'blue.200' : (selectedAccount && userHasSelectedAccount) ? 'green.200' : 'gray.200'}
               opacity={connectionStep === 'extension' ? 0.5 : 1}
             >
               <VStack align="start" spacing={1}>
                 <Text fontWeight="bold">Step 2: Select Account</Text>
-                <Text fontSize="sm" color="gray.600">Choose which account to use</Text>
+                <Text fontSize="sm" color="gray.600">
+                  {accounts.length === 1 ? 'Account automatically selected' : 'Choose which account to use'}
+                </Text>
                 {selectedAccount && userHasSelectedAccount && (
                   <Text fontSize="xs" color="green.600">
                     Selected: {selectedAccount.meta.name}
@@ -246,7 +260,7 @@ const ConnectWallet = () => {
               {selectedAccount && userHasSelectedAccount ? (
                 <Icon as={FiCheck} color="green.500" boxSize={5} />
               ) : (
-                connectionStep === 'account' && (
+                connectionStep === 'account' && accounts.length > 1 && (
                   <Select 
                     placeholder="Select account" 
                     size="sm" 
@@ -274,7 +288,6 @@ const ConnectWallet = () => {
               p={4} 
               borderWidth="1px" 
               borderRadius="md"
-              bg={connectionStep === 'node' ? 'blue.50' : isApiReady ? 'green.50' : 'gray.50'}
               borderColor={connectionStep === 'node' ? 'blue.200' : isApiReady ? 'green.200' : 'gray.200'}
               opacity={(connectionStep === 'extension' || connectionStep === 'account') ? 0.5 : 1}
             >
@@ -298,37 +311,6 @@ const ConnectWallet = () => {
                   )
                 )}
               </Flex>
-
-              {connectionStep === 'node' && !isApiReady && (
-                <Box mt={2}>
-                  <Text fontSize="sm" fontWeight="medium" mb={2}>Select Network:</Text>
-                  <RadioGroup onChange={handleEndpointChange} value={selectedEndpoint}>
-                    <Stack direction="column" spacing={2}>
-                      <Radio value={endpoints?.PASEO_POP || 'wss://rpc1.paseo.popnetwork.xyz'}>
-                        Paseo Testnet (Pop Network) - Recommended
-                      </Radio>
-                      <Radio value={endpoints?.PASEO_RELAY || 'wss://paseo.rpc.amforc.com:443'}>
-                        Paseo Relay Chain
-                      </Radio>
-                      <Radio value={endpoints?.WESTEND || 'wss://westend-rpc.polkadot.io'}>
-                        Westend Testnet
-                      </Radio>
-                      <Radio value={endpoints?.WESTEND_ASSETHUB || 'wss://westend-asset-hub-rpc.polkadot.io'}>
-                        Westend AssetHub Testnet
-                      </Radio>
-                      <Radio value={endpoints?.ALEPH_TESTNET || 'wss://testnet.azero.fans'}>
-                        Aleph Testnet
-                      </Radio>
-                      <Radio value={endpoints?.ROCOCO || 'wss://rococo-rpc.polkadot.io'}>
-                        Rococo Testnet
-                      </Radio>
-                      <Radio value={endpoints?.LOCAL || 'ws://127.0.0.1:9944'}>
-                        Local Node
-                      </Radio>
-                    </Stack>
-                  </RadioGroup>
-                </Box>
-              )}
             </Flex>
             
             {apiError && connectionStep === 'node' && (
@@ -376,21 +358,6 @@ const ConnectWallet = () => {
               </Box>
             </HStack>
           </VStack>
-          
-          {/* Add debug info in development */}
-          {/* {process.env.NODE_ENV === 'development' && (
-            <Box mt={4} p={3} bg="gray.50" borderRadius="md" w="full" fontSize="xs">
-              <Text fontWeight="bold">Debug Info:</Text>
-              <Text>Extension Ready: {String(isExtensionReady)}</Text>
-              <Text>Accounts: {accounts.length}</Text>
-              <Text>Selected Account: {selectedAccount?.address ? `${selectedAccount.meta.name} (${selectedAccount.address.slice(0, 6)}...)` : 'None'}</Text>
-              <Text>User Has Selected: {String(userHasSelectedAccount)}</Text>
-              <Text>Connection Step: {connectionStep}</Text>
-              <Text>API Ready: {String(isApiReady)}</Text>
-              <Text>Current Endpoint: {currentEndpoint}</Text>
-              <Text>Selected Endpoint: {selectedEndpoint}</Text>
-            </Box>
-          )} */}
         </VStack>
       </Box>
     </Flex>

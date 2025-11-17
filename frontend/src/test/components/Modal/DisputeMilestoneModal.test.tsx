@@ -359,8 +359,7 @@ describe('DisputeMilestoneModal', () => {
     expect(submitButton).toBeDisabled();
   });
 
-  // SKIPPED: Test times out in CI due to typing very long text character by character
-  it.skip('handles long dispute reasons appropriately', async () => {
+  it('handles long dispute reasons appropriately', async () => {
     render(
       <TestWrapper>
         <DisputeMilestoneModal

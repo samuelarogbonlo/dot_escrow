@@ -178,8 +178,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  // SKIPPED: Complex interaction tests - implementation has changed
-  it.skip('displays loading state while fetching escrow', () => {
+  it('displays loading state while fetching escrow', () => {
     mockGetEscrow.mockImplementation(() => new Promise(() => {})); // Never resolves
 
     render(
@@ -191,7 +190,7 @@ describe('EscrowDetails', () => {
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
 
-  it.skip('displays escrow information correctly', async () => {
+  it('displays escrow information correctly', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -206,7 +205,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('shows milestones with correct information', async () => {
+  it('shows milestones with correct information', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -229,7 +228,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('allows client to release milestone funds', async () => {
+  it('allows client to release milestone funds', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -258,7 +257,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('allows disputing a milestone', async () => {
+  it('allows disputing a milestone', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -297,7 +296,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('shows different actions based on user role', async () => {
+  it('shows different actions based on user role', async () => {
     // Test as creator (client)
     render(
       <TestWrapper>
@@ -311,7 +310,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('shows different actions for counterparty', async () => {
+  it('shows different actions for counterparty', async () => {
     const initialState = {
       wallet: {
         selectedAccount: {
@@ -335,7 +334,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('handles escrow not found error', async () => {
+  it('handles escrow not found error', async () => {
     mockGetEscrow.mockResolvedValue({
       success: false,
       error: 'Escrow not found',
@@ -352,7 +351,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('allows cancelling escrow', async () => {
+  it('allows cancelling escrow', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -380,7 +379,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('shows transaction history', async () => {
+  it('shows transaction history', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -393,7 +392,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('displays milestone deadlines and progress', async () => {
+  it('displays milestone deadlines and progress', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />
@@ -409,7 +408,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('handles release milestone error', async () => {
+  it('handles release milestone error', async () => {
     mockReleaseMilestone.mockResolvedValue({
       success: false,
       error: 'Insufficient balance',
@@ -434,7 +433,7 @@ describe('EscrowDetails', () => {
     });
   });
 
-  it.skip('requires wallet connection', () => {
+  it('requires wallet connection', () => {
     const initialState = {
       wallet: {
         selectedAccount: null,
@@ -451,7 +450,7 @@ describe('EscrowDetails', () => {
     expect(screen.getByText(/connect.*wallet/i)).toBeInTheDocument();
   });
 
-  it.skip('refreshes data after actions', async () => {
+  it('refreshes data after actions', async () => {
     render(
       <TestWrapper>
         <EscrowDetails />

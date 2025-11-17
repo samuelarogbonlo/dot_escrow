@@ -1,4 +1,4 @@
-import React, { useState, useEffect, } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   ModalOverlay,
@@ -34,6 +34,7 @@ import {
 } from "@/utils/polkadotValidator";
 import { useWallet } from "@/hooks/useWalletContext";
 import useTokenDistribution from "@/hooks/useTokenDistribution";
+import { substrateToH160 } from "@/utils/substrateToH160";
 
 interface PolkadotWalletModalProps {
   isOpen: boolean;
@@ -89,9 +90,10 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
       if (result.isValid && checkClaimStatus) {
         setCheckingStatus(true);
         try {
-          const status = await checkClaimStatus(
-            result.normalizedAddress || walletAddress
-          );
+          const addressCheck = result.normalizedAddress || walletAddress;
+
+          const h160TargetAddressCheck = substrateToH160(addressCheck);
+          const status = await checkClaimStatus(h160TargetAddressCheck);
           setClaimStatus(status);
         } catch (error) {
           console.error("Failed to check claim status:", error);
@@ -316,7 +318,6 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
                           </Text>
                         </HStack>
                       )}
-                    
                   </VStack>
                 </Alert>
               )}

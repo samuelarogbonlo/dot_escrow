@@ -2,20 +2,14 @@ import { useState, useEffect } from 'react';
 import { web3Accounts, web3Enable, web3FromAddress } from '@polkadot/extension-dapp';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { InjectedExtension } from '@polkadot/extension-inject/types';
-import { ss58ToH160 } from '../utils/addressConversion';
 
 const APP_NAME = '.escrow';
 
-export interface AccountWithAddresses extends InjectedAccountWithMeta {
-  h160Address?: string; // Ethereum-style address for pallet-revive
-}
-
 export interface PolkadotExtensionStatus {
   isReady: boolean;
-  accounts: AccountWithAddresses[];
+  accounts: InjectedAccountWithMeta[];
   error: string | null;
-  selectedAccount: AccountWithAddresses | null;
-  selectedH160Address: string | null; // Converted H160 for contract calls
+  selectedAccount: InjectedAccountWithMeta | null;
   isLoading: boolean;
   isTestMode: boolean;
 }
@@ -26,7 +20,6 @@ export const usePolkadotExtension = () => {
     accounts: [],
     error: null,
     selectedAccount: null,
-    selectedH160Address: null,
     isLoading: false,
     isTestMode: false,
   });
@@ -35,23 +28,6 @@ export const usePolkadotExtension = () => {
 
   const debugLog = (message: string, data?: any) => {
     console.log(`[PolkadotExtension] ${message}`, data || '');
-  };
-
-  // Helper: Convert SS58 accounts to include H160 addresses
-  const enrichAccountsWithH160 = (accounts: InjectedAccountWithMeta[]): AccountWithAddresses[] => {
-    return accounts.map(account => {
-      try {
-        const h160Address = ss58ToH160(account.address);
-        debugLog(`Converted ${account.address.slice(0, 8)}... to H160: ${h160Address.slice(0, 10)}...`);
-        return {
-          ...account,
-          h160Address,
-        };
-      } catch (error) {
-        debugLog(`Failed to convert address for ${account.meta.name}:`, error);
-        return account; // Return without h160Address if conversion fails
-      }
-    });
   };
 
   const checkExtension = async (): Promise<boolean> => {
@@ -120,18 +96,14 @@ export const usePolkadotExtension = () => {
 
       debugLog('Extension connected successfully with accounts:', finalAccounts.map(acc => acc.meta.name));
 
-      // Convert accounts to include H160 addresses
-      const enrichedAccounts = enrichAccountsWithH160(finalAccounts);
-
       setInjected(extensions[0]);
 
-      // ✅ CRITICAL: Never auto-select account - always let user choose
+      // Never auto-select account - always let user choose
       setStatus({
         isReady: true,
-        accounts: enrichedAccounts,
+        accounts: finalAccounts,
         error: null,
-        selectedAccount: null, // Always null to force user selection
-        selectedH160Address: null,
+        selectedAccount: null,
         isLoading: false,
         isTestMode: false,
       });
@@ -168,26 +140,22 @@ export const usePolkadotExtension = () => {
         return { success: false, error: errorMsg };
       }
 
-      // Convert accounts to include H160 addresses
-      const enrichedAccounts = enrichAccountsWithH160(accounts);
-
-      // ✅ CRITICAL: Only preserve selection if the account still exists, never auto-select
+      // Only preserve selection if the account still exists
       const currentSelected = status.selectedAccount;
       const newSelected = currentSelected
-        ? enrichedAccounts.find(acc => acc.address === currentSelected.address) || null
+        ? accounts.find(acc => acc.address === currentSelected.address) || null
         : null;
 
       debugLog('Accounts refreshed:', {
-        total: enrichedAccounts.length,
+        total: accounts.length,
         previousSelection: currentSelected?.meta.name,
         newSelection: newSelected?.meta.name || 'None'
       });
 
       setStatus(prev => ({
         ...prev,
-        accounts: enrichedAccounts,
+        accounts: accounts,
         selectedAccount: newSelected,
-        selectedH160Address: newSelected?.h160Address || null,
         isLoading: false,
         error: null,
       }));
@@ -206,13 +174,11 @@ export const usePolkadotExtension = () => {
     if (account) {
       debugLog('User manually selected account:', {
         name: account.meta.name,
-        ss58Address: account.address.slice(0, 8) + '...',
-        h160Address: account.h160Address?.slice(0, 10) + '...' || 'N/A'
+        address: account.address.slice(0, 8) + '...'
       });
       setStatus(prev => ({
         ...prev,
-        selectedAccount: account,
-        selectedH160Address: account.h160Address || null
+        selectedAccount: account
       }));
       return true;
     }
@@ -223,18 +189,16 @@ export const usePolkadotExtension = () => {
   // Clear selection (useful for logout or switching)
   const clearSelection = () => {
     debugLog('Clearing account selection');
-    setStatus(prev => ({ ...prev, selectedAccount: null, selectedH160Address: null }));
+    setStatus(prev => ({ ...prev, selectedAccount: null }));
   };
 
   // Function to set a direct/test account
   const setDirectAccount = (account: InjectedAccountWithMeta) => {
     debugLog('Setting direct test account:', account.address);
-    const enrichedAccount = enrichAccountsWithH160([account])[0];
     setStatus(prev => ({
       ...prev,
-      accounts: [enrichedAccount],
-      selectedAccount: enrichedAccount,
-      selectedH160Address: enrichedAccount.h160Address || null,
+      accounts: [account],
+      selectedAccount: account,
       isReady: true,
       isTestMode: true,
       error: null,
@@ -306,7 +270,7 @@ export const usePolkadotExtension = () => {
         window.removeEventListener('polkadot-extension-accounts-changed', handleAccountChange);
       };
     }
-  }, []);
+  }, [status.isReady]); // Add dependency to avoid stale closure
 
   return {
     ...status,

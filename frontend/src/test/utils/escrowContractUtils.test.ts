@@ -78,9 +78,7 @@ const mockMilestone = {
   deadline: Date.now() + 86400000,
 };
 
-// SKIPPED: These tests require extensive Polkadot contract mocking (web3FromAddress, api.registry, etc.)
-// The real implementation uses Polkadot extension APIs that aren't properly mocked
-describe.skip('escrowContractUtils', () => {
+describe('escrowContractUtils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

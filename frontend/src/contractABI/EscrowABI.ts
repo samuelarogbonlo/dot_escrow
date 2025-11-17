@@ -1,21 +1,26 @@
 // Import the generated contract metadata
 import contractMetadata from './EscrowABI.json';
 import tokenMetadata from './TokenABI.json'
+import psp22TokenMetadata from './PSP22Token.json'
 
 // Export the contract ABI metadata for use with Polkadot.js API
 export const ESCROW_CONTRACT_ABI = contractMetadata;
 
 export const TOKEN_CONTRACT_ABI = tokenMetadata;
 
+export const PSP22_TOKEN_ABI = psp22TokenMetadata;
+
 // Export individual parts for convenience
 export const { spec, types, storage } = contractMetadata;
 
-// Contract address - deployed escrow contract on Pop Network (ink! v6 / pallet-revive)
-// Using H160 (20-byte Ethereum-style) address format
-export const ESCROW_CONTRACT_ADDRESS: string = '0x57c0082e71f89e1feb6b56ab36f0ae271c118019';
+// Contract address - Pop Network PolkaVM (H160 / 20 bytes)
+export const ESCROW_CONTRACT_ADDRESS: string = '0x027a592ae13B21f54AB2130B1a4649a36C566ef6';
+console.log("contract escrow address",ESCROW_CONTRACT_ADDRESS)
 
-// PSP22 token contract deployed on Pop Network (ink! v6 / pallet-revive)
-export const TOKEN_CONTRACT_ADDRESS: string = '0xd10852e9a6366cfab48f52e98f896344cbbc132c'
+
+// PSP22 token contract address (H160). If unknown, the frontend will fetch via get_usdt_token
+export const TOKEN_CONTRACT_ADDRESS: string = '0x06cCb9c561dE6F67830AEEC616A30e717690316a'
+
 
 // Export default
 export default contractMetadata;

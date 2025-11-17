@@ -26,6 +26,7 @@ import {
   ESCROW_CONTRACT_ADDRESS,
 } from "../../contractABI/EscrowABI";
 import { useNavigate } from "react-router-dom";
+import { substrateToH160 } from "@/utils/substrateToH160";
 
 // Import dashboard components
 import Overview from "./sections/Overview";
@@ -72,8 +73,14 @@ const AdminDashboard = () => {
 
       try {
         setIsLoading(true);
-        const userIsAdmin = await governance.isAdminSigner(
-          selectedAccount.address
+
+        const getAdminSigners = await governance.getAdminSigners();
+
+        // Convert selected account to H160
+        const h160Address = substrateToH160(selectedAccount.address);
+
+        const userIsAdmin = getAdminSigners.some(
+          (admin: string) => admin.toLowerCase() === h160Address.toLowerCase()
         );
 
         if (userIsAdmin) {

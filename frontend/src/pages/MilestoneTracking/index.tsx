@@ -117,13 +117,11 @@ const MilestoneTracking = () => {
         const result = await listEscrows();
 
         if (result.success) {
-          console.log('[MilestoneTracking] Raw result:', result);
           
           // Filter escrows to show:
           // 1. All escrows where user is the creator (userAddress matches)
           // 2. Escrows where user is the counterparty AND status is "InProgress"
           const escrows = result.data || result.escrows || [];
-          console.log('[MilestoneTracking] Escrows found:', escrows.length);
           
           const filteredEscrows = escrows.filter((e: any) => {
             const isUserCreator = e.creatorAddress === selectedAccount.address;
@@ -134,7 +132,6 @@ const MilestoneTracking = () => {
             return isUserCreator || isUserCounterparty;
           });
           
-          console.log('[MilestoneTracking] Filtered escrows:', filteredEscrows.length);
           // Extract all milestones from filtered escrows
           const allMilestones = filteredEscrows.flatMap((escrow: any) => {
             // Ensure milestones exist and is an array
@@ -545,7 +542,7 @@ const MilestoneTracking = () => {
                         </Heading>
                         {getStatusBadge(milestone.status, calculateIsLate(milestone))}
                       </HStack>
-                      <Text fontWeight="bold">{milestone.amount} USDT</Text>
+                      <Text fontWeight="bold">{Number(milestone.amount).toLocaleString()} USDT</Text>
                     </Flex>
 
                     <Text fontSize="sm" color="gray.500">

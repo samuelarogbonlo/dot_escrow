@@ -13,6 +13,7 @@ import { FiHome, FiFileText, FiTarget, FiSettings } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { useWallet } from "../../hooks/useWalletContext";
 import { useAdminGovernance } from "../../hooks/useAdminGovernance";
+import { substrateToH160 } from "@/utils/substrateToH160";
 
 const NavItem = ({
   icon,
@@ -87,7 +88,10 @@ const Sidebar = () => {
   const [adminCheckLoading, setAdminCheckLoading] = useState(true);
 
   const { selectedAccount, isExtensionReady, api } = useWallet();
-  const governance = useAdminGovernance({ api, account: selectedAccount as any });
+  const governance = useAdminGovernance({
+    api,
+    account: selectedAccount as any,
+  });
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!isExtensionReady || !selectedAccount?.address || !api) {
@@ -98,9 +102,19 @@ const Sidebar = () => {
 
       try {
         setAdminCheckLoading(true);
-        console.log("admin checking")
-        const isSigner = await governance.isAdminSigner(selectedAccount.address);
-        console.log(Boolean(isSigner))
+
+        console.log("admin checking");
+        const getAdminSigners = await governance.getAdminSigners();
+
+
+        // Convert selected account to H160
+        const h160Address = substrateToH160(selectedAccount.address);
+
+        const isSigner = getAdminSigners.some(
+          (admin: string) => admin.toLowerCase() === h160Address.toLowerCase()
+        );
+
+
         setIsAdmin(isSigner);
       } catch (error) {
         console.error("Error checking admin status:", error);

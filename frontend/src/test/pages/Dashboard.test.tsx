@@ -8,17 +8,11 @@ import Dashboard from '../../pages/Dashboard';
 import { escrowSlice } from '../../store/slices/escrowSlice';
 import { walletSlice } from '../../store/slices/walletSlice';
 
-// Mock wallet context - needs to be mutable for different test scenarios
-let mockWalletContext = {
-  accounts: [{
-    address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-    meta: { name: 'Test Account' },
-  }],
-  selectedAccount: {
-    address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-    meta: { name: 'Test Account' },
-  },
-  isExtensionReady: true,
+// Mock wallet context
+const mockWalletContext = {
+  accounts: [],
+  selectedAccount: null,
+  isExtensionReady: false,
   isExtensionLoading: false,
   extensionError: null,
   api: { isConnected: true },
@@ -64,11 +58,6 @@ vi.mock('../../hooks/useWalletContext', () => ({
   useWallet: () => mockWalletContext,
 }));
 
-// Mock PSP22StablecoinBalance component to avoid contract initialization issues
-vi.mock('@/components/PSP22StableCoinBalance/PSP22StablecoinBalance', () => ({
-  default: () => null,
-}));
-
 // Create test store
 const createTestStore = (initialState = {}) => {
   return configureStore({
@@ -110,24 +99,6 @@ const TestWrapper = ({ children, initialState = {} }) => {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset listEscrows to default
-    mockWalletContext.listEscrows = vi.fn().mockResolvedValue({
-      success: true,
-      escrows: [
-        {
-          id: 'escrow_1',
-          title: 'Test Escrow',
-          status: 'Active',
-          totalAmount: '1000',
-          creatorAddress: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-          counterpartyAddress: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-          milestones: [
-            { id: 'milestone_1', status: 'Pending', amount: '500' },
-            { id: 'milestone_2', status: 'InProgress', amount: '500' },
-          ],
-        },
-      ],
-    });
   });
 
   it('renders dashboard with welcome message', async () => {
@@ -141,161 +112,183 @@ describe('Dashboard', () => {
   });
 
   it('displays account information when wallet connected', async () => {
-    // Account info is already set in mockWalletContext
+    const initialState = {
+      wallet: {
+        selectedAccount: {
+          address: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+          meta: { name: 'Test Account' },
+        },
+        isConnected: true,
+      },
+    };
+
     render(
-      <TestWrapper>
+      <TestWrapper initialState={initialState}>
         <Dashboard />
       </TestWrapper>
     );
 
     await waitFor(() => {
-      // Dashboard should render successfully with wallet connected
-      expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+      expect(screen.getByText(/test account/i)).toBeInTheDocument();
     });
   });
 
   it('shows loading state while fetching escrows', async () => {
-    // Override mock to make loading take longer
-    mockWalletContext.listEscrows = vi.fn().mockImplementation(() =>
-      new Promise(resolve => setTimeout(() => resolve({ success: true, escrows: [] }), 100))
-    );
+    const initialState = {
+      escrow: {
+        loading: true,
+        escrows: [],
+      },
+    };
 
     render(
-      <TestWrapper>
+      <TestWrapper initialState={initialState}>
         <Dashboard />
       </TestWrapper>
     );
 
-    // Check for skeleton loading state (Chakra UI Skeleton component)
-    const skeletons = document.querySelectorAll('.chakra-skeleton');
-    expect(skeletons.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
 
   it('displays escrows when data is available', async () => {
-    // The default mock already has escrow data with user as creator
-    render(
-      <TestWrapper>
-        <Dashboard />
-      </TestWrapper>
-    );
-
-    // Wait for escrow card to be rendered (escrow cards are the main content)
-    await waitFor(async () => {
-      const escrowCards = document.querySelectorAll('[class*="escrow"]');
-      // At minimum, we should have "Your Escrows" heading rendered
-      expect(screen.getByText(/your escrows/i)).toBeInTheDocument();
-    }, { timeout: 5000 });
-  });
-
-  it('shows empty state when no escrows exist', async () => {
-    // Mock listEscrows to return empty array
-    mockWalletContext.listEscrows = vi.fn().mockResolvedValue({
-      success: true,
-      escrows: [],
-    });
+    const initialState = {
+      escrow: {
+        escrows: [
+          {
+            id: 'escrow_1',
+            title: 'Website Development',
+            status: 'Active',
+            totalAmount: '2000',
+            creatorAddress: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
+            counterpartyAddress: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
+            milestones: [
+              { id: 'milestone_1', status: 'Pending', amount: '1000' },
+              { id: 'milestone_2', status: 'Completed', amount: '1000' },
+            ],
+          },
+        ],
+        loading: false,
+      },
+    };
 
     render(
-      <TestWrapper>
+      <TestWrapper initialState={initialState}>
         <Dashboard />
       </TestWrapper>
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/don't have any escrow agreements yet/i)).toBeInTheDocument();
-      expect(screen.getByText(/create your first escrow/i)).toBeInTheDocument();
+      expect(screen.getByText(/website development/i)).toBeInTheDocument();
+      expect(screen.getByText(/2000/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows empty state when no escrows exist', async () => {
+    const initialState = {
+      escrow: {
+        escrows: [],
+        loading: false,
+      },
+    };
+
+    render(
+      <TestWrapper initialState={initialState}>
+        <Dashboard />
+      </TestWrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/no escrows/i)).toBeInTheDocument();
     });
   });
 
   it('displays error message when fetch fails', async () => {
-    // Mock listEscrows to throw error
-    mockWalletContext.listEscrows = vi.fn().mockRejectedValue(new Error('Network error'));
+    const initialState = {
+      escrow: {
+        escrows: [],
+        loading: false,
+        error: 'Failed to fetch escrows',
+      },
+    };
 
     render(
-      <TestWrapper>
+      <TestWrapper initialState={initialState}>
         <Dashboard />
       </TestWrapper>
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load escrows/i)).toBeInTheDocument();
+      expect(screen.getByText(/failed to fetch escrows/i)).toBeInTheDocument();
     });
   });
 
   it('shows statistics cards with correct values', async () => {
-    // Mock listEscrows with specific data for stats
-    mockWalletContext.listEscrows = vi.fn().mockResolvedValue({
-      success: true,
-      escrows: [
-        {
-          id: 'escrow_1',
-          title: 'Escrow 1',
-          status: 'Active',
-          totalAmount: '1000',
-          creatorAddress: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-          counterpartyAddress: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-          milestones: [
-            { id: 'milestone_1', status: 'Completed', amount: '500' },
-            { id: 'milestone_2', status: 'Pending', amount: '500' },
-          ],
-        },
-        {
-          id: 'escrow_2',
-          title: 'Escrow 2',
-          status: 'Completed',
-          totalAmount: '2000',
-          creatorAddress: '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY',
-          counterpartyAddress: '5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty',
-          milestones: [
-            { id: 'milestone_3', status: 'Completed', amount: '2000' },
-          ],
-        },
-      ],
-    });
+    const initialState = {
+      escrow: {
+        escrows: [
+          {
+            id: 'escrow_1',
+            status: 'Active',
+            totalAmount: '1000',
+            milestones: [
+              { id: 'milestone_1', status: 'Completed', amount: '500' },
+              { id: 'milestone_2', status: 'Pending', amount: '500' },
+            ],
+          },
+          {
+            id: 'escrow_2',
+            status: 'Completed',
+            totalAmount: '2000',
+            milestones: [
+              { id: 'milestone_3', status: 'Completed', amount: '2000' },
+            ],
+          },
+        ],
+        loading: false,
+      },
+    };
 
     render(
-      <TestWrapper>
+      <TestWrapper initialState={initialState}>
         <Dashboard />
       </TestWrapper>
     );
 
     await waitFor(() => {
+      // Check for total escrows
+      expect(screen.getByText(/total.*escrows/i)).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+      
       // Check for active escrows
-      expect(screen.getByText(/active escrows/i)).toBeInTheDocument();
-
-      // Check for completed escrows
-      expect(screen.getByText(/completed escrows/i)).toBeInTheDocument();
-
-      // Check for pending milestones
-      expect(screen.getByText(/pending milestones/i)).toBeInTheDocument();
+      expect(screen.getByText(/active.*escrows/i)).toBeInTheDocument();
+      expect(screen.getByText('1')).toBeInTheDocument();
+      
+      // Check for total value
+      expect(screen.getByText(/total.*value/i)).toBeInTheDocument();
+      expect(screen.getByText('3000')).toBeInTheDocument();
     });
   });
 
   it('navigates to create escrow when button clicked', async () => {
-    render(
+    const { getByRole } = render(
       <TestWrapper>
         <Dashboard />
       </TestWrapper>
     );
 
-    await waitFor(() => {
-      const createButton = screen.getByText(/create escrow/i);
-      expect(createButton).toBeInTheDocument();
-      expect(createButton.closest('a')).toHaveAttribute('href', '/escrow/create');
-    });
+    const createButton = getByRole('button', { name: /create.*escrow/i });
+    expect(createButton).toBeInTheDocument();
+    expect(createButton.closest('a')).toHaveAttribute('href', '/escrow/create');
   });
 
   it('handles wallet connection state properly', async () => {
-    // Dashboard redirects to /connect when wallet not connected,
-    // so we test that it renders correctly when wallet IS connected
     render(
       <TestWrapper>
         <Dashboard />
       </TestWrapper>
     );
 
-    // With wallet connected, should render dashboard content
-    await waitFor(() => {
-      expect(screen.queryByText(/dashboard/i)).toBeInTheDocument();
-    });
+    // Should show connect wallet prompt when no wallet connected
+    expect(screen.getByText(/connect.*wallet/i)).toBeInTheDocument();
   });
 });

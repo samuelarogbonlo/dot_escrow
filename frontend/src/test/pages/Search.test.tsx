@@ -5,13 +5,12 @@ import Search from '../../pages/Search';
 
 // Mock the useNavigate hook
 const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => ({
-  ...(await vi.importActual('react-router-dom')),
+vi.mock('react-router-dom', () => ({
+  ...vi.importActual('react-router-dom'),
   useNavigate: () => mockNavigate,
 }));
 
-// SKIPPED: Search page is completely commented out in implementation
-describe.skip('Search Page', () => {
+describe('Search Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

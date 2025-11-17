@@ -273,10 +273,10 @@ const Overview: React.FC<OverviewProps> = ({ pendingCount, onRefresh }) => {
 
         {/* Pending Actions */}
         <GridItem>
-          <Stat 
-            bg={pendingCount > 0 ? warningBg : statBg} 
-            p={4} 
-            borderRadius="lg" 
+          <Stat
+            bg={pendingCount > 0 ? warningBg : statBg}
+            p={4}
+            borderRadius="lg"
             boxShadow="sm"
           >
             <StatLabel display="flex" alignItems="center">
@@ -299,7 +299,7 @@ const Overview: React.FC<OverviewProps> = ({ pendingCount, onRefresh }) => {
                 <Icon as={FiDollarSign} mr={2} />
                 Platform Statistics
               </Heading>
-              
+
               <VStack spacing={4} align="stretch">
                 <HStack justify="space-between">
                   <Text>Total Escrows Created:</Text>
@@ -307,23 +307,23 @@ const Overview: React.FC<OverviewProps> = ({ pendingCount, onRefresh }) => {
                     {contractData.total_escrows?.toLocaleString()}
                   </Text>
                 </HStack>
-                
+
                 <HStack justify="space-between">
                   <Text>Total Volume Processed:</Text>
                   <Text fontWeight="bold">
                     {formatCurrency(contractData.total_volume)}
                   </Text>
                 </HStack>
-                
+
                 <HStack justify="space-between">
                   <Text>Platform Fees Collected:</Text>
                   <Text fontWeight="bold">
                     {formatCurrency(contractData.platform_fees_collected)}
                   </Text>
                 </HStack>
-                
+
                 <Divider />
-                
+
                 <HStack justify="space-between">
                   <Text>Success Rate:</Text>
                   <Badge colorScheme="green" fontSize="sm">
@@ -343,33 +343,33 @@ const Overview: React.FC<OverviewProps> = ({ pendingCount, onRefresh }) => {
                 <Icon as={FiSettings} mr={2} />
                 Contract Status
               </Heading>
-              
+
               <VStack spacing={4} align="stretch">
                 <HStack justify="space-between">
                   <Text>Operational Status:</Text>
-                  <Badge 
+                  <Badge
                     colorScheme={contractData.is_paused ? "red" : "green"}
                     display="flex"
                     alignItems="center"
                   >
-                    <Icon 
-                      as={contractData.is_paused ? FiPause : FiPlay} 
-                      mr={1} 
-                      size="12px" 
+                    <Icon
+                      as={contractData.is_paused ? FiPause : FiPlay}
+                      mr={1}
+                      size="12px"
                     />
                     {contractData.is_paused ? "Paused" : "Active"}
                   </Badge>
                 </HStack>
-                
+
                 <HStack justify="space-between">
                   <Text>Last Updated:</Text>
                   <Text fontSize="sm" color="gray.500">
                     {new Date().toLocaleDateString()}
                   </Text>
                 </HStack>
-                
+
                 <Divider />
-                
+
                 <Button
                   leftIcon={<FiRefreshCw />}
                   colorScheme="blue"
@@ -384,8 +384,6 @@ const Overview: React.FC<OverviewProps> = ({ pendingCount, onRefresh }) => {
           </Card>
         </GridItem>
       </Grid>
-
-      
     </VStack>
   );
 };

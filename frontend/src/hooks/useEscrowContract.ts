@@ -45,6 +45,8 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
 
   // Get USDT contract functions
 
+  console.log(api)
+
   // Helper to get signer with test mode support
   const getAccountSigner = useCallback(async (address: string) => {
     try {
@@ -209,7 +211,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       }
 
       // Transaction not found
-      console.log('[checkTransactionStatus] Transaction not found in recent blocks');
       return {
         success: false,
         error: "Transaction not found in recent blocks"
@@ -253,7 +254,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       const result: EscrowContractCall = await createEscrowContract(
         api,
         account,
-        actualCreatorAddress, // Use account.address instead of passed creatorAddress
+        account.address, // Use account.address instead of passed creatorAddress
         counterpartyAddress,
         counterpartyType,
         status,
@@ -267,7 +268,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
 
 
       if (result.success) {
-        console.log('[useEscrowContract] Escrow created successfully via smart contract', result);
         return {
           recipientAddress: counterpartyAddress,
           success: true,
@@ -295,13 +295,11 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
 
     try {
-      console.log('[useEscrowContract] Getting escrow from smart contract:', escrowId);
 
       // Call the smart contract to get escrow details
       const result: EscrowContractCall = await getEscrowContract(api, account, escrowId);
 
       if (result.success) {
-        console.log('[useEscrowContract] Escrow retrieved successfully from smart contract', result.data);
         return {
           success: true,
           escrow: result.data
@@ -323,7 +321,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
     }
 
     try {
-      console.log('[useEscrowContract] Getting escrow from smart contract:', escrowId);
 
       // Call the smart contract to get escrow details
       const result: EscrowContractCall = await completeMilestoneContract(api, account, escrowId, milestoneId);
@@ -360,7 +357,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return { success: false, error: signerResult.error };
       }
 
-      console.log('[useEscrowContract] Updating escrow status via smart contract:', { escrowId, newStatus, account: account.address });
 
       // Call the smart contract to update escrow status
       const result: EscrowContractCall = await updateEscrowStatusContract(
@@ -372,7 +368,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       );
 
       if (result.success) {
-        console.log('[useEscrowContract] Escrow status updated successfully via smart contract');
         return {
           success: true,
           escrow: { id: escrowId, status: newStatus, transactionHash: result.transactionHash },
@@ -490,7 +485,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return { success: false, error: signerResult.error };
       }
 
-      console.log('[useEscrowContract] Releasing milestone via smart contract:', { escrowId, milestoneId, account: account.address });
 
       // Call the smart contract to release milestone
       const result: EscrowContractCall = await releaseMilestoneContract(
@@ -501,7 +495,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       );
 
       if (result.success) {
-        console.log('[useEscrowContract] Milestone released successfully via smart contract');
         return {
           success: true,
           recieverAddress: account.address, // The account releasing the milestone
@@ -577,7 +570,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         return { success: false, error: signerResult.error };
       }
 
-      console.log('[useEscrowContract] Disputing milestone via smart contract:', { escrowId, milestoneId, note, fileUrls });
 
       // Call the smart contract to dispute milestone
       const result: EscrowContractCall = await completeMilestoneTaskContract(
@@ -590,7 +582,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
       );
 
       if (result.success) {
-        console.log('[useEscrowContract] Milestone task completed successfully via smart contract');
         return {
           success: true,
           escrowId: escrowId,
@@ -643,7 +634,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
 
       // Make API call to notify counterparty
       const response = await axios.post(
-        `escrowdata.up.railway.app/notify`,
+        `https://escrowdb.up.railway.app/notify/`,
         notificationData,
         {
           headers: {
@@ -652,7 +643,6 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
         }
       );
 
-      console.log('Notification response:', response.data);
 
       if (response.data?.success) {
         return {

@@ -14,18 +14,28 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 import { FiRefreshCw, FiDollarSign, FiShield } from "react-icons/fi";
-import { usePSP22StablecoinContract, ALEPH_ZERO_STABLECOINS } from "../../hooks/usePSP22StablecoinContract";
+import { usePSP22StablecoinContract, PASETHUB_NETWORK_STABLECOINS } from "../../hooks/usePSP22StablecoinContract";
 
 interface PSP22StablecoinBalanceProps {
-  stablecoinKey?: keyof typeof ALEPH_ZERO_STABLECOINS;
+  stablecoinKey?: keyof typeof PASETHUB_NETWORK_STABLECOINS;
   showRefresh?: boolean;
   showApprovalStatus?: boolean;
   requiredAmount?: string;
   compact?: boolean;
 }
 
+// Utility function to format numbers with commas and 2 decimal places
+const formatNumberWithCommas = (value: string | number): string => {
+  const num = typeof value === 'number' ? value : parseFloat(value);
+  // Format with 2 decimal places
+  const formatted = num.toFixed(2);
+  const parts = formatted.split('.');
+  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${integerPart}.${parts[1]}`;
+};
+
 export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
-  stablecoinKey = 'MOST_USDC',
+  stablecoinKey = 'TEST_USDT',
   showRefresh = true,
   showApprovalStatus = false,
   requiredAmount,
@@ -57,6 +67,21 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
     ? checkSufficientAllowance(requiredAmount)
     : true;
 
+  // Format balance for display
+  const formattedBalance = balance 
+    ? formatNumberWithCommas(balance.formatted) 
+    : "0.00";
+
+  // Format required amount for display
+  const formattedRequiredAmount = requiredAmount 
+    ? formatNumberWithCommas(requiredAmount) 
+    : null;
+
+  // Format allowance for display
+  const formattedAllowance = allowance?.formatted 
+    ? formatNumberWithCommas(allowance.formatted) 
+    : "0.00";
+
 
   if (compact) {
     return (
@@ -66,7 +91,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
           <Skeleton height="20px" width="60px" />
         ) : (
           <Text fontWeight="medium">
-            {balance ? `${balance.formatted} ${stablecoinConfig.symbol}` : `0.00 ${stablecoinConfig.symbol}`}
+            {formattedBalance} {stablecoinConfig.symbol}
           </Text>
         )}
         {showRefresh && (
@@ -119,7 +144,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
           <Skeleton height="24px" width="100px" />
         ) : (
           <Text fontSize="xl" fontWeight="bold">
-            {balance ? balance.formatted : "0.00"} {stablecoinConfig.symbol}
+            {formattedBalance} {stablecoinConfig.symbol}
           </Text>
         )}
 
@@ -135,7 +160,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
 
       {requiredAmount && (
         <Text fontSize="sm" color="gray.600" mb={2}>
-          Required: {requiredAmount} {stablecoinConfig.symbol}
+          Required: {formattedRequiredAmount} {stablecoinConfig.symbol}
         </Text>
       )}
 
@@ -162,7 +187,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
             <Tooltip
               label={
                 allowance?.isApproved
-                  ? `Approved: ${allowance.formatted} ${stablecoinConfig.symbol}`
+                  ? `Approved: ${formattedAllowance} ${stablecoinConfig.symbol}`
                   : "Not approved for escrow contract"
               }
             >

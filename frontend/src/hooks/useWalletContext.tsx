@@ -15,7 +15,6 @@ interface WalletContextType {
   // Extension state
   accounts: any[];
   selectedAccount: any;
-  selectedH160Address: string | null; // H160 address for contract calls
   isExtensionReady: boolean;
   isExtensionLoading: boolean;
   extensionError: string | null;
@@ -130,10 +129,6 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
 
   // Log important state changes
   useEffect(() => {
-    console.log("[WalletContext] Extension ready:", extension.isReady);
-    console.log("[WalletContext] API ready:", api.isReady);
-    console.log("[WalletContext] Selected account:", extension.selectedAccount?.address);
-    console.log("[WalletContext] Accounts count:", extension.accounts?.length || 0);
     
     // Debug: Log if an account gets auto-selected
     if (extension.selectedAccount && extension.accounts?.length > 0) {
@@ -143,13 +138,10 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
 
   // Combine all values into a single context value
   const contextValue = useMemo(() => {
-    console.log("useWallet contextValue updated");
-
     return {
       // Extension state
       accounts: extension.accounts || [],
       selectedAccount: extension.selectedAccount,
-      selectedH160Address: extension.selectedH160Address,
       isExtensionReady: extension.isReady,
       isExtensionLoading: extension.isLoading,
       extensionError: extension.error,

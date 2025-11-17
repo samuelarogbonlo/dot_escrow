@@ -142,8 +142,7 @@ const TestWrapper = ({ children, initialState = {} }) => {
   );
 };
 
-// SKIPPED: Transactions page is completely commented out in implementation
-describe.skip('Transactions', () => {
+describe('Transactions', () => {
   const user = userEvent.setup();
 
   beforeEach(() => {

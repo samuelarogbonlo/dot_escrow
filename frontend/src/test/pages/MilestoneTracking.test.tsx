@@ -169,7 +169,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('renders milestone tracking page', async () => {
+  it('renders milestone tracking page', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -199,7 +199,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('shows milestone statuses with appropriate styling', async () => {
+  it('shows milestone statuses with appropriate styling', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -215,7 +215,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('filters milestones by status', async () => {
+  it('filters milestones by status', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -236,7 +236,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('filters milestones by escrow', async () => {
+  it('filters milestones by escrow', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -258,7 +258,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('sorts milestones by deadline', async () => {
+  it('sorts milestones by deadline', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -277,7 +277,7 @@ describe('MilestoneTracking', () => {
     // (This would require checking the order of elements in the DOM)
   });
 
-  it.skip('shows deadline warnings for overdue milestones', async () => {
+  it('shows deadline warnings for overdue milestones', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -291,7 +291,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('allows updating milestone status', async () => {
+  it('allows updating milestone status', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -322,7 +322,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('displays milestone progress indicators', async () => {
+  it('displays milestone progress indicators', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -335,7 +335,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('shows deadline countdown for active milestones', async () => {
+  it('shows deadline countdown for active milestones', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -348,7 +348,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('handles loading state', () => {
+  it('handles loading state', () => {
     mockListEscrows.mockImplementation(() => new Promise(() => {})); // Never resolves
 
     render(
@@ -360,7 +360,7 @@ describe('MilestoneTracking', () => {
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
 
-  it.skip('handles error state', async () => {
+  it('handles error state', async () => {
     mockListEscrows.mockResolvedValue({
       success: false,
       error: 'Failed to fetch milestones',
@@ -394,7 +394,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('navigates to milestone detail page', async () => {
+  it('navigates to milestone detail page', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -410,7 +410,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('shows different actions based on user role', async () => {
+  it('shows different actions based on user role', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -424,22 +424,24 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('groups milestones by escrow', async () => {
+  it('groups milestones by escrow', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
       </TestWrapper>
     );
 
-    const groupToggle = await waitFor(() => screen.getByLabelText(/group.*by.*escrow/i));
-    await user.click(groupToggle);
+    await waitFor(() => {
+      const groupToggle = screen.getByLabelText(/group.*by.*escrow/i);
+      await user.click(groupToggle);
+    });
 
     // Should show milestones grouped by their parent escrow
     expect(screen.getByText('Website Development')).toBeInTheDocument();
     expect(screen.getByText('Mobile App Development')).toBeInTheDocument();
   });
 
-  it.skip('shows milestone amounts and totals', async () => {
+  it('shows milestone amounts and totals', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />
@@ -453,7 +455,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('handles update milestone status error', async () => {
+  it('handles update milestone status error', async () => {
     mockUpdateEscrowMilestoneStatus.mockResolvedValue({
       success: false,
       error: 'Unauthorized to update milestone',
@@ -478,7 +480,7 @@ describe('MilestoneTracking', () => {
     });
   });
 
-  it.skip('requires wallet connection', () => {
+  it('requires wallet connection', () => {
     const initialState = {
       wallet: {
         selectedAccount: null,
@@ -495,7 +497,7 @@ describe('MilestoneTracking', () => {
     expect(screen.getByText(/connect.*wallet/i)).toBeInTheDocument();
   });
 
-  it.skip('refreshes data after status updates', async () => {
+  it('refreshes data after status updates', async () => {
     render(
       <TestWrapper>
         <MilestoneTracking />

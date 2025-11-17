@@ -58,8 +58,7 @@ describe('SearchFilters Component', () => {
     expect(mockOnSearch).toHaveBeenCalled();
   });
   
-  // SKIPPED: Filter visibility toggle doesn't work as expected in test - filters are always visible
-  it.skip('toggles filter visibility', () => {
+  it('toggles filter visibility', () => {
     renderWithProviders(
       <SearchFilters 
         filters={defaultFilters} 

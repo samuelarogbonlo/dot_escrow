@@ -29,8 +29,6 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
-  IconButton,
-  Tooltip,
 } from "@chakra-ui/react";
 import {
   FiClock,
@@ -42,11 +40,9 @@ import {
   FiCalendar,
   FiDollarSign,
   FiUser,
-  FiCopy,
 } from "react-icons/fi";
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import { useWallet } from "../../hooks/useWalletContext";
-import { formatSS58, formatH160, detectAddressFormat, toH160 } from "../../utils/addressConversion";
 
 import CompleteMilestoneModal from "@/components/Modal/CompleteMilestoneModal";
 import ReleaseMilestoneModal from "@/components/Modal/ReleaseMilestoneModal";
@@ -450,76 +446,12 @@ const EscrowDetails = () => {
   };
 
 
-  // Copy address to clipboard
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast({
-        title: `${label} copied`,
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-      });
-    });
-  };
-
-  // Render address with both formats
-  const renderAddress = (address: string, label: string) => {
-    const addressFormat = detectAddressFormat(address);
-    let h160Address: string | null = null;
-
-    try {
-      h160Address = addressFormat === 'h160' ? address : toH160(address);
-    } catch (error) {
-      console.warn('Failed to convert address to H160:', error);
-    }
-
-    return (
-      <VStack align="start" spacing={1} w="full">
-        <Text fontWeight="medium" fontSize="sm">{label}:</Text>
-
-        {/* SS58 Address */}
-        <HStack w="full" justify="space-between">
-          <HStack spacing={2}>
-            <Badge colorScheme="purple" fontSize="xs">SS58</Badge>
-            <Tooltip label={address} placement="top">
-              <Text fontSize="sm">{formatSS58(address)}</Text>
-            </Tooltip>
-          </HStack>
-          <IconButton
-            aria-label={`Copy ${label} SS58 address`}
-            icon={<FiCopy />}
-            size="xs"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              copyToClipboard(address, `${label} SS58 address`);
-            }}
-          />
-        </HStack>
-
-        {/* H160 Address */}
-        {h160Address && (
-          <HStack w="full" justify="space-between">
-            <HStack spacing={2}>
-              <Badge colorScheme="blue" fontSize="xs">H160</Badge>
-              <Tooltip label={h160Address} placement="top">
-                <Text fontSize="sm">{formatH160(h160Address)}</Text>
-              </Tooltip>
-            </HStack>
-            <IconButton
-              aria-label={`Copy ${label} H160 address`}
-              icon={<FiCopy />}
-              size="xs"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                copyToClipboard(h160Address!, `${label} H160 address`);
-              }}
-            />
-          </HStack>
-        )}
-      </VStack>
-    );
+  // Format address
+  const formatAddress = (address: string) => {
+    if (address.length < 10) return address;
+    return `${address.substring(0, 6)}...${address.substring(
+      address.length - 4
+    )}`;
   };
 
   // Get status badge
@@ -721,31 +653,24 @@ const EscrowDetails = () => {
                         {escrow.milestones.reduce(
                           (sum, milestone) => sum + Number(milestone.amount),
                           0
-                        )}{" "}
+                        ).toLocaleString()}{" "}
                         USDT
                       </Text>
                     </HStack>
                   </VStack>
                 </GridItem>
                 <GridItem>
-                  <VStack align="start" spacing={4} w="full">
-                    {/* Client Address */}
-                    <Box w="full">
-                      <HStack mb={2}>
-                        <FiUser />
-                        <Text fontWeight="medium">Client</Text>
-                      </HStack>
-                      {renderAddress(escrow.creatorAddress, "Client")}
-                    </Box>
-
-                    {/* Worker Address */}
-                    <Box w="full">
-                      <HStack mb={2}>
-                        <FiUser />
-                        <Text fontWeight="medium">Worker</Text>
-                      </HStack>
-                      {renderAddress(escrow.counterpartyAddress, "Worker")}
-                    </Box>
+                  <VStack align="start" spacing={3}>
+                    <HStack>
+                      <FiUser />
+                      <Text fontWeight="medium">Client:</Text>
+                      <Text>{formatAddress(escrow.creatorAddress)}</Text>
+                    </HStack>
+                    <HStack>
+                      <FiUser />
+                      <Text fontWeight="medium">Worker:</Text>
+                      <Text>{formatAddress(escrow.counterpartyAddress)}</Text>
+                    </HStack>
                   </VStack>
                 </GridItem>
               </Grid>
@@ -772,7 +697,7 @@ const EscrowDetails = () => {
                       boxShadow: "md",
                       borderColor:
                         milestone.status === "Active" ? "blue.500" : "gray.300",
-                      backgroundColor: "gray.100",
+                      backgroundColor: "gray.5",
                     }}
                     transition="all 0.2s"
                   >
@@ -787,7 +712,7 @@ const EscrowDetails = () => {
                           </HStack>
                           <Text>{milestone.description}</Text>
                         </VStack>
-                        <Text fontWeight="bold">{milestone.amount} USDT</Text>
+                        <Text fontWeight="bold">{Number(milestone.amount).toLocaleString()} USDT</Text>
                       </Flex>
 
                       <Flex justifyContent="space-between" alignItems="center">
@@ -926,7 +851,7 @@ const EscrowDetails = () => {
                       {escrow.milestones.reduce(
                         (sum, milestone) => sum + Number(milestone.amount),
                         0
-                      )}{" "}
+                      ).toLocaleString()}{" "}
                       USDT
                     </StatNumber>
                     <StatHelpText>Locked in escrow</StatHelpText>

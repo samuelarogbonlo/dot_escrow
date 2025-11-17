@@ -720,7 +720,7 @@ const MilestoneDetail = () => {
                     <Text fontWeight="semibold">Amount:</Text>
                   </HStack>
                   <Text fontSize="xl" fontWeight="bold" color="green.500">
-                    ${milestoneData?.amount || "0"}
+                    ${Number(milestoneData?.amount).toLocaleString() || "0"}
                   </Text>
                 </HStack>
 

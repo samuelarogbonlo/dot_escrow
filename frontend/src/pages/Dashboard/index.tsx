@@ -22,6 +22,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useWallet } from "../../hooks/useWalletContext";
 import { EscrowData } from "../../hooks/useEscrowContract";
+import { substrateToH160 } from "@/utils/substrateToH160";
 
 import StatCard from "../../components/Card/StatCard";
 import EscrowCard from "../../components/Card/EscrowCard";
@@ -73,8 +74,8 @@ const Dashboard = () => {
             userAddress: selectedAccount.address
           });
           
-          const isUserCreator = e.creatorAddress === selectedAccount.address;
-          const isUserCounterparty = e.counterpartyAddress === selectedAccount.address;
+          const isUserCreator = e.creatorAddress === substrateToH160(selectedAccount.address);
+          const isUserCounterparty = e.counterpartyAddress === substrateToH160(selectedAccount.address);
           const isActive = e.status === "Active";
           const isComplete = e.status === "Completed"
 

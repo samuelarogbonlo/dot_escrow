@@ -263,6 +263,7 @@ const useTokenDistribution = ({
             return false;
         }
 
+
         setIsLoading(true);
         setError(null);
 
@@ -329,6 +330,7 @@ const useTokenDistribution = ({
         }
 
         console.log("checking for claimed token")
+        console.log(contract)
 
 
 
@@ -357,6 +359,8 @@ const useTokenDistribution = ({
                 selectedAccount,
                 [address]
             );
+
+            console.log(address)
             const [canClaimResult, timeUntilResult, lastClaimResult] = await Promise.all([
                 contract.query.canClaim(selectedAccount.address, {
                     gasLimit: canClaimGasLimit
@@ -374,7 +378,7 @@ const useTokenDistribution = ({
                 const timeUntil = (timeUntilResult.output as any).toJSON?.() ?? (timeUntilResult.output as any);
                 const lastClaim = (lastClaimResult.output as any).toJSON?.() ?? (lastClaimResult.output as any);
 
-
+                console.log(canClaim.ok, timeUntil.ok, lastClaim.ok)
 
                 return {
                     canClaim: canClaim.ok,

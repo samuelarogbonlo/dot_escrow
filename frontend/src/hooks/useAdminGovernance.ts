@@ -39,7 +39,7 @@ export const estimateGas = async (
     }
 
     // Perform a dry run to estimate gas
-    const { gasRequired, result, output } = await query(
+    const { gasRequired, result } = await query(
       account.address,
       {
         gasLimit: api.registry.createType('WeightV2', {
@@ -99,6 +99,8 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     const contract = getContract();
     if (!contract || !api || !account) return false;
 
+    console.log("isAdmin Address", address)
+
     // Dynamically estimate gas for this query
     const gasLimit = await estimateGas(
       api,
@@ -107,6 +109,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
       account,
       [address]
     );
+
 
     const { result, output } = await contract.query.isAdminSigner(
       account.address,
@@ -136,7 +139,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
       []
     );
     const { result, output } = await contract.query.getAdminSigners(
-      account.address,
+    account.address,
       {
         gasLimit,
         storageDepositLimit: null
@@ -144,6 +147,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     );
     if (result.isOk && output) {
       const data = (output as any).toJSON?.() ?? (output as any);
+      console.log(data)
       return data.ok as string[];
     }
     return [];

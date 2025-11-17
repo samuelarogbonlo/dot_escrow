@@ -7,7 +7,7 @@ import PolkadotWalletModal from '../Modal/PolkadotWalletModal'
 const Layout = () => {
   const bgColor = useColorModeValue('white', 'gray.900');
   const { isOpen, onOpen, onClose } = useDisclosure();
-
+// 
   return (
     <Flex minHeight="100vh" width="100%" bg={bgColor}>
       <Sidebar />

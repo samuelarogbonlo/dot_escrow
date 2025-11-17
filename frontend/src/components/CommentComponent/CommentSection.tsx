@@ -88,14 +88,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <Heading size="md">Discussion</Heading>
           <HStack>
             <FiMessageSquare />
-            <Text color="gray.600">{getCommentCount()} comments</Text>
+            <Text>{getCommentCount()} comments</Text>
           </HStack>
         </HStack>
       </CardHeader>
       <CardBody>
         <VStack spacing={4} align="stretch">
           {/* Add Comment Section */}
-          <Box p={4} bg="gray.50" rounded="lg">
+          <Box p={4} rounded="lg">
             <VStack spacing={3}>
               <Textarea
                 placeholder="Add a comment..."
@@ -133,14 +133,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <VStack spacing={4} align="stretch">
               {comments.length === 0 ? (
                 <Box textAlign="center" py={8}>
-                  <Text color="gray.500">No comments yet. Start the discussion!</Text>
+                  <Text >No comments yet. Start the discussion!</Text>
                 </Box>
               ) : (
                 comments.map((comment) => (
                   <Box
                     key={comment.id}
                     p={4}
-                    bg="white"
                     border="1px"
                     borderColor="gray.200"
                     rounded="lg"

@@ -1,22 +1,9 @@
 import { ContractPromise } from '@polkadot/api-contract';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/EscrowABI';
-import type { AccountWithAddresses } from '../hooks/usePolkadotExtension';
-import { toH160 } from './addressConversion';
-
-/**
- * Get H160 address from account (ink! v6 / pallet-revive requirement)
- * @param account - Account object (may already have h160Address field)
- * @returns H160 address string
- */
-const getH160Address = (account: InjectedAccountWithMeta | AccountWithAddresses): string => {
-  // Check if account already has h160Address (from usePolkadotExtension)
-  if ('h160Address' in account && account.h160Address) {
-    return account.h160Address;
-  }
-  // Otherwise convert SS58 to H160
-  return toH160(account.address);
-};
+import { decodeAddress } from '@polkadot/util-crypto';
+import { u8aToHex } from '@polkadot/util'
+import { substrateToH160 } from './substrateToH160';
 
 /**
  * Utility function to safely convert timestamps from smart contract
@@ -86,6 +73,8 @@ export interface EscrowContractCall {
   transactionHash?: string;
 }
 
+
+
 /**
  * Dynamically estimate gas for a contract call
  * @param api - The Polkadot API instance
@@ -115,14 +104,11 @@ const estimateGas = async (
     }
 
     // Perform a dry run to estimate gas
-    // Use H160 address for ink! v6 / pallet-revive
-    const callerAddress = getH160Address(account);
-
     const { gasRequired, result, output } = await query(
-      callerAddress,
+      account.address,
       {
         gasLimit: api.registry.createType('WeightV2', {
-           refTime: 100000000000, // Use high limit for estimation
+          refTime: 100000000000, // Use high limit for estimation
           proofSize: 5 * 1024 * 1024 // 5MB for estimation
         }),
         storageDepositLimit: null,
@@ -216,47 +202,32 @@ export const createEscrowContract = async (
   transactionHash?: string,
 ): Promise<EscrowContractCall> => {
   try {
-    // ... [previous setup code remains the same] ...
 
     const contractMilestones = milestones.map(milestone => ({
       id: milestone.id,
       description: milestone.description,
       amount: milestone.amount,
-      status: milestone.status,
+      status: String(milestone.status), // Ensure status is explicitly a String
       deadline: safeTimestampConversion(milestone.deadline, Date.now() + 86400000), // Default to 24 hours from now
       completed_at: null,
       dispute_reason: null,
       dispute_filed_by: null,
-      // New on-chain fields to prevent decoding errors  
       completion_note: milestone.completionNote ?? null,
-      evidence_file: milestone.evidenceUris ? milestone.evidenceUris : null
+      // evidence_file must be Option<Vec<String>> - ensure it's an array of strings or null
+      evidence_file: milestone.evidenceUris && Array.isArray(milestone.evidenceUris) && milestone.evidenceUris.length > 0
+        ? milestone.evidenceUris.map((uri: any) => String(uri))
+        : null
     }));
 
+
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
-    // Still use SS58 for wallet signing
     const injector = await web3FromAddress(account.address);
     api.setSigner(injector.signer);
 
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    // Convert addresses to H160 format (required for ink! v6 / pallet-revive)
-    let creatorH160: string;
-    let counterpartyH160: string;
 
-    try {
-      creatorH160 = toH160(creatorAddress);
-      counterpartyH160 = toH160(counterpartyAddress);
-      console.log('[Contract] Converted addresses to H160:', {
-        creator: creatorH160,
-        counterparty: counterpartyH160
-      });
-    } catch (error) {
-      console.error('[Contract] Invalid address format:', error);
-      return {
-        success: false,
-        error: `Invalid address format: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
-    }
+    const h160AddressForCounterparty = substrateToH160(counterpartyAddress)
 
 
     // Dynamically estimate gas for this call
@@ -265,15 +236,16 @@ export const createEscrowContract = async (
       contract,
       'createEscrow',
       account,
-      [counterpartyH160, counterpartyType, status, title, description, totalAmount, contractMilestones, transactionHash]
+      [h160AddressForCounterparty, counterpartyType, status, title, description, totalAmount, contractMilestones, transactionHash]
     );
+
 
     const tx = contract.tx.createEscrow(
       {
         gasLimit,
         storageDepositLimit: null,
       },
-      counterpartyH160, // Use H160 address for contract call
+      h160AddressForCounterparty,
       counterpartyType,
       status,
       title,
@@ -283,20 +255,22 @@ export const createEscrowContract = async (
       transactionHash
     );
 
+
     return new Promise((resolve) => {
       let resolved = false;
+
 
       tx.signAndSend(account.address, (result) => {
         if (resolved) return;
 
-
         if (result.dispatchError) {
-         
 
           // Try to get more detailed error info
           if (result.dispatchError.isModule) {
             const decoded = api.registry.findMetaError(result.dispatchError.asModule);
-            
+
+            console.log(decoded)
+
 
             resolved = true;
             resolve({
@@ -420,7 +394,7 @@ export const getEscrowContract = async (
   escrowId: string
 ): Promise<EscrowContractCall> => {
   try {
-   
+
 
     // Check if API is properly initialized
     if (!api || !api.isConnected) {
@@ -443,11 +417,8 @@ export const getEscrowContract = async (
     );
 
     // Call the get_escrow function (read-only query)
-    // Use H160 address for ink! v6 / pallet-revive
-    const callerAddress = getH160Address(account);
-
     const result = await contract.query.getEscrow(
-      callerAddress, // caller address (H160)
+      account.address, // caller address
       {
         gasLimit,
         storageDepositLimit: null,
@@ -459,7 +430,7 @@ export const getEscrowContract = async (
     // Check if the call was successful
     if (result.result.isOk) {
       const output = result.output?.toHuman();
-      
+
 
       // The output should be a Result<EscrowData, EscrowError>
       if (output && typeof output === 'object') {
@@ -492,9 +463,9 @@ export const getEscrowContract = async (
               disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by,
               completionNote: m.completionNote || m.completion_note,
               evidenceData: m.evidenceFile?.map((e: any) => ({
-                  name: e.name,
-                  url: e.url
-                }))
+                name: e.name,
+                url: e.url
+              }))
             })) || [],
             transactionHash: data.transactionHash || data.transaction_hash
           };
@@ -544,9 +515,8 @@ export const listEscrowsContract = async (
   account: InjectedAccountWithMeta
 ): Promise<EscrowContractCall> => {
   try {
-    
 
-    // Check if API is properly initialized
+
     if (!api || !api.isConnected) {
       return {
         success: false,
@@ -554,125 +524,60 @@ export const listEscrowsContract = async (
       };
     }
 
-    // Create contract instance
+
+
+
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
-    // Dynamically estimate gas for this query
-    const gasLimit = await estimateGas(
-      api,
-      contract,
-      'listEscrows',
-      account,
-      [] // No parameters for listEscrows
-    );
 
-    // Call the list_escrows function (read-only query)
-    // Use H160 address for ink! v6 / pallet-revive
-    const callerAddress = getH160Address(account);
+    // Use a more explicit gas limit
+    const gasLimit = api.registry.createType('WeightV2', {
+      refTime: 100000000000,
+      proofSize: 5 * 1024 * 1024
+    });
+
 
     const result = await contract.query.listEscrows(
-      callerAddress, // caller address (H160)
+      account.address,  // SS58 format
       {
-        gasLimit,
+        gasLimit: gasLimit,
         storageDepositLimit: null,
       }
-      // No parameters needed for list_escrows
     );
 
 
-    // Check if the call was successful
     if (result.result.isOk) {
       const output = result.output?.toHuman();
-     
 
-      // The output should be a Result<Vec<EscrowData>, EscrowError>
+      // Rest of your transformation logic...
       if (output && typeof output === 'object') {
-        // Check if it's a successful result
         if ('Ok' in output) {
-          
-
-          // Handle nested Result structure: Result<Result<Vec<EscrowData>, EscrowError>, InkError>
           if (output.Ok && typeof output.Ok === 'object' && 'Ok' in output.Ok) {
             const escrowsData = output.Ok.Ok as any[];
+            console.log('[DEBUG] Found escrows count:', escrowsData.length);
 
-            // Transform the data array to match our interface
-            const transformedData: EscrowData[] = escrowsData.map((escrowData: any) => ({
-              id: escrowData.id,
-              creatorAddress: escrowData.creatorAddress || escrowData.creator_address,
-              counterpartyAddress: escrowData.counterpartyAddress || escrowData.counterparty_address,
-              counterpartyType: escrowData.counterpartyType || escrowData.counterparty_type,
-              title: escrowData.title,
-              description: escrowData.description,
-              totalAmount: escrowData.totalAmount || escrowData.total_amount,
-              status: escrowData.status,
-              createdAt: safeTimestampConversion(escrowData.createdAt || escrowData.created_at, Math.floor(Date.now() / 1000)),
-              milestones: escrowData.milestones?.map((m: any) => ({
-                id: m.id,
-                description: m.description,
-                amount: m.amount,
-                status: m.status,
-                deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
-                completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
-                disputeReason: m.disputeReason || m.dispute_reason,
-                disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by,
-                evidenceData: m.evidenceFile?.map((e: any) => ({
-                  name: e.name,
-                  url: e.url
-                }))
-              })) || [],
-              transactionHash: escrowData.transactionHash || escrowData.transaction_hash
-            }));
-
+            // Don't transform yet, just return raw data to see what we're getting
             return {
               success: true,
-              data: transformedData
+              data: escrowsData
             };
           } else if ('Ok' in output && Array.isArray(output.Ok)) {
-            // Direct array format (old structure compatibility)
-            const escrowsData = output.Ok as any[];
-
-            const transformedData: EscrowData[] = escrowsData.map((escrowData: any) => ({
-              id: escrowData.id,
-              creatorAddress: escrowData.creatorAddress || escrowData.creator_address,
-              counterpartyAddress: escrowData.counterpartyAddress || escrowData.counterparty_address,
-              counterpartyType: escrowData.counterpartyType || escrowData.counterparty_type,
-              title: escrowData.title,
-              description: escrowData.description,
-              totalAmount: escrowData.totalAmount || escrowData.total_amount,
-              status: escrowData.status,
-              createdAt: safeTimestampConversion(escrowData.createdAt || escrowData.created_at, Math.floor(Date.now() / 1000)),
-              milestones: escrowData.milestones?.map((m: any) => ({
-                id: m.id,
-                description: m.description,
-                amount: m.amount,
-                status: m.status,
-                deadline: safeTimestampConversion(m.deadline, Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000)), // Default to 30 days from now if missing
-                completedAt: m.completedAt ? safeTimestampConversion(m.completedAt) : undefined,
-                disputeReason: m.disputeReason || m.dispute_reason,
-                disputeFiledBy: m.disputeFiledBy || m.dispute_filed_by
-              })) || [],
-              transactionHash: escrowData.transactionHash || escrowData.transaction_hash
-            }));
-
             return {
               success: true,
-              data: transformedData
+              data: output.Ok
             };
           } else if ('Ok' in output && !Array.isArray(output.Ok)) {
-            // If Ok but not an array, might be empty result
             return {
               success: true,
               data: []
             };
           } else if ('Err' in output) {
-            // Handle contract error
             return {
               success: false,
               error: `Contract error: ${JSON.stringify(output.Err)}`
             };
           }
         } else if ('Err' in output) {
-          // Handle outer error
           return {
             success: false,
             error: `Contract error: ${JSON.stringify(output.Err)}`
@@ -680,16 +585,12 @@ export const listEscrowsContract = async (
         }
       }
 
-      // Fallback: return raw output
       return {
         success: true,
         data: Array.isArray(output) ? output : []
       };
     } else {
-      // Handle query execution error
       const error = result.result.asErr;
-      console.error('[Contract] List query execution failed:', error);
-
       return {
         success: false,
         error: `Query failed: ${error.toString()}`
@@ -697,7 +598,6 @@ export const listEscrowsContract = async (
     }
 
   } catch (error) {
-    console.error('[Contract] Error listing escrows:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to list escrows'
@@ -749,7 +649,7 @@ export const updateEscrowStatusContract = async (
         if (resolved) return;
 
 
-        
+
         if (result.dispatchError) {
           console.error('[Contract] Transaction failed:', result.dispatchError.toString());
           if (!resolved) {
@@ -763,7 +663,7 @@ export const updateEscrowStatusContract = async (
         }
 
         if (result.status.isFinalized) {
-         
+
 
           resolved = true;
           resolve({
@@ -788,7 +688,6 @@ export const updateEscrowStatusContract = async (
     });
 
   } catch (error) {
-    console.error('[Contract] Error updating escrow status:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update escrow status'
@@ -807,7 +706,7 @@ export const updateMilestoneStatusContract = async (
   newStatus: string
 ): Promise<EscrowContractCall> => {
   try {
-    
+
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -836,7 +735,7 @@ export const updateMilestoneStatusContract = async (
         newStatus
       )
         .signAndSend(account.address, (result) => {
-          
+
 
           if (result.status.isInBlock) {
             console.log('[Contract] Transaction included in block:', result.status.asInBlock.toHex());
@@ -866,7 +765,7 @@ export const updateMilestoneStatusContract = async (
         });
     });
 
-    
+
     return result;
 
   } catch (error) {
@@ -884,7 +783,7 @@ export const completeMilestoneContract = async (
   milestoneId: string,
 ): Promise<EscrowContractCall> => {
   try {
-    
+
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -912,7 +811,7 @@ export const completeMilestoneContract = async (
         milestoneId,
       )
         .signAndSend(account.address, (result) => {
-         
+
 
           if (result.status.isInBlock) {
             console.log('[Contract] Transaction included in block:', result.status.asInBlock.toHex());
@@ -920,7 +819,7 @@ export const completeMilestoneContract = async (
 
             resolve({
               success: true,
-              
+
             });
           } else if (result.status.isInvalid) {
             reject(new Error('Transaction is invalid'));
@@ -1100,8 +999,8 @@ export const completeMilestoneTaskContract = async (
         }
 
         if (result.status.isFinalized) {
-         
-          
+
+
 
           resolved = true;
           resolve({
@@ -1137,8 +1036,8 @@ export const releaseMilestoneContract = async (
 ): Promise<EscrowContractCall> => {
   try {
 
-   
-    
+
+
 
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
@@ -1204,7 +1103,7 @@ export const releaseMilestoneContract = async (
         }
 
         if (result.status.isFinalized) {
-       
+
 
           // Process contract events to get release details from MilestoneReleased event
           let releaseData = null;

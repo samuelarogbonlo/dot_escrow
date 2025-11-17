@@ -88,12 +88,12 @@ const theme = extendTheme({
         margin: 0,
         padding: 0,
         // Use different background colors based on color mode
-        bg: props.colorMode === 'dark' ? 'gray.900' : 'white',
+        bg: props.colorMode === 'dark' ? 'white' : 'gray.900',
         color: props.colorMode === 'dark' ? 'white' : 'gray.800',
       },
       '#root': {
         minHeight: '100vh',
-        bg: props.colorMode === 'dark' ? 'gray.900' : 'white',
+        bg: props.colorMode === 'dark' ? 'white' : 'gray.900',
       },
       // Scrollbar styling for better dark mode
       '::-webkit-scrollbar': {
@@ -101,14 +101,14 @@ const theme = extendTheme({
         height: '8px',
       },
       '::-webkit-scrollbar-track': {
-        bg: props.colorMode === 'dark' ? 'gray.700' : 'gray.100',
+        bg: props.colorMode === 'dark' ? 'gray.100' : 'gray.700',
       },
       '::-webkit-scrollbar-thumb': {
-        bg: props.colorMode === 'dark' ? 'gray.500' : 'gray.400',
+        bg: props.colorMode === 'dark' ? 'gray.400' : 'gray.500',
         borderRadius: '8px',
       },
       '::-webkit-scrollbar-thumb:hover': {
-        bg: props.colorMode === 'dark' ? 'gray.400' : 'gray.500',
+        bg: props.colorMode === 'dark' ? 'gray.500' : 'gray.400',
       },
     })
   }
