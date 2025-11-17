@@ -242,8 +242,6 @@ This project is dual-licensed:
 
 - **GitHub**: [@samuelarogbonlo](https://github.com/samuelarogbonlo)
 - **Documentation**: [GitBook](https://dotescrow.gitbook.io/dotescrow-docs/)
-- **Email**: support@dotescrow.io
-
 ---
 
 Built with ❤️ for the Polkadot ecosystem
