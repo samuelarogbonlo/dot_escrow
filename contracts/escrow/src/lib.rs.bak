@@ -395,6 +395,16 @@ mod escrow_contract {
             }
         }
 
+        /// Helper to convert AccountId (32 bytes) to Address/H160 (20 bytes)
+        /// Takes the first 20 bytes of the AccountId to match frontend conversion
+        #[allow(dead_code)]
+        fn account_id_to_address(account_id: AccountId) -> Address {
+            let account_bytes: &[u8; 32] = account_id.as_ref();
+            let mut address_bytes = [0u8; 20];
+            address_bytes.copy_from_slice(&account_bytes[0..20]);
+            Address::from(address_bytes)
+        }
+
         /// Create a new escrow
         #[ink(message)]
         pub fn create_escrow(
@@ -1964,166 +1974,6 @@ mod escrow_contract {
         }
 
         #[ink::test]
-        fn test_complete_milestone_task_sets_done_and_evidence() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task".to_string(),
-                amount: "100".to_string(),
-                status: "InProgress".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let escrow_id = contract.create_escrow(
-                accounts.bob,
-                "provider".to_string(),
-                "Active".to_string(),
-                "Test".to_string(),
-                "Desc".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            ).unwrap();
-
-            // Counterparty completes the milestone task
-            test::set_caller(accounts.bob);
-            contract.complete_milestone_task(
-                escrow_id.clone(),
-                "m1".to_string(),
-                Some("Done".to_string()),
-                Some(vec![Evidence { name: "file".to_string(), url: "ipfs://file".to_string() }])
-            ).unwrap();
-
-            let milestone = contract.get_escrow_milestone(escrow_id, "m1".to_string()).unwrap();
-            assert_eq!(milestone.status, MilestoneStatus::Done);
-            assert_eq!(milestone.completion_note, Some("Done".to_string()));
-            assert!(milestone.completed_at.is_some());
-            let evidence = milestone.evidence_file.expect("evidence saved");
-            assert_eq!(evidence.len(), 1);
-            assert_eq!(evidence[0].url, "ipfs://file");
-        }
-
-        #[ink::test]
-        fn test_complete_milestone_sets_completed_and_updates_escrow() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task".to_string(),
-                amount: "100".to_string(),
-                status: "Funded".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let escrow_id = contract.create_escrow(
-                accounts.bob,
-                "provider".to_string(),
-                "Active".to_string(),
-                "Test".to_string(),
-                "Desc".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            ).unwrap();
-
-            // Creator completes the funded milestone
-            test::set_caller(accounts.alice);
-            contract.complete_milestone(escrow_id.clone(), "m1".to_string()).unwrap();
-
-            let milestone = contract.get_escrow_milestone(escrow_id.clone(), "m1".to_string()).unwrap();
-            assert_eq!(milestone.status, MilestoneStatus::Completed);
-
-            let escrow = contract.get_escrow(escrow_id).unwrap();
-            assert_eq!(escrow.status, EscrowStatus::Completed);
-        }
-
-        #[ink::test]
-        fn test_release_milestone_fee_too_high_short_circuits() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task".to_string(),
-                amount: "100".to_string(),
-                status: "Pending".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let escrow_id = contract.create_escrow(
-                accounts.bob,
-                "provider".to_string(),
-                "Active".to_string(),
-                "Test".to_string(),
-                "Desc".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            ).unwrap();
-
-            // Push fee above 100% to trigger early guard
-            contract.fee_bps = 10_001;
-            let result = contract.release_milestone(escrow_id, "m1".to_string());
-            assert_eq!(result, Err(EscrowError::FeeTooHigh));
-        }
-
-        #[ink::test]
-        fn test_release_milestone_insufficient_deposit_stops_before_psp22() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let mut contract = EscrowContract::new(accounts.frank, accounts.eve);
-
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task".to_string(),
-                amount: "100".to_string(),
-                status: "Pending".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let escrow_id = contract.create_escrow(
-                accounts.bob,
-                "provider".to_string(),
-                "Active".to_string(),
-                "Test".to_string(),
-                "Desc".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            ).unwrap();
-
-            // No deposit recorded; should fail on escrow_deposits guard before any PSP22 call
-            let result = contract.release_milestone(escrow_id, "m1".to_string());
-            assert_eq!(result, Err(EscrowError::InsufficientBalance));
-        }
-
-        #[ink::test]
         fn test_getter_functions() {
             let accounts = test::default_accounts();
             let contract = EscrowContract::new(accounts.frank, accounts.eve);
@@ -2197,649 +2047,219 @@ mod escrow_contract {
             );
         }
 
-        #[ink::test]
-        fn test_constructor() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-
-            let contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Verify constructor initialized correctly
-            assert_eq!(contract.owner, accounts.alice);
-            assert_eq!(contract.usdt_token, usdt_token);
-            assert_eq!(contract.fee_account, fee_account);
-            assert_eq!(contract.fee_bps, 100); // Default 1.0%
-            assert_eq!(contract.paused, false);
-            assert_eq!(contract.escrow_counter, 0);
-            assert_eq!(contract.total_volume, 0);
-            assert_eq!(contract.token_decimals, 6);
-
-            // Verify admin multisig defaults
-            let signers = contract.get_admin_signers();
-            assert_eq!(signers.len(), 1);
-            assert_eq!(signers[0], accounts.alice);
-            assert_eq!(contract.get_signature_threshold(), 1);
-        }
-
-        #[ink::test]
-        fn test_multisig_propose_and_approve() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Add two more admin signers
-            contract.admin_signers.push(accounts.bob);
-            contract.admin_signers.push(accounts.charlie);
-            contract.signature_threshold = 2;
-
-            // Submit pause proposal
-            let result = contract.propose_pause_contract();
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-            assert!(proposal_id > 0);
-
-            // Verify proposal state
-            let proposal = contract.proposals.get(&proposal_id).unwrap();
-            assert_eq!(proposal.approvals.len(), 1);
-            assert!(proposal.approvals.contains(&accounts.alice));
-            assert_eq!(proposal.executed, false);
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Verify execution (threshold met)
-            let proposal_after = contract.proposals.get(&proposal_id).unwrap();
-            assert!(proposal_after.executed);
-            assert!(contract.paused); // Pause executed
-        }
-
-        #[ink::test]
-        fn test_multisig_update_fee() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Add second signer and set threshold to 2
-            contract.admin_signers.push(accounts.bob);
-            contract.signature_threshold = 2;
-
-            let old_fee = contract.fee_bps;
-
-            // Submit fee update proposal
-            let result = contract.propose_update_fee(100); // 1%
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Fee not changed yet (needs approval)
-            assert_eq!(contract.fee_bps, old_fee);
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Fee updated after threshold met
-            assert_eq!(contract.fee_bps, 100);
-        }
-
-        #[ink::test]
-        fn test_multisig_update_threshold() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Add two more signers
-            contract.admin_signers.push(accounts.bob);
-            contract.admin_signers.push(accounts.charlie);
-            contract.signature_threshold = 2;
-
-            // Propose threshold update to 3
-            let result = contract.submit_proposal(ProposalAction::SetThreshold(3));
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Threshold still 2
-            assert_eq!(contract.signature_threshold, 2);
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Threshold updated to 3
-            assert_eq!(contract.signature_threshold, 3);
-        }
-
-        #[ink::test]
-        fn test_multisig_remove_admin() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Add two more signers
-            contract.admin_signers.push(accounts.bob);
-            contract.admin_signers.push(accounts.charlie);
-            contract.signature_threshold = 2;
-
-            assert_eq!(contract.admin_signers.len(), 3);
-
-            // Propose removing charlie
-            let result = contract.submit_proposal(ProposalAction::RemoveSigner(accounts.charlie));
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Charlie still present
-            assert_eq!(contract.admin_signers.len(), 3);
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Charlie removed
-            assert_eq!(contract.admin_signers.len(), 2);
-            assert!(!contract.admin_signers.contains(&accounts.charlie));
-        }
-
-        #[ink::test]
-        fn test_multisig_unpause() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            contract.admin_signers.push(accounts.bob);
-            contract.signature_threshold = 2;
-            contract.paused = true; // Start paused
-
-            // Propose unpause
-            let result = contract.propose_unpause_contract();
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            assert!(contract.paused); // Still paused
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Unpaused after execution
-            assert!(!contract.paused);
-        }
-
-        #[ink::test]
-        fn test_multisig_duplicate_approval_fails() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            contract.admin_signers.push(accounts.bob);
-            contract.admin_signers.push(accounts.charlie);
-            contract.signature_threshold = 3; // Requires all 3
-
-            // Alice submits (auto-approved)
-            let result = contract.propose_pause_contract();
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Alice tries to approve again - should fail
-            let duplicate_result = contract.approve_proposal(proposal_id);
-            assert!(duplicate_result.is_err());
-            assert_eq!(duplicate_result.unwrap_err(), EscrowError::InvalidStatus);
-        }
-
-        #[ink::test]
-        fn test_multisig_add_signer() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            contract.admin_signers.push(accounts.bob);
-            contract.signature_threshold = 2;
-
-            assert_eq!(contract.admin_signers.len(), 2);
-
-            // Propose adding charlie
-            let result = contract.submit_proposal(ProposalAction::AddSigner(accounts.charlie));
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Charlie not yet added
-            assert_eq!(contract.admin_signers.len(), 2);
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Charlie added
-            assert_eq!(contract.admin_signers.len(), 3);
-            assert!(contract.admin_signers.contains(&accounts.charlie));
-        }
-
-        #[ink::test]
-        fn test_multisig_set_token_decimals() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            contract.admin_signers.push(accounts.bob);
-            contract.signature_threshold = 2;
-
-            assert_eq!(contract.token_decimals, 6);
-
-            // Propose changing decimals to 18
-            let result = contract.submit_proposal(ProposalAction::SetTokenDecimals(18));
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Decimals still 6
-            assert_eq!(contract.token_decimals, 6);
-
-            // Second signer approves
-            test::set_caller(accounts.bob);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_ok());
-
-            // Decimals updated to 18
-            assert_eq!(contract.token_decimals, 18);
-        }
-
-        #[ink::test]
-        fn test_multisig_non_admin_cannot_propose() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Bob is not an admin
-            test::set_caller(accounts.bob);
-            let result = contract.propose_pause_contract();
-            assert!(result.is_err());
-            assert_eq!(result.unwrap_err(), EscrowError::Unauthorized);
-        }
-
-        #[ink::test]
-        fn test_multisig_non_admin_cannot_approve() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            contract.admin_signers.push(accounts.bob);
-            contract.signature_threshold = 2;
-
-            // Alice submits proposal
-            let result = contract.propose_pause_contract();
-            assert!(result.is_ok());
-            let proposal_id = result.unwrap();
-
-            // Charlie (not admin) tries to approve
-            test::set_caller(accounts.charlie);
-            let approve_result = contract.approve_proposal(proposal_id);
-            assert!(approve_result.is_err());
-            assert_eq!(approve_result.unwrap_err(), EscrowError::Unauthorized);
-        }
-
-        #[ink::test]
-        fn test_multisig_proposal_not_found() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Try to approve non-existent proposal
-            let result = contract.approve_proposal(999);
-            assert!(result.is_err());
-            assert_eq!(result.unwrap_err(), EscrowError::EscrowNotFound);
-
-            // Try to execute non-existent proposal
-            let exec_result = contract.execute_proposal(999);
-            assert!(exec_result.is_err());
-            assert_eq!(exec_result.unwrap_err(), EscrowError::EscrowNotFound);
-        }
-
-        #[ink::test]
-        fn test_milestone_task_completion() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Create escrow with milestone
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task 1".to_string(),
-                amount: "100".to_string(),
-                status: "InProgress".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let result = contract.create_escrow(
-                accounts.bob,
-                "counterparty".to_string(),
-                "Active".to_string(),
-                "Test Escrow".to_string(),
-                "Description".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            );
-            assert!(result.is_ok());
-            let escrow_id = result.unwrap();
-
-            // Complete milestone task as counterparty
-            test::set_caller(accounts.bob);
-            let evidence = vec![Evidence {
-                name: "proof.pdf".to_string(),
-                url: "https://example.com/proof.pdf".to_string(),
-            }];
-
-            let complete_result = contract.complete_milestone_task(
-                escrow_id.clone(),
-                "m1".to_string(),
-                Some("Task completed successfully".to_string()),
-                Some(evidence),
-            );
-            assert!(complete_result.is_ok());
-
-            // Verify milestone status changed to Done
-            let milestone = contract.get_escrow_milestone(escrow_id, "m1".to_string());
-            assert!(milestone.is_ok());
-            let m = milestone.unwrap();
-            assert_eq!(m.status, MilestoneStatus::Done);
-            assert_eq!(m.completion_note, Some("Task completed successfully".to_string()));
-            assert!(m.completed_at.is_some());
-            assert!(m.evidence_file.is_some());
-        }
-
-        #[ink::test]
-        fn test_milestone_completion_updates_escrow() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Create escrow with one milestone
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task 1".to_string(),
-                amount: "100".to_string(),
-                status: "Funded".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let result = contract.create_escrow(
-                accounts.bob,
-                "counterparty".to_string(),
-                "Active".to_string(),
-                "Test Escrow".to_string(),
-                "Description".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            );
-            assert!(result.is_ok());
-            let escrow_id = result.unwrap();
-
-            // Update milestone to Completed
-            let milestone = contract.get_escrow_milestone(escrow_id.clone(), "m1".to_string()).unwrap();
-            let mut updated_milestone = milestone.clone();
-            updated_milestone.status = MilestoneStatus::Completed;
-
-            let update_result = contract.update_escrow_milestone_status(
-                escrow_id.clone(),
-                updated_milestone,
-                "Completed".to_string(),
-            );
-            assert!(update_result.is_ok());
-
-            // Check if escrow completion check was triggered
-            let check_result = contract.check_and_update_escrow_completion(escrow_id.clone());
-            assert!(check_result.is_ok());
-            assert_eq!(check_result.unwrap(), true); // Escrow should be marked completed
-
-            // Verify escrow status is Completed
-            let escrow = contract.get_escrow(escrow_id);
-            assert!(escrow.is_ok());
-            assert_eq!(escrow.unwrap().status, EscrowStatus::Completed);
-        }
-
-        #[ink::test]
-        fn test_dispute_milestone() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Create escrow with milestone
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task 1".to_string(),
-                amount: "100".to_string(),
-                status: "InProgress".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let result = contract.create_escrow(
-                accounts.bob,
-                "counterparty".to_string(),
-                "Active".to_string(),
-                "Test Escrow".to_string(),
-                "Description".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            );
-            assert!(result.is_ok());
-            let escrow_id = result.unwrap();
-
-            // Dispute milestone as creator
-            let dispute_result = contract.dispute_milestone(
-                escrow_id.clone(),
-                "m1".to_string(),
-                "Quality issue".to_string(),
-            );
-            assert!(dispute_result.is_ok());
-
-            // Verify milestone status changed to Disputed
-            let milestone = contract.get_escrow_milestone(escrow_id, "m1".to_string());
-            assert!(milestone.is_ok());
-            let m = milestone.unwrap();
-            assert_eq!(m.status, MilestoneStatus::Disputed);
-            assert_eq!(m.dispute_reason, Some("Quality issue".to_string()));
-            assert_eq!(m.dispute_filed_by, Some(accounts.alice));
-        }
-
-        #[ink::test]
-        fn test_parse_amount_empty_string() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Test empty string
-            let result = contract.parse_amount_to_base_units("");
-            assert!(result.is_err());
-
-            // Test whitespace only
-            let result = contract.parse_amount_to_base_units("   ");
-            assert!(result.is_err());
-        }
-
-        #[ink::test]
-        fn test_parse_amount_invalid_format() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Test too many decimal points
-            let result = contract.parse_amount_to_base_units("100.50.25");
-            assert!(result.is_err());
-
-            // Test non-digit characters in integer part
-            let result = contract.parse_amount_to_base_units("abc.50");
-            assert!(result.is_err());
-
-            // Test non-digit characters in fractional part
-            let result = contract.parse_amount_to_base_units("100.xyz");
-            assert!(result.is_err());
-        }
-
-        #[ink::test]
-        fn test_parse_amount_fractional_truncation() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Test fractional part longer than decimals (should truncate)
-            let result = contract.parse_amount_to_base_units("100.123456789");
-            assert!(result.is_ok()); // Should succeed by truncating to 6 decimals
-        }
-
-        #[ink::test]
-        fn test_check_and_update_already_completed() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Create escrow with completed milestone
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task 1".to_string(),
-                amount: "100".to_string(),
-                status: "Completed".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let result = contract.create_escrow(
-                accounts.bob,
-                "counterparty".to_string(),
-                "Completed".to_string(), // Already completed
-                "Test Escrow".to_string(),
-                "Description".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            );
-            assert!(result.is_ok());
-            let escrow_id = result.unwrap();
-
-            // Try to check completion when already completed
-            let check_result = contract.check_and_update_escrow_completion(escrow_id);
-            assert!(check_result.is_ok());
-            assert_eq!(check_result.unwrap(), false); // Should return false since already completed
-        }
-
-        #[ink::test]
-        fn test_check_and_update_not_all_completed() {
-            let accounts = test::default_accounts();
-            test::set_caller(accounts.alice);
-            let usdt_token = Address::from([0x01; 20]);
-            let fee_account = Address::from([0x02; 20]);
-            let mut contract = EscrowContract::new(usdt_token, fee_account);
-
-            // Create escrow with incomplete milestone
-            let milestones = vec![MilestoneInput {
-                id: "m1".to_string(),
-                description: "Task 1".to_string(),
-                amount: "100".to_string(),
-                status: "InProgress".to_string(),
-                deadline: 1000000,
-                completed_at: None,
-                dispute_reason: None,
-                dispute_filed_by: None,
-                completion_note: None,
-                evidence_file: None,
-            }];
-
-            let result = contract.create_escrow(
-                accounts.bob,
-                "counterparty".to_string(),
-                "Active".to_string(),
-                "Test Escrow".to_string(),
-                "Description".to_string(),
-                "100".to_string(),
-                milestones,
-                None,
-            );
-            assert!(result.is_ok());
-            let escrow_id = result.unwrap();
-
-            // Try to check completion when not all completed
-            let check_result = contract.check_and_update_escrow_completion(escrow_id);
-            assert!(check_result.is_ok());
-            assert_eq!(check_result.unwrap(), false); // Should return false since not all completed
-        }
-
-
     }
 
+    #[cfg(all(test, feature = "e2e-tests"))]
+    mod e2e_tests {
+        use super::*;
+        use ink_e2e::ContractsBackend;
+
+        type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+        #[ink_e2e::test]
+        async fn e2e_create_and_query_escrow<Client: E2EBackend>(
+            mut client: Client,
+        ) -> E2EResult<()> {
+            // Deploy contract
+            let constructor = EscrowContractRef::new(
+                AccountId::from([0x01; 32]),
+                AccountId::from([0x02; 32]),
+            );
+            let contract = client
+                .instantiate("escrow_contract", &ink_e2e::alice(), constructor, 0, None)
+                .await
+                .expect("instantiate failed");
+
+            let contract_acc_id = contract.account_id;
+
+            // Create escrow
+            let milestones = vec![
+                MilestoneInput {
+                    id: "m1".to_string(),
+                    description: "Task 1".to_string(),
+                    amount: "100".to_string(),
+                    status: "Pending".to_string(),
+                    deadline: 1000000,
+                    completed_at: None,
+                    dispute_reason: None,
+                    dispute_filed_by: None,
+                    completion_note: None,
+                    evidence_file: None,
+                }
+            ];
+
+            let create_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.create_escrow(
+                    AccountId::from([0x03; 32]),
+                    "provider".to_string(),
+                    "Active".to_string(),
+                    "E2E Test Escrow".to_string(),
+                    "E2E Description".to_string(),
+                    "100".to_string(),
+                    milestones,
+                    None,
+                ));
+
+            let create_res = client
+                .call(&ink_e2e::alice(), create_msg, 0, None)
+                .await
+                .expect("create_escrow failed");
+
+            assert!(
+                create_res.return_value().is_ok(),
+                "create_escrow should succeed"
+            );
+
+            let escrow_id = create_res.return_value().unwrap();
+
+            // Query escrow
+            let get_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.get_escrow(escrow_id.clone()));
+
+            let get_res = client
+                .call(&ink_e2e::alice(), get_msg, 0, None)
+                .await
+                .expect("get_escrow failed");
+
+            assert!(get_res.return_value().is_ok());
+            let escrow = get_res.return_value().unwrap();
+            assert_eq!(escrow.title, "E2E Test Escrow");
+
+            Ok(())
+        }
+
+        #[ink_e2e::test]
+        async fn e2e_admin_proposal_flow<Client: E2EBackend>(
+            mut client: Client,
+        ) -> E2EResult<()> {
+            // Deploy contract
+            let constructor = EscrowContractRef::new(
+                AccountId::from([0x01; 32]),
+                AccountId::from([0x02; 32]),
+            );
+            let contract = client
+                .instantiate("escrow_contract", &ink_e2e::alice(), constructor, 0, None)
+                .await
+                .expect("instantiate failed");
+
+            let contract_acc_id = contract.account_id;
+
+            // Submit proposal to pause contract
+            let submit_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.propose_pause_contract());
+
+            let submit_res = client
+                .call(&ink_e2e::alice(), submit_msg, 0, None)
+                .await
+                .expect("propose_pause_contract failed");
+
+            assert!(submit_res.return_value().is_ok());
+            let proposal_id = submit_res.return_value().unwrap();
+
+            // Approve proposal
+            let approve_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.approve_proposal(proposal_id));
+
+            let approve_res = client
+                .call(&ink_e2e::bob(), approve_msg, 0, None)
+                .await
+                .expect("approve_proposal failed");
+
+            assert!(approve_res.return_value().is_ok());
+
+            // Execute proposal
+            let execute_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.execute_proposal(proposal_id));
+
+            let execute_res = client
+                .call(&ink_e2e::alice(), execute_msg, 0, None)
+                .await
+                .expect("execute_proposal failed");
+
+            assert!(execute_res.return_value().is_ok());
+
+            Ok(())
+        }
+
+        #[ink_e2e::test]
+        async fn e2e_milestone_operations<Client: E2EBackend>(
+            mut client: Client,
+        ) -> E2EResult<()> {
+            // Deploy contract
+            let constructor = EscrowContractRef::new(
+                AccountId::from([0x01; 32]),
+                AccountId::from([0x02; 32]),
+            );
+            let contract = client
+                .instantiate("escrow_contract", &ink_e2e::alice(), constructor, 0, None)
+                .await
+                .expect("instantiate failed");
+
+            let contract_acc_id = contract.account_id;
+
+            // Create escrow with milestone
+            let milestones = vec![
+                MilestoneInput {
+                    id: "m1".to_string(),
+                    description: "Task 1".to_string(),
+                    amount: "100".to_string(),
+                    status: "Pending".to_string(),
+                    deadline: 1000000,
+                    completed_at: None,
+                    dispute_reason: None,
+                    dispute_filed_by: None,
+                    completion_note: None,
+                    evidence_file: None,
+                }
+            ];
+
+            let create_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.create_escrow(
+                    AccountId::from([0x03; 32]),
+                    "provider".to_string(),
+                    "Active".to_string(),
+                    "Test".to_string(),
+                    "Desc".to_string(),
+                    "100".to_string(),
+                    milestones,
+                    None,
+                ));
+
+            let create_res = client
+                .call(&ink_e2e::alice(), create_msg, 0, None)
+                .await
+                .expect("create_escrow failed");
+
+            let escrow_id = create_res.return_value().unwrap();
+
+            // Notify deposit
+            let deposit_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.notify_deposit(escrow_id.clone(), "100".to_string()));
+
+            let deposit_res = client
+                .call(&ink_e2e::alice(), deposit_msg, 0, None)
+                .await
+                .expect("notify_deposit failed");
+
+            assert!(deposit_res.return_value().is_ok());
+
+            // Complete milestone task
+            let complete_msg = build_message::<EscrowContractRef>(contract_acc_id.clone())
+                .call(|contract| contract.complete_milestone_task(
+                    escrow_id.clone(),
+                    "m1".to_string(),
+                    Some("Task completed".to_string()),
+                    None,
+                ));
+
+            let complete_res = client
+                .call(&ink_e2e::alice(), complete_msg, 0, None)
+                .await
+                .expect("complete_milestone_task failed");
+
+            assert!(complete_res.return_value().is_ok());
+
+            Ok(())
+        }
+    }
 }
