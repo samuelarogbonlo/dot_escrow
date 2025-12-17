@@ -1,9 +1,11 @@
 # .escrow - Decentralized Escrow Platform for Polkadot
 
 [![License: MIT/Apache 2.0](https://img.shields.io/badge/License-MIT%2FApache%202.0-blue.svg)](LICENSE)
-[![Milestone](https://img.shields.io/badge/Milestone-2%20Delivered-green.svg)](delivery/deliveries/)
+[![Milestone](https://img.shields.io/badge/Milestone-2%20Delivered-green.svg)](https://github.com/samuelarogbonlo/delivery/blob/5186fb63f1859129dbedc5b0eb1ee532ddb450ec/deliveries/.escrow-milestone-2.md)
 
 A production-ready, USDT-based escrow platform bringing trust-minimized payment protection to freelancers, agencies, and businesses on Polkadot.
+
+**🌐 Live Landing Page:** [http://dotescrow.vercel.app/](http://dotescrow.vercel.app/)
 
 ## 🚀 Overview
 
@@ -27,7 +29,7 @@ A production-ready, USDT-based escrow platform bringing trust-minimized payment 
 The smart contract codebase is now frozen for PAL (Polkadot Alliance) security audit preparation. No feature changes, refactoring, or non-critical updates will be made until the audit is complete.
 
 **Pre-Audit Checklist Status:**
-- ✅ Test coverage: 81.18% (43 tests passing)
+- ✅ Test coverage: 83.13% (43 tests passing)
 - ✅ Zero clippy warnings
 - ✅ All dependencies audited
 - ✅ Comprehensive documentation complete
@@ -140,6 +142,14 @@ This project is dual-licensed:
 
 - **GitHub**: [@samuelarogbonlo](https://github.com/samuelarogbonlo)
 - **Documentation**: [GitBook](https://dotescrow.gitbook.io/dotescrow-docs/)
+- **Website**: [http://dotescrow.vercel.app/](http://dotescrow.vercel.app/)
+
+## 📚 Project Resources
+
+- **Milestone 2 Delivery**: [View Submission](https://github.com/samuelarogbonlo/delivery/blob/5186fb63f1859129dbedc5b0eb1ee532ddb450ec/deliveries/.escrow-milestone-2.md)
+- **Audit Submission Package**: [/audit-submission](audit-submission/)
+- **Security Review**: [SECURITY_REVIEW.md](audit-submission/docs/SECURITY_REVIEW.md)
+
 ---
 
 Built with ❤️ for the Polkadot ecosystem
