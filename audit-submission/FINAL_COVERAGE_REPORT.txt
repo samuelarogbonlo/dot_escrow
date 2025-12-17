@@ -1,0 +1,18 @@
+Final Test Coverage Report
+Date: December 17, 2025
+Tag: v1.0.0-pre-audit
+
+Coverage Results:
+- 83.13% coverage
+- 138/166 lines covered
+- 43/43 tests passing
+
+Uncovered Lines:
+escrow/src/lib.rs: 85-89, 1327, 1874, 1880, 1884-1885, 1912, 1917, 1933, 1935, 2013, 2016-2017, 2019-2020, 2026, 2035-2036, 2038-2041, 2050-2051
+
+Note: Uncovered lines primarily include:
+- PSP22 cross-contract call helpers (require integration testing)
+- Error handling paths for external contract interactions
+- Disabled EmergencyWithdraw function (security fix)
+
+All critical business logic paths covered by unit tests.

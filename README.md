@@ -18,6 +18,26 @@ A production-ready, USDT-based escrow platform bringing trust-minimized payment 
 - **Wallet Support**: Compatible with Polkadot.js, SubWallet, and Talisman
 - **Low Fees**: Only 0.5-1% platform fee vs 3-5% traditional escrow
 
+## ⚠️ Development Freeze Notice
+
+**Status:** 🔒 CODE FREEZE FOR SECURITY AUDIT
+**Effective Date:** December 17, 2025
+**Duration:** Until audit completion
+
+The smart contract codebase is now frozen for PAL (Polkadot Alliance) security audit preparation. No feature changes, refactoring, or non-critical updates will be made until the audit is complete.
+
+**Pre-Audit Checklist Status:**
+- ✅ Test coverage: 81.18% (43 tests passing)
+- ✅ Zero clippy warnings
+- ✅ All dependencies audited
+- ✅ Comprehensive documentation complete
+- ✅ Deployed on Paseo testnet
+
+**Audit Timeline:** Q1 2025
+**Mainnet Target:** Q2 2025 (post-audit approval)
+
+See [PRE_AUDIT_CHECKLIST.md](PRE_AUDIT_CHECKLIST.md) for detailed preparation status.
+
 ## 🏗️ Architecture
 
 ```

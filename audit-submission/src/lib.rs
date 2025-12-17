@@ -2764,10 +2764,10 @@ mod escrow_contract {
 
             let (_, fee_bps, paused, _) = contract.get_contract_info();
             assert_eq!(fee_bps, 100);
-            assert!(!paused);
+            assert_eq!(paused, false);
 
             let signers = contract.get_admin_signers();
-            assert!(!signers.is_empty());
+            assert!(signers.len() > 0);
 
             let threshold = contract.get_signature_threshold();
             assert!(threshold > 0); // Just verify it's > 0
@@ -2839,7 +2839,7 @@ mod escrow_contract {
             assert_eq!(contract.usdt_token, usdt_token);
             assert_eq!(contract.fee_account, fee_account);
             assert_eq!(contract.fee_bps, 100); // Default 1.0%
-            assert!(!contract.paused);
+            assert_eq!(contract.paused, false);
             assert_eq!(contract.escrow_counter, 0);
             assert_eq!(contract.total_volume, 0);
             assert_eq!(contract.token_decimals, 6);
@@ -2875,7 +2875,7 @@ mod escrow_contract {
             let proposal = contract.proposals.get(&proposal_id).unwrap();
             assert_eq!(proposal.approvals.len(), 1);
             assert!(proposal.approvals.contains(&accounts.alice));
-            assert!(!proposal.executed);
+            assert_eq!(proposal.executed, false);
 
             // Second signer approves
             test::set_caller(accounts.bob);
@@ -3273,7 +3273,7 @@ mod escrow_contract {
             // Check if escrow completion check was triggered
             let check_result = contract.check_and_update_escrow_completion(escrow_id.clone());
             assert!(check_result.is_ok());
-            assert!(check_result.unwrap()); // Escrow should be marked completed
+            assert_eq!(check_result.unwrap(), true); // Escrow should be marked completed
 
             // Verify escrow status is Completed
             let escrow = contract.get_escrow(escrow_id);
@@ -3422,7 +3422,7 @@ mod escrow_contract {
             // Try to check completion when already completed
             let check_result = contract.check_and_update_escrow_completion(escrow_id);
             assert!(check_result.is_ok());
-            assert!(!check_result.unwrap()); // Should return false since already completed
+            assert_eq!(check_result.unwrap(), false); // Should return false since already completed
         }
 
         #[ink::test]
@@ -3463,7 +3463,7 @@ mod escrow_contract {
             // Try to check completion when not all completed
             let check_result = contract.check_and_update_escrow_completion(escrow_id);
             assert!(check_result.is_ok());
-            assert!(!check_result.unwrap()); // Should return false since not all completed
+            assert_eq!(check_result.unwrap(), false); // Should return false since not all completed
         }
 
 
