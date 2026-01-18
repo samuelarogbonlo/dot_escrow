@@ -93,7 +93,7 @@ const HeroSection = () => {
           >
             <Button
               as="a"
-              href="https://app-dotescrow.vercel.app/"
+              href="https://app-dotescrow.netlify.app/"
               target="_blank"
               rel="noopener noreferrer"
               colorScheme="blue"

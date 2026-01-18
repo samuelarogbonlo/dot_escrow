@@ -23,7 +23,7 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
 
   setIsLoading(true);
   try {
-    const baseUrl = "https://escrowdb.up.railway.app";
+    const baseUrl = "https://resilient-tenderness-production-4dfe.up.railway.app";
     const checkUrl = `${baseUrl}/comment?escrowId=${escrowId}&milestoneId=${milestoneId}`;
 
     const response = await axios.get(checkUrl);
@@ -96,7 +96,7 @@ export const useComments = (escrowId: string, milestoneId?: string) => {
 
   setIsSubmitting(true);
   try {
-    const baseUrl = "https://escrowdb.up.railway.app";
+    const baseUrl = "https://resilient-tenderness-production-4dfe.up.railway.app";
 
     // Step 1: Check if conversation already exists
     const checkUrl = `${baseUrl}/comment?escrowId=${escrowId}&milestoneId=${milestoneId}`;

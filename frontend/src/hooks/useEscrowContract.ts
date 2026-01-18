@@ -634,7 +634,7 @@ export const useEscrowContract = ({ api, account, getSigner }: UseEscrowContract
 
       // Make API call to notify counterparty
       const response = await axios.post(
-        `https://escrowdb.up.railway.app/notify/`,
+        `https://resilient-tenderness-production-4dfe.up.railway.app/notify/`,
         notificationData,
         {
           headers: {
