@@ -261,11 +261,12 @@ const useTokenDistribution = ({
         if (!contract || !selectedAccount) return null;
 
         try {
-            const gasLimit = await estimateGas(api, contract, 'balanceOf', selectedAccount, [selectedAccount.address]);
+            const addressH160 = substrateToH160(selectedAccount.address);
+            const gasLimit = await estimateGas(api, contract, 'balanceOf', selectedAccount, [addressH160]);
             const result = await contract.query.balanceOf(
                 selectedAccount.address,
                 { gasLimit },
-                selectedAccount.address
+                addressH160
             );
 
             if (isResultOk(result) && result.output) {

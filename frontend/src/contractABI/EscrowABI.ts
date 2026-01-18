@@ -19,7 +19,7 @@ console.log("contract escrow address",ESCROW_CONTRACT_ADDRESS)
 
 
 // PSP22 token contract address (H160). If unknown, the frontend will fetch via get_usdt_token
-export const TOKEN_CONTRACT_ADDRESS: string = '0x06cCb9c561dE6F67830AEEC616A30e717690316a'
+export const TOKEN_CONTRACT_ADDRESS: string = '0x72744B75567f11016F2287f75597a29E14017f83'
 
 
 // Export default
