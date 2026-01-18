@@ -277,6 +277,8 @@ const useTokenDistribution = ({
 
             if (result.result.isOk && result.output) {
                 const outputAny = result.output as any;
+                console.log('Balance query raw output:', result.output?.toHuman?.() || result.output);
+
                 // Unwrap Result type if needed
                 if (outputAny.isOk) {
                     return outputAny.asOk.toString().replace(/,/g, '');

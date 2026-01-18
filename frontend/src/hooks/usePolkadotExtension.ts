@@ -4,6 +4,7 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { InjectedExtension } from '@polkadot/extension-inject/types';
 
 const APP_NAME = '.escrow';
+const WALLET_STORAGE_KEY = 'selectedWalletAddress';
 
 export interface PolkadotExtensionStatus {
   isReady: boolean;
@@ -176,6 +177,8 @@ export const usePolkadotExtension = () => {
         name: account.meta.name,
         address: account.address.slice(0, 8) + '...'
       });
+      // Persist selection to localStorage
+      localStorage.setItem(WALLET_STORAGE_KEY, address);
       setStatus(prev => ({
         ...prev,
         selectedAccount: account
@@ -189,6 +192,7 @@ export const usePolkadotExtension = () => {
   // Clear selection (useful for logout or switching)
   const clearSelection = () => {
     debugLog('Clearing account selection');
+    localStorage.removeItem(WALLET_STORAGE_KEY);
     setStatus(prev => ({ ...prev, selectedAccount: null }));
   };
 
@@ -238,21 +242,58 @@ export const usePolkadotExtension = () => {
     }
   };
 
-  // Auto-detect extension on mount
+  // Auto-detect extension on mount and restore session
   useEffect(() => {
-    const checkForExtension = async () => {
+    const initializeWallet = async () => {
       const isAvailable = await checkExtension();
       debugLog(`Extension availability check: ${isAvailable ? 'Available' : 'Not available'}`);
-      
+
       if (!isAvailable) {
-        setStatus(prev => ({ 
-          ...prev, 
-          error: 'No Polkadot extension detected. Please install Polkadot.js, SubWallet, or Talisman.' 
+        setStatus(prev => ({
+          ...prev,
+          error: 'No Polkadot extension detected. Please install Polkadot.js, SubWallet, or Talisman.'
         }));
+        return;
+      }
+
+      // Check for previously selected account and auto-reconnect
+      const savedAddress = localStorage.getItem(WALLET_STORAGE_KEY);
+      if (savedAddress) {
+        debugLog('Found saved wallet address, attempting auto-reconnect...');
+
+        try {
+          const extensions = await web3Enable(APP_NAME);
+          if (extensions.length > 0) {
+            setInjected(extensions[0]);
+            const accounts = await loadAccounts();
+
+            if (accounts.length > 0) {
+              const savedAccount = accounts.find(acc => acc.address === savedAddress);
+
+              setStatus({
+                isReady: true,
+                accounts: accounts,
+                error: null,
+                selectedAccount: savedAccount || null,
+                isLoading: false,
+                isTestMode: false,
+              });
+
+              if (savedAccount) {
+                debugLog('Auto-reconnected to saved account:', savedAccount.meta.name);
+              } else {
+                debugLog('Saved account not found, cleared selection');
+                localStorage.removeItem(WALLET_STORAGE_KEY);
+              }
+            }
+          }
+        } catch (error) {
+          debugLog('Auto-reconnect failed:', error);
+        }
       }
     };
 
-    checkForExtension();
+    initializeWallet();
   }, []);
 
   // Listen for account changes from extension
