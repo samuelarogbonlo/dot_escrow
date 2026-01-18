@@ -179,6 +179,12 @@ export const usePolkadotExtension = () => {
       });
       // Persist selection to localStorage
       localStorage.setItem(WALLET_STORAGE_KEY, address);
+      debugLog('Saved to localStorage:', WALLET_STORAGE_KEY, '=', address.slice(0, 15) + '...');
+
+      // Verify it was saved
+      const verify = localStorage.getItem(WALLET_STORAGE_KEY);
+      debugLog('localStorage verification:', verify ? 'SUCCESS' : 'FAILED');
+
       setStatus(prev => ({
         ...prev,
         selectedAccount: account
@@ -245,6 +251,8 @@ export const usePolkadotExtension = () => {
   // Auto-detect extension on mount and restore session
   useEffect(() => {
     const initializeWallet = async () => {
+      debugLog('=== WALLET INIT STARTED ===');
+
       const isAvailable = await checkExtension();
       debugLog(`Extension availability check: ${isAvailable ? 'Available' : 'Not available'}`);
 
@@ -258,17 +266,23 @@ export const usePolkadotExtension = () => {
 
       // Check for previously selected account and auto-reconnect
       const savedAddress = localStorage.getItem(WALLET_STORAGE_KEY);
+      debugLog('Saved address from localStorage:', savedAddress || 'NONE');
+
       if (savedAddress) {
         debugLog('Found saved wallet address, attempting auto-reconnect...');
 
         try {
           const extensions = await web3Enable(APP_NAME);
+          debugLog('Extensions found:', extensions.length);
+
           if (extensions.length > 0) {
             setInjected(extensions[0]);
             const accounts = await loadAccounts();
+            debugLog('Accounts loaded:', accounts.length, accounts.map(a => a.address.slice(0, 10)));
 
             if (accounts.length > 0) {
               const savedAccount = accounts.find(acc => acc.address === savedAddress);
+              debugLog('Saved account found in accounts:', !!savedAccount);
 
               setStatus({
                 isReady: true,
@@ -282,15 +296,23 @@ export const usePolkadotExtension = () => {
               if (savedAccount) {
                 debugLog('Auto-reconnected to saved account:', savedAccount.meta.name);
               } else {
-                debugLog('Saved account not found, cleared selection');
+                debugLog('Saved account not found in current accounts, clearing');
                 localStorage.removeItem(WALLET_STORAGE_KEY);
               }
+            } else {
+              debugLog('No accounts available after loading');
             }
+          } else {
+            debugLog('No extensions available');
           }
         } catch (error) {
           debugLog('Auto-reconnect failed:', error);
         }
+      } else {
+        debugLog('No saved address, skipping auto-reconnect');
       }
+
+      debugLog('=== WALLET INIT COMPLETED ===');
     };
 
     initializeWallet();

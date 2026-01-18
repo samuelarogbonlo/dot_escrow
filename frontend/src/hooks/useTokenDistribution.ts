@@ -258,10 +258,20 @@ const useTokenDistribution = ({
 
     // Get user's token balance from PSP22
     const getTokenBalance = useCallback(async (): Promise<string | null> => {
-        if (!api || !contract || !selectedAccount) return null;
+        console.log('[getTokenBalance] Starting...', {
+            hasApi: !!api,
+            hasContract: !!contract,
+            hasAccount: !!selectedAccount
+        });
+
+        if (!api || !contract || !selectedAccount) {
+            console.log('[getTokenBalance] Missing dependencies, returning null');
+            return null;
+        }
 
         try {
             const addressH160 = substrateToH160(selectedAccount.address);
+            console.log('[getTokenBalance] Querying balance for H160:', addressH160);
 
             // Use fixed gas limit to avoid estimation issues
             const gasLimit = api.registry.createType('WeightV2', {
@@ -275,18 +285,30 @@ const useTokenDistribution = ({
                 addressH160
             );
 
+            console.log('[getTokenBalance] Query result:', {
+                isOk: result.result.isOk,
+                hasOutput: !!result.output,
+                outputHuman: result.output?.toHuman?.()
+            });
+
             if (result.result.isOk && result.output) {
                 const outputAny = result.output as any;
-                console.log('Balance query raw output:', result.output?.toHuman?.() || result.output);
 
                 // Unwrap Result type if needed
+                let balanceStr: string;
                 if (outputAny.isOk) {
-                    return outputAny.asOk.toString().replace(/,/g, '');
+                    balanceStr = outputAny.asOk.toString().replace(/,/g, '');
+                } else {
+                    balanceStr = outputAny.toString().replace(/,/g, '');
                 }
-                return outputAny.toString().replace(/,/g, '');
+
+                console.log('[getTokenBalance] Parsed balance:', balanceStr);
+                return balanceStr;
+            } else {
+                console.log('[getTokenBalance] Query failed:', result.result.toHuman?.());
             }
         } catch (err) {
-            console.error('Failed to get token balance:', err);
+            console.error('[getTokenBalance] Error:', err);
         }
 
         return null;
