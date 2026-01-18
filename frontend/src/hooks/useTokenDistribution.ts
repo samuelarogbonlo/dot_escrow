@@ -3,6 +3,7 @@ import { ApiPromise } from '@polkadot/api';
 import { ContractPromise } from '@polkadot/api-contract';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { PSP22_TOKEN_ABI, TOKEN_CONTRACT_ADDRESS } from '@/contractABI/EscrowABI';
+import { substrateToH160 } from '@/utils/substrateToH160';
 
 // Default mint amount: 1000 tokens with 12 decimals
 const DEFAULT_MINT_AMOUNT = '1000000000000000'; // 1000 * 10^12
@@ -171,11 +172,12 @@ const useTokenDistribution = ({
             const injector = await web3FromSource(selectedAccount.meta.source);
             api.setSigner(injector.signer);
 
-            // Use recipient address or caller's address
+            // Use recipient address or caller's address, converted to H160
             const mintTo = recipientAddress || selectedAccount.address;
+            const mintToH160 = substrateToH160(mintTo);
             const mintAmount = DEFAULT_MINT_AMOUNT;
 
-            console.log(`Minting ${mintAmount} tokens to ${mintTo}`);
+            console.log(`Minting ${mintAmount} tokens to ${mintToH160}`);
 
             // Estimate gas for mint
             const gasLimit = await estimateGas(
@@ -183,13 +185,13 @@ const useTokenDistribution = ({
                 contract,
                 'mint',
                 selectedAccount,
-                [mintTo, mintAmount]
+                [mintToH160, mintAmount]
             );
 
             // Execute mint transaction
             const tx = contract.tx.mint(
                 { gasLimit },
-                mintTo,
+                mintToH160,
                 mintAmount
             );
 
