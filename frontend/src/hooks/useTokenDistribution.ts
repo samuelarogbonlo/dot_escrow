@@ -5,8 +5,8 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { PSP22_TOKEN_ABI, TOKEN_CONTRACT_ADDRESS } from '@/contractABI/EscrowABI';
 import { substrateToH160 } from '@/utils/substrateToH160';
 
-// Default mint amount: 1000 tokens with 12 decimals
-const DEFAULT_MINT_AMOUNT = '1000000000000000'; // 1000 * 10^12
+// Default mint amount: 1000 tokens with 10 decimals (matching TEST_USDT)
+const DEFAULT_MINT_AMOUNT = '10000000000000'; // 1000 * 10^10
 
 // Codec safety utilities
 const isResultOk = (result: any): boolean => {
@@ -258,19 +258,30 @@ const useTokenDistribution = ({
 
     // Get user's token balance from PSP22
     const getTokenBalance = useCallback(async (): Promise<string | null> => {
-        if (!contract || !selectedAccount) return null;
+        if (!api || !contract || !selectedAccount) return null;
 
         try {
             const addressH160 = substrateToH160(selectedAccount.address);
-            const gasLimit = await estimateGas(api, contract, 'balanceOf', selectedAccount, [addressH160]);
+
+            // Use fixed gas limit to avoid estimation issues
+            const gasLimit = api.registry.createType('WeightV2', {
+                refTime: 100000000000,
+                proofSize: 262144
+            });
+
             const result = await contract.query.balanceOf(
                 selectedAccount.address,
-                { gasLimit },
+                { gasLimit, storageDepositLimit: null },
                 addressH160
             );
 
-            if (isResultOk(result) && result.output) {
-                return safeToString(result.output);
+            if (result.result.isOk && result.output) {
+                const outputAny = result.output as any;
+                // Unwrap Result type if needed
+                if (outputAny.isOk) {
+                    return outputAny.asOk.toString().replace(/,/g, '');
+                }
+                return outputAny.toString().replace(/,/g, '');
             }
         } catch (err) {
             console.error('Failed to get token balance:', err);

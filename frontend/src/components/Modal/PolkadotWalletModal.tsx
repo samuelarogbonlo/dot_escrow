@@ -94,8 +94,8 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
         // Fetch updated balance
         const balance = await getTokenBalance();
         if (balance) {
-          // Format balance (assuming 12 decimals)
-          const formatted = (parseInt(balance) / 1e12).toFixed(2);
+          // Format balance (TEST_USDT uses 10 decimals)
+          const formatted = (parseFloat(balance) / 1e10).toFixed(2);
           setNewBalance(formatted);
         }
         setClaimState("success");
@@ -116,8 +116,8 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
   };
 
   const formatDistributionAmount = (amount: string) => {
-    // Convert from smallest unit (12 decimals) to readable format
-    const num = parseInt(amount) / 1e12;
+    // Convert from smallest unit (10 decimals for TEST_USDT)
+    const num = parseFloat(amount) / 1e10;
     return num.toLocaleString();
   };
 
