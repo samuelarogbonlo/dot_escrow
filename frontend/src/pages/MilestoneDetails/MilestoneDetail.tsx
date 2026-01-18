@@ -32,6 +32,7 @@ import {
 } from "react-icons/fi";
 import { useWallet } from "@/hooks/useWalletContext";
 import { useParams, useNavigate } from "react-router-dom";
+import { WALLET_STORAGE_KEY } from "@/hooks/usePolkadotExtension";
 import ReleaseMilestoneModal from "@/components/Modal/ReleaseMilestoneModal";
 import CompleteMilestoneModal from "@/components/Modal/CompleteMilestoneModal";
 import DisputeMilestoneModal from "@/components/Modal/DisputeMilestoneModal";
@@ -112,14 +113,18 @@ const MilestoneDetail = () => {
             setError(result.error || "Failed to fetch escrow");
           }
         } else {
-          toast({
-            title: "Wallet not connected",
-            description: "Please connect your wallet before",
-            status: "error",
-            duration: 5000,
-            isClosable: true,
-          });
-          navigate("/connect");
+          // Only redirect if no saved wallet (not just refreshing)
+          const hasSavedWallet = localStorage.getItem(WALLET_STORAGE_KEY);
+          if (!hasSavedWallet) {
+            toast({
+              title: "Wallet not connected",
+              description: "Please connect your wallet before",
+              status: "error",
+              duration: 5000,
+              isClosable: true,
+            });
+            navigate("/connect");
+          }
         }
       } catch (err) {
         setError("Failed to fetch escrow details. Please try again later.");

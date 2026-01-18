@@ -43,6 +43,7 @@ import {
 } from "react-icons/fi";
 import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import { useWallet } from "../../hooks/useWalletContext";
+import { WALLET_STORAGE_KEY } from "@/hooks/usePolkadotExtension";
 
 import CompleteMilestoneModal from "@/components/Modal/CompleteMilestoneModal";
 import ReleaseMilestoneModal from "@/components/Modal/ReleaseMilestoneModal";
@@ -129,14 +130,18 @@ const EscrowDetails = () => {
           console.log("all these are ready");
         } else {
           console.log("all these are not ready");
-          toast({
-            title: "Wallet not connected",
-            description: "Please connect your wallet before",
-            status: "error",
-            duration: 5000,
-            isClosable: true,
-          });
-          navigate("/connect");
+          // Only redirect if no saved wallet (not just refreshing)
+          const hasSavedWallet = localStorage.getItem(WALLET_STORAGE_KEY);
+          if (!hasSavedWallet) {
+            toast({
+              title: "Wallet not connected",
+              description: "Please connect your wallet before",
+              status: "error",
+              duration: 5000,
+              isClosable: true,
+            });
+            navigate("/connect");
+          }
         }
       } catch (err) {
         console.error("Error fetching escrow:", err);

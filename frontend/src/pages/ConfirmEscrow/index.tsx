@@ -40,6 +40,7 @@ import {
 import { FiCheckCircle } from "react-icons/fi";
 import { useWallet } from "../../hooks/useWalletContext";
 import { usePSP22StablecoinContract } from "@/hooks/usePSP22StablecoinContract";
+import { WALLET_STORAGE_KEY } from "@/hooks/usePolkadotExtension";
 import PSP22StablecoinApproval from "@/components/PSP22StableCoinBalance/PSP22StablecoinApproval";
 
 type EscrowStatus = any;
@@ -115,7 +116,9 @@ const ConfirmDetails = () => {
   } = usePSP22StablecoinContract();
 
   useEffect(() => {
-    if (!isExtensionReady || !selectedAccount) {
+    // Only redirect if no saved wallet (not just refreshing)
+    const hasSavedWallet = localStorage.getItem(WALLET_STORAGE_KEY);
+    if (isExtensionReady && !selectedAccount && !hasSavedWallet) {
       navigate("/connect");
     }
   }, [isExtensionReady, selectedAccount, navigate]);

@@ -23,6 +23,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useWallet } from "../../hooks/useWalletContext";
 import { EscrowData } from "../../hooks/useEscrowContract";
 import { substrateToH160 } from "@/utils/substrateToH160";
+import { WALLET_STORAGE_KEY } from "@/hooks/usePolkadotExtension";
 
 import StatCard from "../../components/Card/StatCard";
 import EscrowCard from "../../components/Card/EscrowCard";
@@ -40,7 +41,14 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isExtensionReady || !selectedAccount) {
+    // Check if there's a saved wallet - if so, wait for auto-reconnect
+    const hasSavedWallet = localStorage.getItem(WALLET_STORAGE_KEY);
+
+    // Only redirect if:
+    // 1. Extension is ready (finished initializing)
+    // 2. No selected account
+    // 3. No saved wallet (meaning user intentionally logged out, not just refreshing)
+    if (isExtensionReady && !selectedAccount && !hasSavedWallet) {
       navigate("/connect");
     }
   }, [isExtensionReady, selectedAccount, navigate]);
