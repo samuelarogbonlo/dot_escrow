@@ -34,16 +34,16 @@
 
 ## Deployed Contracts
 
-- **Network:** Pop Network (Paseo Testnet)
-- **Escrow Contract:** `0x57c0082e71f89e1feb6b56ab36f0ae271c118019`
-- **PSP22 Token:** `0xd10852e9a6366cfab48f52e98f896344cbbc132c`
-- **RPC:** `wss://rpc1.paseo.popnetwork.xyz`
+- **Network:** Paseo AssetHub Testnet
+- **Escrow Contract:** `0x027a592ae13B21f54AB2130B1a4649a36C566ef6`
+- **PSP22 Token:** `0x06cCb9c561dE6F67830AEEC616A30e717690316a`
+- **RPC:** `wss://testnet-passet-hub.polkadot.io`
 
 ## Technology Stack
 
 - **Framework:** ink! 6.0.0-beta
 - **Target:** PolkaVM (RISC-V)
-- **Address Format:** H160 (20-byte, pallet-revive compatible)
+- **Address Format:** H160 (20-byte, PolkaVM compatible)
 - **Language:** Rust 2021 Edition
 
 ## Audit Focus Areas

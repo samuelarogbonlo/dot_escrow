@@ -38,9 +38,9 @@ This document outlines known limitations, design trade-offs, and non-critical is
 
 ### 4. H160 Address Format Only
 
-**Issue:** Contract uses 20-byte H160 addresses (pallet-revive requirement)
+**Issue:** Contract uses 20-byte H160 addresses (PolkaVM requirement)
 **Impact:** Not compatible with standard 32-byte SS58 Polkadot addresses
-**Reason:** Pop Network pallet-revive uses Ethereum-style addresses for EVM compatibility
+**Reason:** ink! 6.0.0-beta on PolkaVM uses Ethereum-style addresses
 **Workaround:** Frontend handles address conversion automatically
 
 ## Test Coverage Gaps
@@ -109,7 +109,7 @@ This document outlines known limitations, design trade-offs, and non-critical is
 
 ### 1. Testnet Only (Current)
 
-**Status:** Deployed on Pop Network Paseo testnet
+**Status:** Deployed on Paseo AssetHub testnet
 **Mainnet:** Not yet deployed
 **Requirement:** Full audit before mainnet launch
 **Timeline:** Q2 2025 target

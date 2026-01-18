@@ -82,7 +82,7 @@ fn test_create_escrow() {
 
 ## 🔄 Integration Testing
 
-### Testnet Integration Testing (Pop Network - Paseo)
+### Testnet Integration Testing (Paseo AssetHub)
 
 1. **Build Contract**:
 ```bash
@@ -90,11 +90,11 @@ cd contracts/escrow
 cargo contract build --release
 ```
 
-2. **Deploy to Paseo Testnet**:
-- Network: Pop Network (Paseo)
-- RPC: `wss://rpc1.paseo.popnetwork.xyz`
-- Deployed Escrow: `0x57c0082e71f89e1feb6b56ab36f0ae271c118019`
-- Deployed PSP22: `0xd10852e9a6366cfab48f52e98f896344cbbc132c`
+2. **Deploy to Paseo AssetHub Testnet**:
+- Network: Paseo AssetHub Testnet
+- RPC: `wss://testnet-passet-hub.polkadot.io`
+- Deployed Escrow: `0x027a592ae13B21f54AB2130B1a4649a36C566ef6`
+- Deployed PSP22: `0x06cCb9c561dE6F67830AEEC616A30e717690316a`
 
 3. **Test via Frontend**:
 ```bash
@@ -103,7 +103,7 @@ npm run dev
 # Test escrow creation, milestones, payments on testnet
 ```
 
-**Note**: ink! 6.0.0-beta targets PolkaVM (RISC-V), not WASM. Local node testing requires pallet-revive support.
+**Note**: ink! 6.0.0-beta targets PolkaVM (RISC-V), not WASM.
 
 
 ## 🐛 Debugging Tests

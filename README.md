@@ -69,17 +69,17 @@ The smart contract codebase is now frozen for PAL (Polkadot Alliance) security a
 
 ## 🚢 Deployment
 
-### Live Deployment (Pop Network - Paseo Testnet)
-- **Network**: Pop Network (Paseo Testnet with pallet-revive)
-- **RPC Endpoint**: `wss://rpc1.paseo.popnetwork.xyz`
-- **Escrow Contract**: `0x57c0082e71f89e1feb6b56ab36f0ae271c118019`
-- **PSP22 Token Contract**: `0xd10852e9a6366cfab48f52e98f896344cbbc132c`
-- **ink! Version**: 6.0.0-alpha (PolkaVM)
+### Live Deployment (Paseo AssetHub Testnet)
+- **Network**: Paseo AssetHub Testnet
+- **RPC Endpoint**: `wss://testnet-passet-hub.polkadot.io`
+- **Escrow Contract**: `0x027a592ae13B21f54AB2130B1a4649a36C566ef6`
+- **PSP22 Token Contract**: `0x06cCb9c561dE6F67830AEEC616A30e717690316a`
+- **ink! Version**: 6.0.0-beta (PolkaVM)
 - **Get Test Tokens**: [Polkadot Faucet](https://faucet.polkadot.io/)
 
 ### Network Configuration
 The frontend supports multiple Polkadot networks:
-- **Pop Network (Paseo)** - Live deployment with pallet-revive (ink! v6)
+- **Paseo AssetHub** - Live deployment with ink! v6
 - **Paseo Relay Chain** - Core relay chain
 - Westend, Rococo, and other testnets also supported
 

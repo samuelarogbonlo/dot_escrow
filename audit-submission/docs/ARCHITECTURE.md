@@ -51,14 +51,14 @@
 
 **Escrow Contract** (`contracts/escrow/`)
 - **Purpose:** Core escrow logic with milestone management
-- **Target:** PolkaVM (pallet-revive compatible)
+- **Target:** PolkaVM
 - **Address Format:** H160 (20-byte Ethereum-style)
-- **Deployment:** Pop Network Paseo testnet at `0x57c0082e71f89e1feb6b56ab36f0ae271c118019`
+- **Deployment:** Paseo AssetHub testnet at `0x027a592ae13B21f54AB2130B1a4649a36C566ef6`
 
 **PSP22 Token Contract** (`contracts/psp22_token/`)
 - **Purpose:** USDT-compatible token for payments
 - **Standard:** PSP22 (Polkadot ERC20 equivalent)
-- **Deployment:** `0xd10852e9a6366cfab48f52e98f896344cbbc132c`
+- **Deployment:** `0x06cCb9c561dE6F67830AEEC616A30e717690316a`
 
 ### 2. Frontend Application
 
@@ -154,9 +154,9 @@
 
 ## Network Deployment
 
-**Live Network:** Pop Network (Paseo Testnet)
-- RPC: `wss://rpc1.paseo.popnetwork.xyz`
-- Chain: Substrate with pallet-revive (EVM compatibility)
+**Live Network:** Paseo AssetHub Testnet
+- RPC: `wss://testnet-passet-hub.polkadot.io`
+- Chain: Substrate with ink! v6 support
 - Gas Model: Polkadot weight system
 
 **Test Networks:**
@@ -209,7 +209,7 @@
 - PSP22 transfer failures require manual retry
 - No automatic arbitration (manual intervention)
 - Single token support (USDT only)
-- H160 address format only (pallet-revive)
+- H160 address format only (ink! v6 PolkaVM requirement)
 
 ## Dependencies
 

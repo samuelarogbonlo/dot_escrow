@@ -6,7 +6,7 @@ Complete documentation for the `.escrow` ink! smart contract API with milestone-
 
 The `.escrow` contract provides decentralized escrow services with milestone tracking, multi-signature governance, and USDT token integration. All transactions are recorded on-chain with comprehensive event logging.
 
-**🔑 Important:** This contract uses **H160 (20-byte) addresses** instead of AccountId (32-byte) to ensure compatibility with Pop Network's pallet-revive (EVM-compatible) environment. All addresses follow the Ethereum-style `0x...` format.
+**🔑 Important:** This contract uses **H160 (20-byte) addresses** instead of AccountId (32-byte) as required by ink! 6.0.0-beta on PolkaVM. All addresses follow the Ethereum-style `0x...` format.
 
 ## 🏗️ **Core Data Structures**
 
