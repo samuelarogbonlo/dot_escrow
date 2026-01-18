@@ -6,7 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import { useDispatch } from "react-redux";
-import { usePolkadotExtension } from "./usePolkadotExtension";
+import { usePolkadotExtension, WALLET_STORAGE_KEY } from "./usePolkadotExtension";
 import { usePolkadotApi } from "./usePolkadotApi";
 import { useEscrowContract } from "./useEscrowContract";
 import { setWallet } from "../store/slices/walletSlice";
@@ -135,6 +135,33 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({
       console.log("[WalletContext] Account selection detected - was this user-initiated?");
     }
   }, [extension.isReady, api.isReady, extension.selectedAccount, extension.accounts]);
+
+  // Keep selected account persisted between reloads
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (extension.selectedAccount?.address) {
+      localStorage.setItem(WALLET_STORAGE_KEY, extension.selectedAccount.address);
+    }
+  }, [extension.selectedAccount]);
+
+  // Restore persisted account once accounts are available
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (extension.selectedAccount) return;
+
+    const savedAddress = localStorage.getItem(WALLET_STORAGE_KEY);
+    if (!savedAddress) return;
+
+    if (extension.accounts?.length) {
+      const exists = extension.accounts.some((acc) => acc.address === savedAddress);
+      if (exists) {
+        extension.selectAccount(savedAddress);
+      } else {
+        localStorage.removeItem(WALLET_STORAGE_KEY);
+      }
+    }
+  }, [extension.accounts, extension.selectedAccount, extension.selectAccount]);
 
   // Combine all values into a single context value
   const contextValue = useMemo(() => {

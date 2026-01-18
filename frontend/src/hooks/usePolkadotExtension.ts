@@ -4,7 +4,7 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import type { InjectedExtension } from '@polkadot/extension-inject/types';
 
 const APP_NAME = '.escrow';
-const WALLET_STORAGE_KEY = 'selectedWalletAddress';
+export const WALLET_STORAGE_KEY = 'selectedWalletAddress';
 
 export interface PolkadotExtensionStatus {
   isReady: boolean;

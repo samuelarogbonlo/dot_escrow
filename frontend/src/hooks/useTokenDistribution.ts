@@ -23,6 +23,39 @@ const safeToString = (value: any): string => {
     return str.replace(/,/g, '');
 };
 
+// Normalize PSP22 balance outputs into a clean numeric string
+const extractBalanceValue = (output: any): string | null => {
+    const normalize = (val: any): string | null => {
+        const cleaned = safeToString(val).replace(/,/g, '').trim();
+        return cleaned && /^[0-9]+$/.test(cleaned) ? cleaned : null;
+    };
+
+    if (!output) return null;
+
+    // Standard Result style: isOk/asOk
+    if (output.isOk && output.asOk !== undefined) {
+        const normalized = normalize(output.asOk);
+        if (normalized) return normalized;
+    }
+
+    // JSON representation may have Ok/ok
+    const json = typeof output.toJSON === 'function' ? output.toJSON() : null;
+    if (json !== null && json !== undefined) {
+        const normalized = normalize((json as any).Ok ?? (json as any).ok ?? json);
+        if (normalized) return normalized;
+    }
+
+    // Human representation (Ok + commas)
+    const human = typeof output.toHuman === 'function' ? output.toHuman() : null;
+    if (human !== null && human !== undefined) {
+        const normalized = normalize((human as any).Ok ?? (human as any).ok ?? human);
+        if (normalized) return normalized;
+    }
+
+    // Fallback to direct string conversion
+    return normalize(output);
+};
+
 // Types
 export interface FaucetConfig {
     tokenContract: string | null;
@@ -292,18 +325,17 @@ const useTokenDistribution = ({
             });
 
             if (result.result.isOk && result.output) {
-                const outputAny = result.output as any;
+                const parsedBalance = extractBalanceValue(result.output);
 
-                // Unwrap Result type if needed
-                let balanceStr: string;
-                if (outputAny.isOk) {
-                    balanceStr = outputAny.asOk.toString().replace(/,/g, '');
-                } else {
-                    balanceStr = outputAny.toString().replace(/,/g, '');
+                if (parsedBalance) {
+                    console.log('[getTokenBalance] Parsed balance:', parsedBalance);
+                    return parsedBalance;
                 }
 
-                console.log('[getTokenBalance] Parsed balance:', balanceStr);
-                return balanceStr;
+                console.warn('[getTokenBalance] Unable to parse balance output', {
+                    outputHuman: result.output?.toHuman?.(),
+                    outputJson: result.output?.toJSON?.()
+                });
             } else {
                 console.log('[getTokenBalance] Query failed:', result.result.toHuman?.());
             }

@@ -31,6 +31,40 @@ interface PolkadotWalletModalProps {
 
 type ClaimState = "idle" | "loading" | "success" | "error";
 
+const TOKEN_DECIMALS = 10;
+
+const addThousandsSeparator = (value: string) =>
+  value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+const formatTokenAmount = (
+  raw: string,
+  decimals: number = TOKEN_DECIMALS,
+  fractionDigits = 2
+) => {
+  try {
+    if (!raw) return "0.00";
+
+    const balance = BigInt(raw);
+    const base = 10n ** BigInt(decimals);
+    const whole = balance / base;
+    const fraction = balance % base;
+
+    if (fractionDigits <= 0) {
+      return addThousandsSeparator(whole.toString());
+    }
+
+    const fractionStr = fraction
+      .toString()
+      .padStart(decimals, "0")
+      .slice(0, fractionDigits);
+
+    return `${addThousandsSeparator(whole.toString())}.${fractionStr}`;
+  } catch (err) {
+    console.error("[formatTokenAmount] Failed to format balance", { raw, err });
+    return "0.00";
+  }
+};
+
 const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
   isOpen,
   onClose,
@@ -94,9 +128,9 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
         // Fetch updated balance
         const balance = await getTokenBalance();
         if (balance) {
-          // Format balance (TEST_USDT uses 10 decimals)
-          const formatted = (parseFloat(balance) / 1e10).toFixed(2);
-          setNewBalance(formatted);
+          setNewBalance(formatTokenAmount(balance));
+        } else {
+          setNewBalance(null);
         }
         setClaimState("success");
         toast({
@@ -116,9 +150,7 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
   };
 
   const formatDistributionAmount = (amount: string) => {
-    // Convert from smallest unit (10 decimals for TEST_USDT)
-    const num = parseFloat(amount) / 1e10;
-    return num.toLocaleString();
+    return formatTokenAmount(amount);
   };
 
   return (
