@@ -504,29 +504,48 @@ export const usePSP22StablecoinContract = (
                 ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
                     const { status, events, dispatchError } = result;
 
+                    console.log(`[Approval] Transaction status:`, status.type);
+
                     if (dispatchError) {
+                        console.error(`[Approval] Dispatch error:`, dispatchError.toString());
                         setError(`Approval failed: ${dispatchError.toString()}`);
                         setIsLoading(false);
                         resolve({ success: false, error: dispatchError.toString() });
                         return;
                     }
 
-                    if (status.isFinalized) {
-                        const success = !events.some(({ event }: { event: any }) =>
+                    // Resolve on isInBlock for faster UX (don't wait for finalization)
+                    if (status.isInBlock) {
+                        console.log(`[Approval] Transaction included in block:`, status.asInBlock.toString());
+
+                        const success = !events?.some(({ event }: { event: any }) =>
                             event.section === 'system' && event.method === 'ExtrinsicFailed'
                         );
 
                         if (success) {
                             console.log(`✅ ${stablecoinConfig.symbol} approval successful`);
                             getAllowance();
+                            setIsLoading(false);
                             resolve({ success: true });
                         } else {
                             const error = `${stablecoinConfig.symbol} approval failed`;
+                            console.error(`[Approval] Transaction failed:`, error);
                             setError(error);
+                            setIsLoading(false);
                             resolve({ success: false, error });
                         }
+                    } else if (status.isDropped || status.isInvalid) {
+                        const error = 'Transaction was dropped or invalid';
+                        console.error(`[Approval] ${error}`);
+                        setError(error);
                         setIsLoading(false);
+                        resolve({ success: false, error });
                     }
+                }).catch((err: any) => {
+                    console.error(`[Approval] SignAndSend error:`, err);
+                    setError(`Approval failed: ${err.message || err}`);
+                    setIsLoading(false);
+                    resolve({ success: false, error: err.message || 'Transaction failed' });
                 });
             });
         } catch (err: any) {
@@ -595,7 +614,10 @@ export const usePSP22StablecoinContract = (
                 ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
                     const { status, events, dispatchError, txHash } = result;
 
+                    console.log(`[Transfer] Transaction status:`, status.type);
+
                     if (dispatchError) {
+                        console.error(`[Transfer] Dispatch error:`, dispatchError.toString());
                         setError(`Transfer failed: ${dispatchError.toString()}`);
                         setIsLoading(false);
                         resolve({
@@ -606,21 +628,38 @@ export const usePSP22StablecoinContract = (
                         return;
                     }
 
-                    if (status.isFinalized) {
-                        const success = !events.some(({ event }: { event: any }) =>
+                    // Resolve on isInBlock for faster UX (don't wait for finalization)
+                    if (status.isInBlock) {
+                        console.log(`[Transfer] Transaction included in block:`, status.asInBlock.toString());
+
+                        const success = !events?.some(({ event }: { event: any }) =>
                             event.section === 'system' && event.method === 'ExtrinsicFailed'
                         );
 
                         if (success) {
+                            console.log(`✅ Transfer successful`);
                             getBalance();
+                            setIsLoading(false);
                             resolve({ success: true, txHash: txHash?.toString() });
                         } else {
                             const error = `Transfer failed`;
+                            console.error(`[Transfer] Transaction failed:`, error);
                             setError(error);
+                            setIsLoading(false);
                             resolve({ success: false, error, txHash: txHash?.toString() });
                         }
+                    } else if (status.isDropped || status.isInvalid) {
+                        const error = 'Transaction was dropped or invalid';
+                        console.error(`[Transfer] ${error}`);
+                        setError(error);
                         setIsLoading(false);
+                        resolve({ success: false, error, txHash: txHash?.toString() });
                     }
+                }).catch((err: any) => {
+                    console.error(`[Transfer] SignAndSend error:`, err);
+                    setError(`Transfer failed: ${err.message || err}`);
+                    setIsLoading(false);
+                    resolve({ success: false, error: err.message || 'Transaction failed' });
                 });
             });
         } catch (err: any) {

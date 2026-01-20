@@ -84,14 +84,7 @@ const defaultFormData: EscrowFormData = {
   totalAmount: "",
   counterpartyType: "worker",
   counterpartyAddress: "",
-  milestones: [
-    {
-      description: "",
-      amount: "",
-      status: "",
-      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days from now
-    },
-  ],
+  milestones: [], // Start with empty array - user adds milestones manually
 };
 
 const formSteps: FormStep[] = [

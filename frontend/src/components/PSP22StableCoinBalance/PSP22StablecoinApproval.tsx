@@ -61,18 +61,29 @@ export const PSP22StablecoinApproval: React.FC<PSP22StablecoinApprovalProps> = (
   const sufficientAllowance = checkSufficientAllowance(requiredAmount);
   const needsApproval = !sufficientAllowance;
 
+  // Determine if we're still loading (balance not yet fetched)
+  const isInitializing = balance === null;
+
   useEffect(() => {
+    // Don't run callbacks during initial load when balance is still being fetched
+    if (isInitializing) {
+      setApprovalStep('check');
+      return;
+    }
+
     if (sufficientAllowance) {
       setApprovalStep('complete');
       onApprovalComplete?.();
-    } else if (!sufficientAllowance || !sufficientBalance) {
-      onError?.();
-    } else if (sufficientBalance) {
-      setApprovalStep('approve');
-    } else {
+    } else if (!sufficientBalance) {
+      // Only call onError for insufficient BALANCE (not allowance)
+      // Insufficient allowance is expected - that's why user is on this screen
       setApprovalStep('check');
+      onError?.();
+    } else {
+      // Has balance but needs approval - this is the normal flow
+      setApprovalStep('approve');
     }
-  }, [sufficientBalance, sufficientAllowance, onApprovalComplete, onError]);
+  }, [sufficientBalance, sufficientAllowance, onApprovalComplete, onError, isInitializing]);
 
   const handleApprove = async () => {
     if (!approvalAmount) return;
@@ -158,23 +169,23 @@ export const PSP22StablecoinApproval: React.FC<PSP22StablecoinApprovalProps> = (
 
         {/* Balance Check */}
         {showBalance && (
-          <Box p={3} bg={sufficientBalance ? 'green.50' : 'red.50'} borderRadius="md">
+          <Box p={3} bg={isInitializing ? 'gray.50' : sufficientBalance ? 'green.50' : 'red.50'} borderRadius="md">
             <HStack justify="space-between">
               <HStack>
-                <Icon 
-                  as={sufficientBalance ? FiCheck : FiAlertCircle} 
-                  color={sufficientBalance ? 'green.500' : 'red.500'} 
+                <Icon
+                  as={isInitializing ? FiAlertCircle : sufficientBalance ? FiCheck : FiAlertCircle}
+                  color={isInitializing ? 'gray.400' : sufficientBalance ? 'green.500' : 'red.500'}
                 />
                 <Text fontSize="sm" fontWeight="medium">
-                  Balance Check
+                  {isInitializing ? 'Checking Balance...' : 'Balance Check'}
                 </Text>
               </HStack>
               <Text fontSize="sm">
-                {balance ? balance.formatted : '0.00'} {stablecoinConfig.symbol}
+                {balance ? balance.formatted : isInitializing ? '...' : '0.00'} {stablecoinConfig.symbol}
               </Text>
             </HStack>
-            
-            {!sufficientBalance && (
+
+            {!isInitializing && !sufficientBalance && (
               <Text fontSize="xs" color="red.600" mt={1}>
                 Insufficient {stablecoinConfig.symbol} balance. Required: {requiredAmount} {stablecoinConfig.symbol}
               </Text>
