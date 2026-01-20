@@ -30,8 +30,8 @@ import EscrowCard from "../../components/Card/EscrowCard";
 import PSP22StablecoinBalance from "@/components/PSP22StableCoinBalance/PSP22StablecoinBalance";
 
 const Dashboard = () => {
-  const { isExtensionReady, selectedAccount, listEscrows } = useWallet();
-  const [isLoading, setIsLoading] = useState(false);
+  const { isExtensionReady, selectedAccount, listEscrows, isApiReady } = useWallet();
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
   const [escrows, setEscrows] = useState<EscrowData[]>([]);
 
@@ -55,7 +55,8 @@ const Dashboard = () => {
 
   // Memoize the fetchEscrows function to prevent unnecessary re-renders
  const fetchEscrows = useCallback(async () => {
-  if (!isExtensionReady || !selectedAccount) return;
+  // Wait for both extension AND API to be ready before fetching
+  if (!isExtensionReady || !selectedAccount || !isApiReady) return;
 
   setIsLoading(true);
   setError(null);
@@ -122,7 +123,7 @@ const Dashboard = () => {
   } finally {
     setIsLoading(false);
   }
-}, [isExtensionReady, selectedAccount, listEscrows]);
+}, [isExtensionReady, selectedAccount, listEscrows, isApiReady]);
 
   // Use the memoized function in useEffect
   useEffect(() => {

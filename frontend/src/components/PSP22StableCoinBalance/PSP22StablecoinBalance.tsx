@@ -51,7 +51,11 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
     getAllowance,
     checkSufficientBalance,
     checkSufficientAllowance,
+    contractExists,
   } = usePSP22StablecoinContract(stablecoinKey);
+
+  // Show loading state while contract is initializing (balance is null and no error)
+  const isInitializing = balance === null && !error && contractExists !== false;
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -87,7 +91,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
     return (
       <Flex align="center" gap={2}>
         <Icon as={FiDollarSign} color="green.500" />
-        {isLoading ? (
+        {isLoading || isInitializing ? (
           <Skeleton height="20px" width="60px" />
         ) : (
           <Text fontWeight="medium">
@@ -140,7 +144,7 @@ export const PSP22StablecoinBalance: React.FC<PSP22StablecoinBalanceProps> = ({
       )}
 
       <Flex align="center" justify="space-between" mb={2}>
-        {isLoading ? (
+        {isLoading || isInitializing ? (
           <Skeleton height="24px" width="100px" />
         ) : (
           <Text fontSize="xl" fontWeight="bold">
