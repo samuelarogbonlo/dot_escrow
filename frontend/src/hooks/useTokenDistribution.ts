@@ -203,7 +203,7 @@ const useTokenDistribution = ({
         try {
             const { web3FromSource } = await import('@polkadot/extension-dapp');
             const injector = await web3FromSource(selectedAccount.meta.source);
-            api.setSigner(injector.signer);
+            api.setSigner(injector.signer as any);
 
             // Use recipient address or caller's address, converted to H160
             const mintTo = recipientAddress || selectedAccount.address;
@@ -309,7 +309,7 @@ const useTokenDistribution = ({
             const gasLimit = api.registry.createType('WeightV2', {
                 refTime: 100000000000,
                 proofSize: 262144
-            });
+            }) as any;
 
             const result = await contract.query.balanceOf(
                 selectedAccount.address,

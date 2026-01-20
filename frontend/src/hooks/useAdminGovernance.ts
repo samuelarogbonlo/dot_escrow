@@ -251,7 +251,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     // ADD SIGNER SETUP
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
-    api.setSigner(injector.signer);
+    api.setSigner(injector.signer as any);
 
     const gasLimit = await estimateGas(
       api,
@@ -276,7 +276,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     // ADD SIGNER SETUP - This is what was missing!
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
-    api.setSigner(injector.signer);
+    api.setSigner(injector.signer as any);
 
     const gasLimit = await estimateGas(
       api,
@@ -299,7 +299,7 @@ export const useAdminGovernance = ({ api, account }: UseAdminGovernanceOptions) 
     // ADD SIGNER SETUP
     const { web3FromAddress } = await import('@polkadot/extension-dapp');
     const injector = await web3FromAddress(account.address);
-    api.setSigner(injector.signer);
+    api.setSigner(injector.signer as any);
 
     const gasLimit = await estimateGas(
       api,

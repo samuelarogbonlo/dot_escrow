@@ -179,7 +179,7 @@ export const usePolkadotExtension = () => {
       });
       // Persist selection to localStorage
       localStorage.setItem(WALLET_STORAGE_KEY, address);
-      debugLog('Saved to localStorage:', WALLET_STORAGE_KEY, '=', address.slice(0, 15) + '...');
+      debugLog('Saved to localStorage:', `${WALLET_STORAGE_KEY} = ${address.slice(0, 15)}...`);
 
       // Verify it was saved
       const verify = localStorage.getItem(WALLET_STORAGE_KEY);
@@ -278,7 +278,7 @@ export const usePolkadotExtension = () => {
           if (extensions.length > 0) {
             setInjected(extensions[0]);
             const accounts = await loadAccounts();
-            debugLog('Accounts loaded:', accounts.length, accounts.map(a => a.address.slice(0, 10)));
+            debugLog('Accounts loaded:', { count: accounts.length, addresses: accounts.map(a => a.address.slice(0, 10)) });
 
             if (accounts.length > 0) {
               const savedAccount = accounts.find(acc => acc.address === savedAddress);
