@@ -465,6 +465,50 @@ export const usePSP22StablecoinContract = (
         try {
             const amountBN = parseToken(amount);
 
+            // Some PSP22 implementations require resetting allowance to 0 first
+            // to prevent the "approve race condition" attack
+            const currentAllowanceResult = await getAllowance();
+            const existingAllowance = currentAllowanceResult.allowance?.allowance;
+
+            if (currentAllowanceResult.success && existingAllowance && existingAllowance !== '0') {
+                console.log('[Approval] Resetting allowance to 0 first...');
+                const resetQuery = await contract.query.approve(
+                    selectedAccount.address,
+                    {
+                        gasLimit: api.registry.createType('WeightV2', {
+                            refTime: new BN('100000000000'),
+                            proofSize: new BN('262144'),
+                        }),
+                        storageDepositLimit: null,
+                    },
+                    ESCROW_CONTRACT_ADDRESS,
+                    '0'
+                );
+
+                if (resetQuery.result.isOk) {
+                    const signerForReset = await getSigner(selectedAccount.address);
+                    if (signerForReset.success) {
+                        await new Promise<void>((resolve, reject) => {
+                            contract.tx.approve(
+                                {
+                                    gasLimit: resetQuery.gasRequired,
+                                    storageDepositLimit: null,
+                                },
+                                ESCROW_CONTRACT_ADDRESS,
+                                '0'
+                            ).signAndSend(selectedAccount.address, { signer: signerForReset.signer }, (result: any) => {
+                                if (result.status.isInBlock) {
+                                    console.log('[Approval] Reset to 0 complete');
+                                    resolve();
+                                } else if (result.dispatchError) {
+                                    console.warn('[Approval] Reset failed, continuing anyway');
+                                    resolve(); // Continue anyway
+                                }
+                            }).catch(() => resolve()); // Continue on error
+                        });
+                    }
+                }
+            }
 
             const query = await contract.query.approve(
                 selectedAccount.address, // Caller (SS58 for API)
