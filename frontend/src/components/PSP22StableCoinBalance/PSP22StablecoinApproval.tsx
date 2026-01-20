@@ -93,13 +93,20 @@ export const PSP22StablecoinApproval: React.FC<PSP22StablecoinApprovalProps> = (
 
     try {
       const result = await approveToken(approvalAmount);
-      
+
       if (result.success) {
         setApprovalStep('complete');
         onApprovalComplete?.();
+      } else {
+        // Approval failed - notify parent and stay on approve step
+        console.error('Approval failed:', result.error);
+        setApprovalStep('approve');
+        onError?.();
       }
     } catch (err) {
       console.error('Approval failed:', err);
+      setApprovalStep('approve');
+      onError?.();
     } finally {
       setIsApproving(false);
     }
