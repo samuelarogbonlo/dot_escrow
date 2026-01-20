@@ -5,8 +5,8 @@ import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { PSP22_TOKEN_ABI, TOKEN_CONTRACT_ADDRESS } from '@/contractABI/EscrowABI';
 import { substrateToH160 } from '@/utils/substrateToH160';
 
-// Default mint amount: 1000 tokens with 10 decimals (matching TEST_USDT)
-const DEFAULT_MINT_AMOUNT = '10000000000000'; // 1000 * 10^10
+// Default mint amount: 100,000 tokens with 10 decimals (matching TEST_USDT)
+const DEFAULT_MINT_AMOUNT = '1000000000000000'; // 100,000 * 10^10
 
 // Codec safety utilities
 const isResultOk = (result: any): boolean => {
@@ -238,8 +238,7 @@ const useTokenDistribution = ({
                                 reject(dispatchError);
                                 return;
                             }
-                        } else if (status.isFinalized) {
-                            console.log('Transaction finalized');
+                            // Resolve on inBlock for faster UX (don't wait for finalized)
                             resolve();
                         } else if (status.isDropped || status.isInvalid) {
                             reject(new Error('Transaction was dropped or invalid'));

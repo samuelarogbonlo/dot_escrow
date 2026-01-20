@@ -71,7 +71,6 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
 }) => {
   const { selectedAccount, api } = useWallet();
   const [claimState, setClaimState] = useState<ClaimState>("idle");
-  const [newBalance, setNewBalance] = useState<string | null>(null);
 
   const toast = useToast();
   const subTextColor = useColorModeValue("gray.600", "gray.300");
@@ -82,7 +81,6 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
     error,
     config,
     claimTokens,
-    getTokenBalance,
     clearError,
   } = useTokenDistribution({
     api,
@@ -93,7 +91,6 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setClaimState("idle");
-      setNewBalance(null);
       clearError();
     }
   }, [isOpen, clearError]);
@@ -110,7 +107,6 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
   const handleClose = () => {
     onClose();
     setClaimState("idle");
-    setNewBalance(null);
     clearError();
   };
 
@@ -125,13 +121,6 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
       const success = await claimTokens();
 
       if (success) {
-        // Fetch updated balance
-        const balance = await getTokenBalance();
-        if (balance) {
-          setNewBalance(formatTokenAmount(balance));
-        } else {
-          setNewBalance(null);
-        }
         setClaimState("success");
         toast({
           title: "Tokens Claimed!",
@@ -180,16 +169,9 @@ const PolkadotWalletModal: React.FC<PolkadotWalletModalProps> = ({
                   <Text fontSize="lg" fontWeight="bold" color="green.500">
                     Tokens Claimed Successfully!
                   </Text>
-                  {newBalance && (
-                    <VStack spacing={1}>
-                      <Text fontSize="sm" color={subTextColor}>
-                        New Balance
-                      </Text>
-                      <Text fontSize="2xl" fontWeight="bold">
-                        {newBalance} USDT
-                      </Text>
-                    </VStack>
-                  )}
+                  <Text fontSize="sm" color={subTextColor}>
+                    Your balance will update shortly.
+                  </Text>
                 </VStack>
               </Box>
             )}
