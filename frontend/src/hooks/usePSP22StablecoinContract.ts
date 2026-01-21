@@ -465,52 +465,31 @@ export const usePSP22StablecoinContract = (
         try {
             const amountBN = parseToken(amount);
 
-            // Some PSP22 implementations require resetting allowance to 0 first
-            // to prevent the "approve race condition" attack
+            // Use increase_allowance instead of approve - more reliable, no race condition issues
+            // Calculate how much more allowance we need
             const currentAllowanceResult = await getAllowance();
-            const existingAllowance = currentAllowanceResult.allowance?.allowance;
+            const existingAllowanceBN = new BN(currentAllowanceResult.allowance?.allowance || '0');
 
-            if (currentAllowanceResult.success && existingAllowance && existingAllowance !== '0') {
-                console.log('[Approval] Resetting allowance to 0 first...');
-                const resetQuery = await contract.query.approve(
-                    selectedAccount.address,
-                    {
-                        gasLimit: api.registry.createType('WeightV2', {
-                            refTime: new BN('100000000000'),
-                            proofSize: new BN('262144'),
-                        }),
-                        storageDepositLimit: null,
-                    },
-                    ESCROW_CONTRACT_ADDRESS,
-                    '0'
-                );
-
-                if (resetQuery.result.isOk) {
-                    const signerForReset = await getSigner(selectedAccount.address);
-                    if (signerForReset.success) {
-                        await new Promise<void>((resolve, reject) => {
-                            contract.tx.approve(
-                                {
-                                    gasLimit: resetQuery.gasRequired,
-                                    storageDepositLimit: null,
-                                },
-                                ESCROW_CONTRACT_ADDRESS,
-                                '0'
-                            ).signAndSend(selectedAccount.address, { signer: signerForReset.signer }, (result: any) => {
-                                if (result.status.isInBlock) {
-                                    console.log('[Approval] Reset to 0 complete');
-                                    resolve();
-                                } else if (result.dispatchError) {
-                                    console.warn('[Approval] Reset failed, continuing anyway');
-                                    resolve(); // Continue anyway
-                                }
-                            }).catch(() => resolve()); // Continue on error
-                        });
-                    }
-                }
+            let deltaAmount = amountBN;
+            if (existingAllowanceBN.gte(amountBN)) {
+                // Already have enough allowance
+                console.log('[Approval] Already have sufficient allowance:', existingAllowanceBN.toString());
+                setIsLoading(false);
+                return { success: true };
+            } else {
+                // Calculate how much more we need
+                deltaAmount = amountBN.sub(existingAllowanceBN);
             }
 
-            const query = await contract.query.approve(
+            console.log('[Approval] Using increase_allowance with params:', {
+                caller: selectedAccount.address,
+                spender: ESCROW_CONTRACT_ADDRESS,
+                deltaAmount: deltaAmount.toString(),
+                existingAllowance: existingAllowanceBN.toString(),
+                targetAmount: amountBN.toString()
+            });
+
+            const query = await contract.query.increaseAllowance(
                 selectedAccount.address, // Caller (SS58 for API)
                 {
                     gasLimit: api.registry.createType('WeightV2', {
@@ -520,11 +499,19 @@ export const usePSP22StablecoinContract = (
                     storageDepositLimit: null,
                 },
                 ESCROW_CONTRACT_ADDRESS, // Spender H160
-                amountBN.toString()
+                deltaAmount.toString()
             );
+
+            console.log('[Approval] Dry-run result:', {
+                isOk: query.result.isOk,
+                isErr: query.result.isErr,
+                output: query.output?.toHuman?.(),
+                gasRequired: query.gasRequired?.toHuman?.()
+            });
 
             if (query.result.isErr) {
                 const error = `Approval dry run failed: ${query.result.asErr.toHuman()}`;
+                console.error('[Approval] Dry-run error:', query.result.asErr.toHuman());
                 setError(error);
                 setIsLoading(false);
                 return { success: false, error };
@@ -538,13 +525,13 @@ export const usePSP22StablecoinContract = (
             }
 
             return new Promise((resolve) => {
-                contract.tx.approve(
+                contract.tx.increaseAllowance(
                     {
                         gasLimit: gasRequired,
                         storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
                     },
                     ESCROW_CONTRACT_ADDRESS, // Spender H160
-                    amountBN.toString()
+                    deltaAmount.toString()
                 ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
                     const { status, events, dispatchError } = result;
 
