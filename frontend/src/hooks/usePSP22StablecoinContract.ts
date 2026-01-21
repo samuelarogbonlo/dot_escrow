@@ -30,11 +30,11 @@ export interface StablecoinConfig {
 // PSP22 Stablecoins on Pop Network (Paseo Testnet)
 export const PASETHUB_NETWORK_STABLECOINS: { [key: string]: StablecoinConfig } = {
     TEST_USDT: {
-        name: "Test USDT",
+        name: "USDT",
         symbol: "USDT",
-        contractAddress: "0x72744B75567f11016F2287f75597a29E14017f83",
-        decimals: 10,
-        description: "Test USDT on Pop Network (Paseo Testnet)"
+        contractAddress: "5EFDb7WKbougLtr5dmwdSXDfZ3wS53JPGPLiryKq4uWPR46",
+        decimals: 6,
+        description: "USDT bridged via MOST Bridge"
     },
 };
 
