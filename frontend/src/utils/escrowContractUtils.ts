@@ -1,9 +1,9 @@
 import { ContractPromise } from '@polkadot/api-contract';
 import type { InjectedAccountWithMeta } from '@polkadot/extension-inject/types';
 import { ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS } from '../contractABI/EscrowABI';
-import { decodeAddress } from '@polkadot/util-crypto';
-import { u8aToHex } from '@polkadot/util'
 import { substrateToH160 } from './substrateToH160';
+import { BN } from '@polkadot/util';
+
 
 /**
  * Utility function to safely convert timestamps from smart contract
@@ -84,6 +84,9 @@ export interface EscrowContractCall {
  * @param args - Arguments for the contract method
  * @returns Estimated gas limit with buffer
  */
+
+
+
 const estimateGas = async (
   api: any,
   contract: ContractPromise,
@@ -188,10 +191,16 @@ export interface EscrowData {
 /**
  * Create a new escrow using the smart contract - Simplified Method 1 Only
  */
+type SignerResult = {
+  success: boolean;
+  signer?: any;
+  error?: string;
+};
+
 export const createEscrowContract = async (
   api: any,
   account: InjectedAccountWithMeta,
-  creatorAddress: string,
+  _creatorAddress: string,
   counterpartyAddress: string,
   counterpartyType: string,
   status: string,
@@ -200,6 +209,7 @@ export const createEscrowContract = async (
   totalAmount: string,
   milestones: Milestone[],
   transactionHash?: string,
+  getSignerFn?: (address: string) => Promise<SignerResult>,
 ): Promise<EscrowContractCall> => {
   try {
 
@@ -220,29 +230,20 @@ export const createEscrowContract = async (
     }));
 
 
-    const { web3FromAddress } = await import('@polkadot/extension-dapp');
-    const injector = await web3FromAddress(account.address);
-    api.setSigner(injector.signer);
-
     const contract = new ContractPromise(api, ESCROW_CONTRACT_ABI, ESCROW_CONTRACT_ADDRESS);
 
 
     const h160AddressForCounterparty = substrateToH160(counterpartyAddress)
 
 
-    // Dynamically estimate gas for this call
-    const gasLimit = await estimateGas(
-      api,
-      contract,
-      'createEscrow',
-      account,
-      [h160AddressForCounterparty, counterpartyType, status, title, description, totalAmount, contractMilestones, transactionHash]
-    );
 
-
-    const tx = contract.tx.createEscrow(
+    const { gasRequired, storageDeposit } = await contract.query.createEscrow(
+      account.address, // Caller (SS58 for API)
       {
-        gasLimit,
+        gasLimit: api.registry.createType('WeightV2', {
+          refTime: new BN('100000000000'),
+          proofSize: new BN('262144'),
+        }),
         storageDepositLimit: null,
       },
       h160AddressForCounterparty,
@@ -252,15 +253,49 @@ export const createEscrowContract = async (
       description,
       totalAmount,
       contractMilestones,
-      transactionHash
+      transactionHash ?? null
+
     );
+
+
+
+
+    let signer: any;
+    if (getSignerFn) {
+      const signerResult = await getSignerFn(account.address);
+      if (!signerResult || !signerResult.success || !signerResult.signer) {
+        const error = signerResult?.error || 'Failed to get signer';
+        return {
+          success: false,
+          error,
+        };
+      }
+      signer = signerResult.signer;
+    } else {
+      const { web3FromAddress } = await import('@polkadot/extension-dapp');
+      const injector = await web3FromAddress(account.address);
+      signer = injector.signer;
+    }
 
 
     return new Promise((resolve) => {
       let resolved = false;
 
 
-      tx.signAndSend(account.address, (result) => {
+      contract.tx.createEscrow(
+        {
+          gasLimit: gasRequired,
+          storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
+        },
+        h160AddressForCounterparty,
+        counterpartyType,
+        status,
+        title,
+        description,
+        totalAmount,
+        contractMilestones,
+        transactionHash
+      ).signAndSend(account.address, { signer }, (result) => {
         if (resolved) return;
 
         if (result.dispatchError) {
@@ -638,7 +673,7 @@ export const updateEscrowStatusContract = async (
         storageDepositLimit: null,
       },
       escrowId,           // escrow_id: String
-      newStatus,          // new_status: String  
+      newStatus,          // new_status: String
       transactionHash || null  // transaction_hash: Option<String>
     );
 
@@ -1295,10 +1330,10 @@ export const notifyCounterpartyContract = async (
     const recipientAccountId = api.createType('AccountId', recipientAddress);
 
     // According to ABI: notify_counterparty(
-    //   escrow_id: String, 
-    //   notification_type: String, 
-    //   recipient_address: AccountId, 
-    //   _message: Option<String>, 
+    //   escrow_id: String,
+    //   notification_type: String,
+    //   recipient_address: AccountId,
+    //   _message: Option<String>,
     //   _notification_kind: Option<String>
     // )
     const tx = contract.tx.notifyCounterparty(
@@ -1382,6 +1417,5 @@ export const notifyCounterpartyContract = async (
     };
   }
 };
-
 
 

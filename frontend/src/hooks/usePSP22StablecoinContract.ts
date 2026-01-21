@@ -465,31 +465,8 @@ export const usePSP22StablecoinContract = (
         try {
             const amountBN = parseToken(amount);
 
-            // Use increase_allowance instead of approve - more reliable, no race condition issues
-            // Calculate how much more allowance we need
-            const currentAllowanceResult = await getAllowance();
-            const existingAllowanceBN = new BN(currentAllowanceResult.allowance?.allowance || '0');
 
-            let deltaAmount = amountBN;
-            if (existingAllowanceBN.gte(amountBN)) {
-                // Already have enough allowance
-                console.log('[Approval] Already have sufficient allowance:', existingAllowanceBN.toString());
-                setIsLoading(false);
-                return { success: true };
-            } else {
-                // Calculate how much more we need
-                deltaAmount = amountBN.sub(existingAllowanceBN);
-            }
-
-            console.log('[Approval] Using increase_allowance with params:', {
-                caller: selectedAccount.address,
-                spender: ESCROW_CONTRACT_ADDRESS,
-                deltaAmount: deltaAmount.toString(),
-                existingAllowance: existingAllowanceBN.toString(),
-                targetAmount: amountBN.toString()
-            });
-
-            const query = await contract.query.increaseAllowance(
+            const query = await contract.query.approve(
                 selectedAccount.address, // Caller (SS58 for API)
                 {
                     gasLimit: api.registry.createType('WeightV2', {
@@ -499,19 +476,11 @@ export const usePSP22StablecoinContract = (
                     storageDepositLimit: null,
                 },
                 ESCROW_CONTRACT_ADDRESS, // Spender H160
-                deltaAmount.toString()
+                amountBN.toString()
             );
-
-            console.log('[Approval] Dry-run result:', {
-                isOk: query.result.isOk,
-                isErr: query.result.isErr,
-                output: query.output?.toHuman?.(),
-                gasRequired: query.gasRequired?.toHuman?.()
-            });
 
             if (query.result.isErr) {
                 const error = `Approval dry run failed: ${query.result.asErr.toHuman()}`;
-                console.error('[Approval] Dry-run error:', query.result.asErr.toHuman());
                 setError(error);
                 setIsLoading(false);
                 return { success: false, error };
@@ -525,58 +494,39 @@ export const usePSP22StablecoinContract = (
             }
 
             return new Promise((resolve) => {
-                contract.tx.increaseAllowance(
+                contract.tx.approve(
                     {
                         gasLimit: gasRequired,
                         storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null,
                     },
                     ESCROW_CONTRACT_ADDRESS, // Spender H160
-                    deltaAmount.toString()
+                    amountBN.toString()
                 ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
                     const { status, events, dispatchError } = result;
 
-                    console.log(`[Approval] Transaction status:`, status.type);
-
                     if (dispatchError) {
-                        console.error(`[Approval] Dispatch error:`, dispatchError.toString());
                         setError(`Approval failed: ${dispatchError.toString()}`);
                         setIsLoading(false);
                         resolve({ success: false, error: dispatchError.toString() });
                         return;
                     }
 
-                    // Resolve on isInBlock for faster UX (don't wait for finalization)
-                    if (status.isInBlock) {
-                        console.log(`[Approval] Transaction included in block:`, status.asInBlock.toString());
-
-                        const success = !events?.some(({ event }: { event: any }) =>
+                    if (status.isFinalized) {
+                        const success = !events.some(({ event }: { event: any }) =>
                             event.section === 'system' && event.method === 'ExtrinsicFailed'
                         );
 
                         if (success) {
                             console.log(`✅ ${stablecoinConfig.symbol} approval successful`);
                             getAllowance();
-                            setIsLoading(false);
                             resolve({ success: true });
                         } else {
                             const error = `${stablecoinConfig.symbol} approval failed`;
-                            console.error(`[Approval] Transaction failed:`, error);
                             setError(error);
-                            setIsLoading(false);
                             resolve({ success: false, error });
                         }
-                    } else if (status.isDropped || status.isInvalid) {
-                        const error = 'Transaction was dropped or invalid';
-                        console.error(`[Approval] ${error}`);
-                        setError(error);
                         setIsLoading(false);
-                        resolve({ success: false, error });
                     }
-                }).catch((err: any) => {
-                    console.error(`[Approval] SignAndSend error:`, err);
-                    setError(`Approval failed: ${err.message || err}`);
-                    setIsLoading(false);
-                    resolve({ success: false, error: err.message || 'Transaction failed' });
                 });
             });
         } catch (err: any) {
@@ -611,7 +561,7 @@ export const usePSP22StablecoinContract = (
             const amountBN = parseToken(amount);
 
             // Convert 'to' address to H160 if it's SS58, otherwise use as-is
-           
+
 
             const { gasRequired, storageDeposit } = await contract.query.transfer(
                 selectedAccount.address, // Caller (SS58 for API)
@@ -645,10 +595,7 @@ export const usePSP22StablecoinContract = (
                 ).signAndSend(selectedAccount.address, { signer: signerResult.signer }, (result: any) => {
                     const { status, events, dispatchError, txHash } = result;
 
-                    console.log(`[Transfer] Transaction status:`, status.type);
-
                     if (dispatchError) {
-                        console.error(`[Transfer] Dispatch error:`, dispatchError.toString());
                         setError(`Transfer failed: ${dispatchError.toString()}`);
                         setIsLoading(false);
                         resolve({
@@ -659,38 +606,21 @@ export const usePSP22StablecoinContract = (
                         return;
                     }
 
-                    // Resolve on isInBlock for faster UX (don't wait for finalization)
-                    if (status.isInBlock) {
-                        console.log(`[Transfer] Transaction included in block:`, status.asInBlock.toString());
-
-                        const success = !events?.some(({ event }: { event: any }) =>
+                    if (status.isFinalized) {
+                        const success = !events.some(({ event }: { event: any }) =>
                             event.section === 'system' && event.method === 'ExtrinsicFailed'
                         );
 
                         if (success) {
-                            console.log(`✅ Transfer successful`);
                             getBalance();
-                            setIsLoading(false);
                             resolve({ success: true, txHash: txHash?.toString() });
                         } else {
                             const error = `Transfer failed`;
-                            console.error(`[Transfer] Transaction failed:`, error);
                             setError(error);
-                            setIsLoading(false);
                             resolve({ success: false, error, txHash: txHash?.toString() });
                         }
-                    } else if (status.isDropped || status.isInvalid) {
-                        const error = 'Transaction was dropped or invalid';
-                        console.error(`[Transfer] ${error}`);
-                        setError(error);
                         setIsLoading(false);
-                        resolve({ success: false, error, txHash: txHash?.toString() });
                     }
-                }).catch((err: any) => {
-                    console.error(`[Transfer] SignAndSend error:`, err);
-                    setError(`Transfer failed: ${err.message || err}`);
-                    setIsLoading(false);
-                    resolve({ success: false, error: err.message || 'Transaction failed' });
                 });
             });
         } catch (err: any) {
