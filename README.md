@@ -23,7 +23,9 @@ A production-ready, USDT-based escrow platform bringing trust-minimized payment 
 ## ⚠️ Development Freeze Notice
 
 **Status:** 🔒 CODE FREEZE FOR SECURITY AUDIT
-**Effective Date:** December 17, 2025
+
+**Effective Date:** January 27, 2026
+
 **Duration:** Until audit completion
 
 The smart contract codebase is now frozen for PAL (Polkadot Alliance) security audit preparation. No feature changes, refactoring, or non-critical updates will be made until the audit is complete.
